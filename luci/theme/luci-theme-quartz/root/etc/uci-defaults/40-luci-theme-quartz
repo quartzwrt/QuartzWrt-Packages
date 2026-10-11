@@ -16,8 +16,14 @@ set_opt() {
 
 set_opt themes.Quartz /luci-static/quartz
 
-if [ "$PKG_UPGRADE" != 1 ] && [ $changed = 1 ]; then
-	set_opt main.mediaurlbase /luci-static/quartz
+# 全新安装：强制设为默认主题。ImmortalWrt 出厂 /etc/config/luci 已预置
+# mediaurlbase=bootstrap，"未设置才写"永远不会命中（2026-10-12 容器实测）；
+# 升级（PKG_UPGRADE=1）时保留用户当前选择。
+if [ "$PKG_UPGRADE" != 1 ]; then
+	if [ "$(uci -q get luci.main.mediaurlbase)" != "/luci-static/quartz" ]; then
+		uci set luci.main.mediaurlbase=/luci-static/quartz
+		changed=1
+	fi
 fi
 
 if [ $changed = 1 ]; then

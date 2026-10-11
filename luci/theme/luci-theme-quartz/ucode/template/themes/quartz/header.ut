@@ -21,8 +21,10 @@
 		if (t.default_mode === 'dark' || t.default_mode === 'light')
 			default_mode = t.default_mode;
 	} catch (e) {}
-	panel_opacity = Math.max(50, Math.min(100, panel_opacity));
-	blur = Math.max(0, Math.min(40, blur));
+	/* ucode 的 Math 对象为空（25.12 基座实测），不能用 Math.max/min */
+	const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+	panel_opacity = clamp(panel_opacity, 50, 100);
+	blur = clamp(blur, 0, 40);
 	const alpha = panel_opacity / 100;
 
 	http.prepare_content('text/html; charset=UTF-8');
