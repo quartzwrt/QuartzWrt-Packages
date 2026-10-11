@@ -243,7 +243,7 @@ luci/applications/luci-app-quartz-config/
   ③ `[data-tab-title]`/`[data-tab-active]` 分区页签收起规则缺失（系统/路由/DHCP 等页所有页签内容同时铺开）；
   ④ `.cbi-value-field{display:flex}` 泛化误伤 `td.cbi-value-field`（可编辑分区表整行塌成竖排——通信规则/区域/DHCP 静态租约等）。
   另确认 3 项非主题问题：实时图表白底（上游内联样式）、Dockerman 概览横向溢出（插件 JSON 长值表，bootstrap 同）、sticky 应用条在全页截图中的中段悬停（截图假象，实际贴视口底）。
-- ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px。双模 59 页证据全量重拍。
+- ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`/`bc78dd3`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px；④**下拉部件收起/展开显隐机制整组补齐**（`li{display:none}`+`li[display]{display:flex}` 收起只显当前项、`[empty]` 显占位、`[open] > ul.dropdown{display:block}` 竖排平铺、`.more` 仅 `[multiple][more/empty]`）——缺失时所有下拉收起态把全部选项铺开。双模 59 页证据全量重拍。
 - ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
