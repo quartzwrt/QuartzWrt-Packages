@@ -669,6 +669,13 @@ footer a {
 	border-bottom: 0;
 }
 
+/* 非常规子元素（如 CBI.ContainerValue 把整个区段作为 .cbi-value 的单一子元素、
+ * 或直接子级的 .cbi-value-description）必须占满整行——否则会被放入标题列
+ * 压缩成窄条（2026-10-12 真机逐页测试：flash 页"恢复"区文字竖排即此原因） */
+.cbi-value > :not(.cbi-value-title):not(.cbi-value-field) {
+	grid-column: 1 / -1;
+}
+
 .cbi-value-title {
 	color: var(--qz-text);
 	padding-top: 7px;

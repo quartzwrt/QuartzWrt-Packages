@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>cbi ContainerValue 回归样张</title>
+<!-- 真实主题样式 -->
+<link rel="stylesheet" href="../../root/www/luci-static/quartz/cascade.css">
+<style>body { padding: 24px; }</style>
+</head>
+<body class="lang_zh-cn">
+<div id="maincontent" class="container">
+	<div class="cbi-map">
+		<h2>cbi ContainerValue 回归样张</h2>
+		<p>来源：flash 页真实 DOM（经 bootstrap 渲染抓取）。修复前：恢复区被压成窄条、说明文字竖排；
+		   修复后应与 bootstrap 观感一致（区段占满整行）。</p>
+		<!-- 以下为真实页面 DOM 片段 -->
+		<div class="cbi-value" id="cbi-json-actions-actions" data-index="0" data-depends="[]" data-field="cbid.json.actions.actions" data-name="actions" data-widget="CBI.ContainerValue" data-idref="ead136f3"><div class="cbi-section" data-idref="49d8d98a"><h3>备份</h3><div class="cbi-section-descr">点击“生成备份”下载当前配置文件的 tar 存档。</div><div id="cbi-json-actions" class="cbi-section-node" data-section-id="actions"><div class="cbi-value" id="cbi-json-actions-dl_backup" data-index="0" data-depends="[]" data-field="cbid.json.actions.dl_backup" data-name="dl_backup" data-widget="CBI.ButtonValue" data-idref="5a98f304"><label class="cbi-value-title" for="widget.cbid.json.actions.dl_backup">下载备份</label><div class="cbi-value-field"><output for="cbid.json.actions.dl_backup"><button class="cbi-button cbi-button-action important">生成备份</button></output><input id="cbid.json.actions.dl_backup" type="hidden" data-idref="d0f24343"></div></div></div></div></div><div class="cbi-value" id="cbi-json-actions-actions" data-index="1" data-depends="[]" data-field="cbid.json.actions.actions" data-name="actions" data-widget="CBI.ContainerValue" data-idref="7d0ab55f"><div class="cbi-section" data-idref="da67dec6"><h3>恢复</h3><div class="cbi-section-descr">上传备份存档以恢复配置。要将固件恢复到初始状态，请单击“执行重置”（仅 squashfs 格式的固件有效）。</div><div id="cbi-json-actions" class="cbi-section-node" data-section-id="actions"><div class="cbi-value" id="cbi-json-actions-restore" data-index="0" data-depends="[]" data-field="cbid.json.actions.restore" data-name="restore" data-widget="CBI.ButtonValue" data-idref="4a0a161c"><label class="cbi-value-title" for="widget.cbid.json.actions.restore">恢复配置</label><div class="cbi-value-field"><output for="cbid.json.actions.restore"><button class="cbi-button cbi-button-action important">上传备份…</button></output><input id="cbid.json.actions.restore" type="hidden" data-idref="20890a0d"><div class="cbi-value-description">自定义文件（证书、脚本）会保留在系统上。若无需保留，请先执行恢复出厂设置。</div></div></div></div></div></div><div class="cbi-value" id="cbi-json-actions-actions" data-index="2" data-depends="[]" data-field="cbid.json.actions.actions" data-name="actions" data-widget="CBI.ContainerValue" data-idref="1009657b">
+	</div>
+</div>
+</body>
+</html>
