@@ -180,7 +180,7 @@ luci/theme/luci-theme-quartz/
 │   ├── cascade.css              # 全部样式（手写 CSS，双模 token + cbi 全组件）
 │   ├── theme.js                 # 三态外观切换 / 壁纸探测 / 移动端导航
 │   ├── noise-dark.png / noise-light.png   # 石英噪点（各 <2KB，96px 可平铺）
-│   └── logo.svg                 # 晶体标记（占位，W2.6 定稿）
+│   └── logo.svg                 # 切面宝石标记（方案 B，2026-10-12 暂定）
 ├── htdocs/luci-static/resources/
 │   ├── menu-quartz.js           # 侧边栏菜单（改自 menu-bootstrap.js）
 │   └── view/quartz/sysauth.js   # 登录视图（注入品牌区）
@@ -245,7 +245,7 @@ luci/applications/luci-app-quartz-config/
 
 ## 12. 未决与验证项
 
-- **Logo**：当前为占位晶体标记（`logo.svg` + 模板内联 SVG 两处同源）；待手绘 SVG 候选供用户挑选。
+- **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。待真机/编译复核（W2.7）。
 - **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI。
 

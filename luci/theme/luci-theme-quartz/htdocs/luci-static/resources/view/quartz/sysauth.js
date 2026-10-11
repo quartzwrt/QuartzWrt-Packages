@@ -23,9 +23,9 @@ return view.extend({
 			E('span', { 'innerHTML':
 				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
 				'stroke-linejoin="round" aria-hidden="true">' +
-				'<path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/>' +
-				'<path d="M5 5.5 H19"/>' +
-				'<path d="M12 1 V23" opacity=".45"/>' +
+				'<path d="M12 2 L20 6.6 V17.4 L12 22 L4 17.4 V6.6 Z"/>' +
+				'<path d="M4 6.6 L12 11.6 L20 6.6"/>' +
+				'<path d="M12 11.6 V22" opacity=".45"/>' +
 				'</svg>' }),
 			E('div', { 'class': 'qz-brand-word' }, [ 'QuartzWrt' ])
 		]), dlg.firstChild);
