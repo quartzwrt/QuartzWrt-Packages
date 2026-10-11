@@ -124,6 +124,8 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 - **产物策略（定案）**：`src/` 源码 + 构建产物（`app.js`/`app.css`）**提交入库**；包 Makefile 只装文件——**固件构建与 CI 构建保持零 node 依赖**（符合 TDD §7 可重现原则）。`dev/build.sh` 一键重建并断言体积预算；CI 增加廉价 job：`npm ci && vite build && git diff --exit-code`（防漂移门禁）。
 - 集成：Vite 以 `formats:['iife']` 输出单文件，暴露 `window.QuartzDashboard.mount(el, host)`；壳层 `<script>` 注入（§1.2）。
 - **依赖预算（可维护性护栏）**：运行时依赖只允许"框架 + Tailwind"两类；新增运行时依赖须在提交说明中给出理由与体积账（§6.5-1）。
+- **构建坑位（W3.2 已踩）**：Vite **lib 模式不替换 `process.env.NODE_ENV`**，必须在 `define` 显式定义为 `'production'`——否则浏览器端 `process` 未定义，产物加载即抛错、页面空白（实测）。
+- **工具链**：pnpm 经 corepack 固定版本（`packageManager: pnpm@10.15.0`），无需全局安装；`dev/build.sh` 首次运行自动 `corepack pnpm install`。
 - **体积增长路径（预留）**：卡片增多致总量超预算时，切换为 ESM 产物 + 壳层原生 `import()` 分包（壳层加载方式无需重构，卡片模块边界即分包边界，§7）。
 - 本机现状：node v20.19.2 可用、npm 缺失（`corepack enable` 或 apt 补装即可）；仅开发侧需要。
 - Tailwind 入口（沿用 spike 定案）：`@import "tailwindcss" prefix(qz) source(none);` + `@source "./src/**/*.{vue,js}";`，`@theme` 把色板/圆角/字体映射到 `var(--qz-*)`（token 单一来源，命名重叠按 spike 结论由层序处理）。
@@ -278,16 +280,19 @@ export default {
 luci-app-dashboard/
 ├── Makefile                        # LUCI_DEPENDS:=+luci-base +quartz-daemon；CONFLICTS:=luci-mod-dashboard
 ├── docs/DESIGN.md                  # 本文件（v1.0 定案）；AGGREGATE-API.md（✅ 冻结 v1）；EXTENDING.md（W3.7）
-├── src/                            # 源码（案例 A 时）；node 工具链仅开发侧
+├── src/                            # ✅ 前端源码（Vue 3 + Vite + Tailwind v4；node 工具链仅开发侧）
+│   ├── pnpm-lock.yaml              # ✅ 提交（构建可复现；node_modules 由 .gitignore 排除）
+│   └── src/{main.js,App.vue,components/,cards/,lib/,styles/}
 ├── dev/
 │   ├── preview.html                # ✅ 设计预览（已落地）：静态渲染 mock + 四态 + 双模 + 锚点/深链示意
 │   │                               #    ?theme=auto|dark|light  ?state=normal|down|partial|broken
 │   │                               #    ?wallpaper=1  ?alpha=50..100  ?live=0（截图冻结）  ?debug=1（溢出诊断）
+│   │                               #    ?app=1（加载真实构建产物 + mock 宿主适配器，产物级回归）
+│   ├── build.sh                    # ✅ 构建：corepack pnpm 安装 + vite build + 体积断言 + 壳层 BUILD 回写
 │   ├── serve.sh                    # ✅ 预览服务（根 = QuartzWrt-Packages/luci，端口 8898）
 │   ├── probe.sh                    # ✅ 无头截图（Edge 经 WSL 互操作，沿用 WP-2 做法）
-│   ├── shots/                      # ✅ 视觉回归基线：dashboard-{dark,light,partial,down,wallpaper,mobile}.png
-│   ├── mock/status.json            # ✅ 契约样例（联调基准）；status.partial.json（部分不可用变体）——与冻结契约同源
-│   └── build.sh                    # ⬜ 重建产物 → 同步 htdocs + 断言体积预算
+│   ├── shots/                      # ✅ 视觉回归基线：dashboard-*（静态基准）/ app-*（真实产物）
+│   └── mock/status.json            # ✅ 契约样例（联调基准）；status.partial.json（部分不可用变体）——与冻结契约同源
 ├── htdocs/luci-static/resources/
 │   ├── view/quartz/dashboard.js    # LuCI 壳（手写，不构建）：加载产物 + 宿主适配器 + poll
 │   └── quartz-dashboard/           # 构建产物（提交入库）
@@ -308,10 +313,10 @@ luci-app-dashboard/
 | :--- | :--- | :--- |
 | W3.0 | ✅ 本设计稿定案（v1.0）+ 聚合契约冻结（`AGGREGATE-API.md`） | ~~用户拍板~~ 已完成 2026-10-12 |
 | W3.1 | 🚧 包骨架（Makefile/menu.d/acl.d/po）+ LuCI 壳（含 `host` 适配器）+ mock 数据 + 降级态（以 `dev/preview.html` 为视觉基准） | W3.0 |
-| W3.2 | 构建链（Vite+Tailwind 入口、`dev/build.sh`、体积断言、产物提交） | W3.1 |
-| W3.3 | 数据层（适配器两实现 + 轮询/降级/容错） | W3.1 |
-| W3.4 | 卡片注册表 + primitives + 首卡（Hero/系统/网络/Docker/设备/服务） | W3.2、W3.3 |
-| W3.5 | 视觉打磨（双模 × 正常/降级 × 移动端；截图回归基线） | W3.4 |
+| W3.2 | ✅ 构建链落地（2026-10-12）：pnpm 经 corepack 固定 `10.15.0`；Vite lib/IIFE 单文件 + Tailwind v4 入口；`dev/build.sh` 含体积断言与壳层 BUILD 回写——实测 app.js **28.6KB gzip** / app.css **2.4KB gzip** | W3.1 |
+| W3.3 | ✅ 数据层（2026-10-12）：宿主适配器两实现（生产壳层 / 预览 harness）；轮询可见性包装、四态降级、单卡错误边界 | W3.1 |
+| W3.4 | ✅ 卡片注册表 + primitives + 五卡 + Hero（2026-10-12）：真实产物在预览 harness（`?app=1`）渲染通过，与静态基准一致 | W3.2、W3.3 |
+| W3.5 | 🚧 视觉打磨（双模 × 正常/降级 × 移动端；截图回归基线已出 `shots/app-*.png`，剩固件内真机复核与细节） | W3.4 |
 | W3.6 | 固件集成验收（本地构建 + QEMU；WP-4 首版后真数据联调） | W3.5、（WP-4） |
 | W3.7 | 扩展机制沉淀：`docs/EXTENDING.md`（§6.6 流程成文）+ 深链存在性检查 | W3.4 |
 
@@ -354,3 +359,4 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v0.3 2026-10-12 —— 设计预览页落地（`dev/preview.html` + `serve.sh`/`probe.sh` + 六张截图基线）：静态 mock 渲染、双模 × 数据四态、锚点/深链示意、溢出诊断；§5.1 布局与移动端细则按预览实测修订；登记 WP-2 通用面板类 `.qz-panel` 接口项（附 A）。*
 *v0.4 2026-10-12 —— 布局优化（用户评审反馈"卡片大小不同留白"）：确立**矮卡配矮卡**排布原则（Docker + 服务与核心同行；设备表改全宽 12 列承载，增"接口"列、前 8 台）；系统卡补"交换"行；宽屏设备表固定布局 + 列宽百分比；移动端单列顺序按 `order`（设备列表提前）；注册表示例同步（§5.3）。*
 *v1.0 2026-10-12 —— **定案**：用户拍板六项（记录见 §10）；聚合契约冻结为 [`AGGREGATE-API.md`](AGGREGATE-API.md)（§3 改为指针，避免两处漂移；`collect_ms` 提升为顶层字段）；`dev/mock/status.json` 与 `status.partial.json` 落地并与预览页同源（预览改为读取 mock 文件）；勘误 LuCI `Poll` 不做可见性判断（改由壳层实现，§2.3）；W3.0 ✅、W3.1 开工。*
+*v1.1 2026-10-12 —— **W3.2–W3.4 落地**：构建链（corepack/pnpm 固定、Vite lib IIFE、Tailwind v4 入口、`dev/build.sh` 体积门禁与 BUILD 回写；产物 app.js 28.6KB gzip / app.css 2.4KB gzip）、数据层（宿主适配器生产/预览两实现、四态降级、单卡错误边界）、卡片实现（注册表 + primitives + 五卡 + Hero）；预览页新增 `?app=1` 真实产物模式并出 `shots/app-*.png` 基线；踩坑记录：Vite lib 模式不替换 `process.env.NODE_ENV`（§4）；W3.5 🚧。*

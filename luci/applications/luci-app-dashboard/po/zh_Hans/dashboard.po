@@ -4,7 +4,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-# --- 壳层（view/quartz/dashboard.js） ---
+# ===== 壳层（view/quartz/dashboard.js） =====
 msgid "Dashboard"
 msgstr "概览"
 
@@ -17,27 +17,173 @@ msgstr "这是开发态：请构建 src/ 并把产物提交到 htdocs/luci-stati
 msgid "Dashboard failed to render"
 msgstr "Dashboard 渲染失败"
 
-# --- 应用（src/ 产物，手工维护，新增卡片时同步，DESIGN.md §6.6） ---
+msgid "Bundle entry point window.QuartzDashboard.mount() is missing."
+msgstr "产物未导出挂载入口 window.QuartzDashboard.mount()。"
+
+# ===== 页面骨架（App.vue） =====
+msgid "Collector is not running"
+msgstr "采集器未运行"
+
+msgid "is missing — quartz-daemon is not started or not installed. Retrying automatically every 5 seconds."
+msgstr "不存在——quartz-daemon 未启动或未安装。页面每 5 秒自动重试，daemon 就绪后无需刷新。"
+
+msgid "Collector data is corrupted"
+msgstr "采集器数据损坏"
+
+msgid "The status snapshot could not be parsed. Waiting for the next collection to overwrite it."
+msgstr "状态快照解析失败，等待下一次采集覆盖；页面不会白屏。"
+
+msgid "Waiting for data"
+msgstr "等待数据"
+
+msgid "Card failed to render"
+msgstr "此卡渲染失败（已隔离）"
+
+msgid "just now"
+msgstr "刚刚"
+
+msgid "min ago"
+msgstr "分钟前"
+
+msgid "h ago"
+msgstr "小时前"
+
+msgid "d ago"
+msgstr "天前"
+
+# ===== Hero =====
+msgid "Uptime"
+msgstr "运行时间"
+
+msgid "Collected"
+msgstr "最后采集"
+
+# ===== 卡片标题（cards/index.js） =====
 msgid "System"
 msgstr "系统资源"
 
 msgid "Network"
 msgstr "网络吞吐"
 
-msgid "Clients"
-msgstr "在线设备"
-
 msgid "Services & cores"
 msgstr "服务与核心"
 
-msgid "Collector is not running"
-msgstr "采集器未运行"
+msgid "Clients"
+msgstr "在线设备"
 
-msgid "Collector data is corrupted"
-msgstr "采集器数据损坏"
+# ===== 深链文案 =====
+msgid "Realtime traffic"
+msgstr "实时流量"
 
+msgid "Containers"
+msgstr "容器"
+
+msgid "View all"
+msgstr "查看全部"
+
+# ===== 系统资源卡 =====
 msgid "Unavailable"
 msgstr "不可用"
 
+msgid "Load (1/5/15)"
+msgstr "负载（1/5/15）"
+
+msgid "CPU usage"
+msgstr "CPU 占用"
+
+msgid "Memory"
+msgstr "内存"
+
+msgid "Swap"
+msgstr "交换"
+
+msgid "not enabled"
+msgstr "未启用"
+
+msgid "Storage (/)"
+msgstr "存储（/）"
+
+msgid "Temperature"
+msgstr "温度"
+
+msgid "no sensor"
+msgstr "无传感器"
+
+# ===== 网络卡 =====
+msgid "online"
+msgstr "在线"
+
+msgid "offline"
+msgstr "离线"
+
+msgid "Download"
+msgstr "下行"
+
+msgid "Upload"
+msgstr "上行"
+
+msgid "Download (blue) / Upload (grey) — last 2 minutes, daemon ring buffer"
+msgstr "下行（蓝）/ 上行（灰）· 最近 2 分钟 · daemon 环形缓冲"
+
+# ===== Docker 卡 =====
+msgid "Unavailable — collector did not return Docker data"
+msgstr "不可用：采集器未返回 Docker 数据"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Images"
+msgstr "镜像"
+
+msgid "Unhealthy"
+msgstr "不健康"
+
+msgid "none"
+msgstr "无"
+
+# ===== 在线设备卡 =====
+msgid "Hostname"
+msgstr "主机名"
+
+msgid "IP address"
+msgstr "IP 地址"
+
+msgid "MAC address"
+msgstr "MAC 地址"
+
+msgid "Interface"
+msgstr "接口"
+
+msgid "Last seen"
+msgstr "最近活跃"
+
+msgid "Devices online:"
+msgstr "在线设备："
+
+msgid "top"
+msgstr "显示前"
+
+msgid "Partial data unavailable:"
+msgstr "部分数据不可用："
+
+msgid "No devices online (DHCP leases unreadable)"
+msgstr "暂无在线设备（DHCP 租约不可读）"
+
+# ===== 服务与核心卡 =====
+msgid "Core update available"
+msgstr "核心可更新"
+
+msgid "running"
+msgstr "运行中"
+
+msgid "stopped"
+msgstr "已停止"
+
 msgid "Not installed"
 msgstr "未安装"
+
+msgid "collect"
+msgstr "采集"
+
+msgid "last"
+msgstr "上次"

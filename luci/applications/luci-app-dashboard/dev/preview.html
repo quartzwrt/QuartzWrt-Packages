@@ -283,6 +283,7 @@ html[data-qz-translucent] .qzd-hero {
 	<p>对应设计稿 <strong>DESIGN.md §5.1 布局 / §5.2 视觉硬规则 / §6.3 联动</strong>；样例数据读取
 	<span class="qz-mono">dev/mock/status.json</span>（与冻结契约 <strong>docs/AGGREGATE-API.md</strong> 同源）。右下角可切换
 	<strong>数据四态</strong>（正常 / 采集器未运行 / 部分不可用 / 数据损坏）与<strong>明暗外观</strong>。
+	加 <span class="qz-mono">?app=1</span> 切换为<strong>真实构建产物</strong>（Vue 实现，产物级回归）。
 		卡片标题右侧的 <span class="qzd-arrow">→</span> 为深链示意（真实实现由壳层判定目标页存在性，不产生死链）；
 		<span class="qzd-anchor-nav">锚点：
 			<a href="#system">系统</a><a href="#network">网络</a><a href="#docker">Docker</a><a href="#clients">设备</a><a href="#services">服务</a>
@@ -531,7 +532,7 @@ function tickAgo(reset) {
 	if (el) el.textContent = Math.max(1, Math.round((Date.now() - lastTs) / 1000)) + ' 秒前';
 }
 setInterval(function () {
-	if (!live || STATE !== 'normal') return;
+	if (!live || STATE !== 'normal' || !payload || !payload.net) return;
 	var s = payload.net.series;
 	var rx = Math.max(120000, s.rx[s.rx.length - 1] + (Math.random() - 0.48) * 700000);
 	var tx = Math.max(40000, s.tx[s.tx.length - 1] + (Math.random() - 0.48) * 180000);
@@ -561,6 +562,47 @@ setInterval(function () {
 		b.addEventListener('click', function () { setTheme(b.getAttribute('data-set-theme')); });
 	});
 
+	/* ---- 真实产物模式（?app=1）：加载构建产物 + mock 宿主适配器（W3.2 产物级回归） ---- */
+	function mountRealApp(appState) {
+		var view = document.getElementById('view');
+		var bust = '?v=' + Date.now();
+		document.head.appendChild(Object.assign(document.createElement('link'),
+			{ rel: 'stylesheet', href: '../htdocs/luci-static/resources/quartz-dashboard/app.css' + bust }));
+
+		var script = document.createElement('script');
+		script.src = '../htdocs/luci-static/resources/quartz-dashboard/app.js' + bust;
+		script.onload = function () {
+			var host = {
+				version: 'dev',
+				t: function (s) { return s; },
+				readStatus: function () {
+					if (appState === 'down') return Promise.reject(Object.assign(new Error('missing'), { kind: 'missing' }));
+					if (appState === 'broken') return Promise.reject(Object.assign(new Error('broken'), { kind: 'broken' }));
+					return loadMock(appState === 'partial' ? 'partial' : 'normal').then(function (p) {
+						/* 样例文件时间戳固定（可复现）；这里整体平移到当前时刻，演示"相对新鲜度" */
+						var d = Math.floor(Date.now() / 1000) - p.ts;
+						p.ts += d;
+						((p.clients && p.clients.items) || []).forEach(function (it) { it.last_seen += d; });
+						return p;
+					});
+				},
+				poll: function (fn, sec) {
+					var wrapped = function () { if (!document.hidden) fn(); };
+					setInterval(wrapped, (sec || 5) * 1000);
+					document.addEventListener('visibilitychange', function () { if (!document.hidden) fn(); });
+				},
+				hasPage: function () { return true; },
+				url: function (p) { return '#' + p; }
+			};
+			window.QuartzDashboard.mount(view, host);
+			view.setAttribute('data-app', '1');
+		};
+		script.onerror = function () {
+			view.textContent = '产物缺失：先运行 dev/build.sh';
+		};
+		document.head.appendChild(script);
+	}
+
 	/* 数据态 */
 	var sel = document.getElementById('sel-state');
 	function applyState(st) {
@@ -573,8 +615,20 @@ setInterval(function () {
 		});
 	}
 	sel.value = q.get('state') || 'normal';
-	sel.addEventListener('change', function () { applyState(sel.value); });
-	applyState(sel.value);
+	if (q.get('app') === '1') {
+		/* 真实产物模式：数据态切换 = 重载页面（同一 mock 适配器，壳层路径一致） */
+		document.getElementById('view').setAttribute('data-appstate', sel.value);
+		sel.addEventListener('change', function () {
+			var u = new URL(location.href);
+			u.searchParams.set('app', '1');
+			u.searchParams.set('state', sel.value);
+			location.href = u.href;
+		});
+		mountRealApp(sel.value);
+	} else {
+		sel.addEventListener('change', function () { applyState(sel.value); });
+		applyState(sel.value);
+	}
 
 	/* 壁纸 / 透明度 / 实时 */
 	var wOn = q.get('wallpaper') === '1';

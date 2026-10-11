@@ -1,0 +1,3 @@
+# 前端依赖与本地缓存（不进仓库；前端构建产物提交在 htdocs/ 下）
+src/node_modules/
+src/.vite/
