@@ -11,6 +11,19 @@
  */
 
 /* ==========================================================================
+ * luci-theme-quartz 使用 CSS 层（cascade layers）组织，层序与 Tailwind v4 对齐：
+ *   theme < base < qz-theme < components < utilities
+ * 目的（依据 dev/spike/tailwind/RESULTS.md 实测）：
+ *   - base 层容纳 dashboard 引入的 Tailwind preflight，天然弱于 qz-theme
+ *   - utilities 层（dashboard 的 qz: 前缀类）高于 qz-theme，保证 Dashboard
+ *     能用自己的 utility 覆盖主题的基础样式
+ * 注意：第三方应用的无层样式依旧高于本主题（与改造前行为一致）
+ */
+@layer theme, base, qz-theme, components, utilities;
+
+@layer qz-theme {
+
+/* ==========================================================================
  * 1. 设计 token
  * ========================================================================== */
 
@@ -235,10 +248,20 @@ img {
 	border: 0;
 }
 
+/* Tailwind preflight 中和：dashboard 引入 Tailwind 后，以下属性主题原本未声明，
+ * 会被 preflight 的 UA 值覆盖（实测 img 变为 display:block 导致内容被撑开）。
+ * 层序只能裁决“双方都声明”的冲突，这里显式钉回 UA 默认值。
+ * 依据与实测数据见 dev/spike/tailwind/RESULTS.md */
+img, svg, video, canvas, iframe {
+	display: inline;
+	vertical-align: baseline;
+}
+
 hr {
 	border: 0;
 	border-top: 1px solid var(--qz-border);
 	margin: 16px 0;
+	color: inherit;   /* preflight 中和：v4 preflight 对 hr 设置 color:inherit，显式对齐避免属性差异 */
 }
 
 code, pre, kbd, samp {
@@ -1593,3 +1616,6 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 		backdrop-filter: none;
 	}
 }
+
+} /* @layer qz-theme */
+

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>Tailwind 隔离 Spike · 测试页</title>
+<!-- 主题样式由 ?cascade= 动态选择（默认真实 cascade.css；可传 out/cascade.unlayered.css 做无层对照）。
+     附加缓存破坏参数：python http.server 无 Cache-Control，浏览器启发式缓存会喂旧文件 -->
+<script>
+(function () {
+	var q = new URLSearchParams(location.search);
+	function bust(u) { return u + (u.indexOf('?') < 0 ? '?' : '&') + 'cb=' + Date.now(); }
+	window.qzBust = bust;
+	var l = document.createElement('link');
+	l.rel = 'stylesheet';
+	l.href = bust(q.get('cascade') || '../../../htdocs/luci-static/quartz/cascade.css');
+	window.qzCascadeLink = l;
+	document.head.appendChild(l);
+})();
+</script>
+<style>
+/* 仅本测试页使用：结果面板样式 */
+#qz-spike-result {
+	position: fixed;
+	left: 8px;
+	right: 8px;
+	bottom: 8px;
+	max-height: 38vh;
+	overflow: auto;
+	margin: 0;
+	padding: 10px 12px;
+	font: 11.5px/1.55 ui-monospace, Menlo, Consolas, monospace;
+	white-space: pre-wrap;
+	word-break: break-all;
+	background: #101014;
+	color: #9fef9f;
+	border: 1px solid #333;
+	border-radius: 8px;
+	z-index: 999;
+}
+#qz-spike-result .fail { color: #ff9f9f; }
+</style>
+</head>
+
+<body class="lang_zh-cn">
+<!-- 精简但具代表性的 cbi 页面：覆盖 preflight 会触碰的全部元素与撞名 class -->
+<div id="maincontent" class="container">
+	<div class="alert-message notice">
+		<h4>提示信息</h4>
+		<p>模拟真实 LuCI 页面内容，用于快照对比。行内图标：<img width="16" height="16" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='16' height='16' fill='%230a84ff' rx='3'/%3E%3C/svg%3E"> 后文。</p>
+		<div class="right"><a class="btn" href="#">前往设置…</a></div>
+	</div>
+
+	<h2>防火墙</h2>
+	<div class="cbi-map">
+		<div class="cbi-section">
+			<h3>常规设置</h3>
+			<div class="cbi-section-descr">区段描述文字。</div>
+			<div class="cbi-section-node">
+				<div class="cbi-value">
+					<label class="cbi-value-title">主机名</label>
+					<div class="cbi-value-field"><input type="text" value="QuartzWrt-R4S"></div>
+				</div>
+				<div class="cbi-value">
+					<label class="cbi-value-title">时区</label>
+					<div class="cbi-value-field"><select><option>Asia/Shanghai</option></select></div>
+				</div>
+				<div class="cbi-value">
+					<label class="cbi-value-title">备注</label>
+					<div class="cbi-value-field"><textarea>多行文本</textarea></div>
+				</div>
+				<div class="cbi-value">
+					<label class="cbi-value-title">选项</label>
+					<div class="cbi-value-field">
+						<label><input type="checkbox" checked> 启用</label>
+					</div>
+				</div>
+				<div class="cbi-value">
+					<label class="cbi-value-title">列表</label>
+					<div class="cbi-value-field">
+						<div class="cbi-dynlist"><ul><li>第一项</li><li>第二项</li></ul></div>
+					</div>
+				</div>
+			</div>
+			<hr>
+			<div class="cbi-section-actions">
+				<button class="cbi-button cbi-button-reset">重置</button>
+				<button class="cbi-button cbi-button-apply">保存并应用</button>
+				<button class="cbi-button cbi-button-negative important">删除</button>
+			</div>
+		</div>
+		<div class="cbi-section">
+			<h3>状态表格</h3>
+			<table class="table">
+				<tr><th>接口</th><th>状态</th></tr>
+				<tr><td class="qz-mono">br-lan</td><td><span class="label success">已连接</span></td></tr>
+				<tr><td class="qz-mono">wan</td><td><span class="label">已停用</span></td></tr>
+			</table>
+		</div>
+	</div>
+</div>
+
+<footer><span>Powered by <a href="#">LuCI (25.12)</a></span></footer>
+
+<!-- 探针：Dashboard 侧 utility 是否生效（期望 qz:text-3xl → 30px、qz:font-bold → 700）。
+     置于页面底部：其高度变化（utility 生效时）不影响上方元素布局，避免污染 diff 出现下游位移噪音 -->
+<h2>概览（Dashboard 探针）</h2>
+<div id="qz-dash" class="cbi-section" style="padding:12px">
+	<h2 class="qz:text-3xl qz:font-bold">utility 样式标题</h2>
+	<div class="qz:flex qz:items-center qz:gap-4" style="margin-top:8px">
+		<span class="qz:text-sm">次行文字</span>
+		<span class="qz:rounded-xl qz:border qz:p-4">卡片</span>
+	</div>
+</div>
+
+<pre id="qz-spike-result">SPIKE_PENDING</pre>
+
+<script>
+/* 快照对比测试台：
+ * 1) 记录目标元素的计算样式与布局矩形
+ * 2) 按 ?inject= 注入待测 CSS（无参数 = 对照健全性检查）
+ * 3) 再次快照并 diff，结果写入 #qz-spike-result */
+(function () {
+	var PROPS = ['display', 'position', 'boxSizing', 'float',
+		'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+		'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+		'borderTopWidth', 'borderTopStyle', 'borderTopColor', 'borderRadius',
+		'fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'textAlign',
+		'color', 'backgroundColor', 'listStyleType', 'maxWidth',
+		'textDecorationLine', 'width', 'height'];
+
+	var SELECTORS = ['#maincontent', '#maincontent h2', '#maincontent h3', '#maincontent p',
+		'.alert-message', '.cbi-map > .cbi-section', '.cbi-value', '.cbi-value-title',
+		'input[type="text"]', 'select', 'textarea', '.cbi-button', '.cbi-button-apply',
+		'.cbi-button-negative', '.table', '.table th', '.table td', '.label', 'hr',
+		'#maincontent img', '.cbi-dynlist li', 'footer'];
+
+	function snap() {
+		return SELECTORS.map(function (sel) {
+			var el = document.querySelector(sel);
+			if (!el) return { sel: sel, missing: true };
+			var cs = getComputedStyle(el), out = { sel: sel };
+			PROPS.forEach(function (p) { out[p] = cs[p]; });
+			var r = el.getBoundingClientRect();
+			out.rect = [r.x, r.y, r.width, r.height].map(function (v) { return Math.round(v * 100) / 100; });
+			return out;
+		});
+	}
+
+	function diff(a, b) {
+		var out = [];
+		a.forEach(function (x, i) {
+			var y = b[i];
+			if (!y || x.missing || y.missing) return;
+			PROPS.concat(['rect']).forEach(function (p) {
+				var va = JSON.stringify(x[p]), vb = JSON.stringify(y[p]);
+				if (va !== vb)
+					out.push({ sel: x.sel, prop: p, before: va, after: vb });
+			});
+		});
+		return out;
+	}
+
+	function inject(url) {
+		return new Promise(function (resolve) {
+			if (!url) return resolve();
+			var l = document.createElement('link');
+			l.rel = 'stylesheet';
+			l.href = window.qzBust ? window.qzBust(url) : url;
+			l.onload = l.onerror = function () { setTimeout(resolve, 400); };
+			document.head.appendChild(l);
+		});
+	}
+
+	function probe() {
+		var el = document.querySelector('#qz-dash h2');
+		if (!el) return null;
+		var cs = getComputedStyle(el);
+		return { fontSize: cs.fontSize, fontWeight: cs.fontWeight };
+	}
+
+	/* 动态注入的主题样式不保证在 load 前完成加载，先显式等待（避免“注入前”快照缺主题的竞态） */
+	function waitForCascade() {
+		return new Promise(function (resolve) {
+			var l = window.qzCascadeLink;
+			if (!l || l.sheet) return setTimeout(resolve, 100);
+			l.addEventListener('load', function () { setTimeout(resolve, 100); });
+			l.addEventListener('error', function () { setTimeout(resolve, 100); });
+		});
+	}
+
+	function run() {
+		var qs = new URLSearchParams(location.search);
+		var url = qs.get('inject');
+		waitForCascade().then(function () {
+			var before = snap(), probeBefore = probe();
+			return inject(url).then(function () {
+				/* 用定时器而非 rAF 等待样式应用：无头 dump-dom 模式下 rAF 可能不触发 */
+				return new Promise(function (r) { setTimeout(r, 250); });
+			}).then(function () {
+				var after = snap(), probeAfter = probe();
+				var d = diff(before, after);
+				var verdict = url ? (d.length === 0 ? 'PASS' : 'FAIL') : 'SANITY';
+				var utilityWins = !!(probeAfter && probeAfter.fontWeight === '700' &&
+					parseFloat(probeAfter.fontSize) >= 29);
+				var result = {
+					inject: url,
+					cascade: qs.get('cascade') || 'default',
+					verdict: verdict,
+					diffCount: d.length,
+					probeBefore: probeBefore,
+					probeAfter: probeAfter,
+					utilityWins: utilityWins,
+					diffs: d.slice(0, 40)
+				};
+				document.getElementById('qz-spike-result').textContent =
+					'SPIKE_' + 'RESULT ' + JSON.stringify(result);
+			});
+		});
+	}
+
+	window.addEventListener('load', run);
+})();
+</script>
+</body>
+</html>

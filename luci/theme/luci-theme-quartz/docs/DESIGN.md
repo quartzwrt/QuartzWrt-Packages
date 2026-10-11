@@ -206,7 +206,8 @@ luci/applications/luci-app-quartz-config/
 ## 9. 与 WP-3 的接口约定
 
 - **token 单一来源**：主题 `cascade.css` 的 `:root` 变量；Dashboard 的 Tailwind 配置把颜色映射到 `var(--qz-*)`，不另起色板。
-- **Tailwind 隔离**（TDD §8 待决项）：方案 A「不开 preflight（不引 `@tailwind base`）+ utilities `qz-` 前缀」先行；引入第三方组件库时升级为 PostCSS prefixwrap 作用域方案。spike 验证后结论写回 TDD §8。
+- **Tailwind 隔离**（已实测定案，TDD §8 已写回）：dashboard 侧构建入口为 `@import "tailwindcss" prefix(qz) source(none);` + `@source` 精确圈定源码，类名写 `qz:` 形式（v4 前缀是变体语法且只能配在完整导入上）；**主题 cascade.css 入层**（层序 `theme < base < qz-theme < components < utilities`），使 preflight（base 层）天然弱于主题、utilities 天然强于主题；preflight 的"单侧泄漏"（主题未声明过的属性，如 `img{display}`）由主题内显式中和规则处理（已内置）。实测矩阵与依据见 `dev/spike/tailwind/RESULTS.md`。
+- **token 命名重叠提示**：Tailwind 生成的 CSS 变量同样带 `qz` 前缀（`--qz-font-sans`、`--qz-radius-sm` 等）与主题 token 同命名空间；层序上主题值胜出（正是 token 单一来源所期望的方向），`--radius-sm` 等语义差异由 dashboard 侧 `@theme` 显式对齐。
 - **容器约定**：Dashboard 渲染在主题内容区内，只消费 token，不改写主题样式（不引入全局 reset 依赖）。
 
 ## 10. 交付物分解（W2.x）
@@ -230,14 +231,14 @@ luci/applications/luci-app-quartz-config/
 - ✅ W2.0 设计文档 + 预览页（`dev/preview.html`、`dev/preview-login.html`，含渲染截图 `dev/shots/`）
 - ✅ W2.1 骨架包 / W2.2 模板 / W2.3 token 层 / W2.4 cbi 换皮——**初版完成**，已通过 Edge 无头渲染校验（暗/浅/壁纸/登录/半透明面板六态）
 - ✅ W2.8 外观配置包 `luci-app-quartz-config` 初版；`quartz-defaults` 已追加 `+luci-theme-quartz +luci-app-quartz-config`
-- ⬜ W2.5 Tailwind 隔离 spike（结论写回 TDD §8）
-- ⬜ W2.6 Logo 定稿（当前为占位晶体标记）
+- ✅ W2.5 Tailwind 隔离 spike 完成：结论已写回 TDD §8（两副本同步）；实测矩阵见 `dev/spike/tailwind/RESULTS.md`
+- 🚧 W2.6 Logo：四方向候选已出（`dev/logo-candidates.html` + `dev/shots/logo-candidates.png`），待用户选定后细化
 - ⬜ W2.7 收尾（默认主题复核、验收）
-- ⬜ 单包编译验证（依赖 WP-1 基础设施就绪后执行）
+- ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
 ## 11. TDD 同步清单（待写入两处副本，需用户/架构确认）
 
-1. §8 待决事项「UI 隔离」→ 已决策：方案 A 先行（spike 通过后回填结论）。
+1. §8 待决事项「UI 隔离」✅ 已写回（2026-10-12）：移入已决策项并附实测依据指针。
 2. §3.3 / §8：新增「主题双模」决策条目与 DESIGN.md 指针。
 3. §4.4 运行时资源：壁纸投放目录（`/www/quartz-wallpaper/`，用户文件、不随包升级）纳入治理清单。
 4. 外观配置包（§5.1）：主题配置的 uci 归属（`/etc/config/quartz`，section `theme`）与 `luci-app-quartz-config` 包建议在 TDD 中登记。

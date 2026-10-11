@@ -1,0 +1,1 @@
+{"inject":"out/chosen.gen.css","cascade":"default","verdict":"PASS","diffCount":0,"probeBefore":{"fontSize":"20px","fontWeight":"600"},"probeAfter":{"fontSize":"30px","fontWeight":"700"},"utilityWins":true,"diffs":[]}

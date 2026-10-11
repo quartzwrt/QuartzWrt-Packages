@@ -1,0 +1,6 @@
+/*
+ * Spike 对照组 B（错误示范，用于证明测试台具备检出污染的能力）：
+ *   完整引入（含 preflight）+ 不加前缀。
+ */
+@import "tailwindcss";
+@source "./dashboard-sample-plain.html";

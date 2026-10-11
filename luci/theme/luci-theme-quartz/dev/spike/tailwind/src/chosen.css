@@ -1,0 +1,10 @@
+/*
+ * Spike 待测配置 A（v2，经 v4.3.3 实测修正）：
+ *   - v4 前缀语法为 `qz:` 变体形式（写进 HTML 是 class="qz:flex"），且前缀
+ *     只能配置在完整 `tailwindcss` 导入上 —— granular 导入上的 prefix() 会被忽略
+ *   - 完整导入附带 preflight（位于 @layer base）→ 与本目录下由 build.sh 生成的
+ *     cascade.layered.css（主题入层于 @layer qz-theme）配合压制
+ *   - source(none) 关闭自动扫描，@source 精确圈定 dashboard 源码，避免误扫出未加前缀的类
+ */
+@import "tailwindcss" prefix(qz) source(none);
+@source "./dashboard-sample-qz.html";

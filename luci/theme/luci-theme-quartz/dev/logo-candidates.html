@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>QuartzWrt Logo 候选（W2.6）</title>
+<style>
+/* 候选页独立样式：不依赖主题，直接呈现明暗底上的标记与锁定组合 */
+body { margin: 0; padding: 32px 40px; background: #16171a; color: #e8e8ec; font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+p.lead { color: #9a9aa4; margin: 0 0 28px; }
+.cand { display: grid; grid-template-columns: 240px 1fr; gap: 20px; padding: 20px 0; border-top: 1px solid #2c2c2e; }
+.cand h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+.cand .desc { color: #9a9aa4; font-size: 12.5px; margin: 0; }
+.tiles { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.tile { display: flex; align-items: center; justify-content: center; border-radius: 12px; }
+.tile.dark { background: #1c1c1e; border: 1px solid rgba(255,255,255,.08); }
+.tile.light { background: #ececf0; border: 1px solid rgba(0,0,0,.08); }
+.size20 { width: 44px; height: 44px; }
+.size56 { width: 84px; height: 84px; }
+.size96 { width: 124px; height: 124px; }
+.mark-dark { color: #0a84ff; }
+.mark-light { color: #007aff; }
+.mark-mono-d { color: rgba(255,255,255,.95); }
+.mark-mono-l { color: rgba(0,0,0,.85); }
+svg.mark { display: block; }
+.lockup { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; }
+.lockup.dark { background: #1c1c1e; color: rgba(255,255,255,.95); border: 1px solid rgba(255,255,255,.08); }
+.lockup.light { background: #ececf0; color: rgba(0,0,0,.85); border: 1px solid rgba(0,0,0,.08); }
+.wordmark-serif { font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", Georgia, serif; font-size: 20px; letter-spacing: .3px; }
+.wordmark-sans { font-weight: 600; font-size: 18px; letter-spacing: .2px; }
+.note { color: #9a9aa4; font-size: 12.5px; margin-top: 28px; padding-top: 16px; border-top: 1px solid #2c2c2e; }
+</style>
+</head>
+<body>
+<h1>QuartzWrt Logo 候选（W2.6 定方向用）</h1>
+<p class="lead">四个方向，均为 24×24 网格上的纯几何描边标记（stroke 1.6，随主题取值）。选定方向后再细化比例与品牌细节。</p>
+
+<!-- A：棱柱（现占位） -->
+<div class="cand">
+	<div>
+		<h2>A · 六棱柱</h2>
+		<p class="desc">当前占位标记：规整的六棱柱轮廓 + 腰线 + 中轴。最"工程"、最中性，结构感强。</p>
+	</div>
+	<div class="tiles">
+		<div class="tile dark size20"><svg class="mark mark-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/><path d="M5 5.5 H19"/><path d="M12 1 V23" opacity=".45"/></svg></div>
+		<div class="tile dark size56"><svg class="mark mark-dark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/><path d="M5 5.5 H19"/><path d="M12 1 V23" opacity=".45"/></svg></div>
+		<div class="tile light size56"><svg class="mark mark-light" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/><path d="M5 5.5 H19"/><path d="M12 1 V23" opacity=".45"/></svg></div>
+		<div class="tile dark size96"><svg class="mark mark-mono-d" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/><path d="M5 5.5 H19"/><path d="M12 1 V23" opacity=".45"/></svg></div>
+		<div class="lockup dark"><svg class="mark mark-dark" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/><path d="M5 5.5 H19"/><path d="M12 1 V23" opacity=".45"/></svg><span class="wordmark-serif">QuartzWrt</span></div>
+	</div>
+</div>
+
+<!-- B：切面宝石 -->
+<div class="cand">
+	<div>
+		<h2>B · 切面宝石</h2>
+		<p class="desc">六边形外廓 + 顶部切面折线 + 中轴。比 A 更有"切割/折射"意味，识别性提升且复杂度可控。</p>
+	</div>
+	<div class="tiles">
+		<div class="tile dark size20"><svg class="mark mark-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 1.8 L20.2 6.6 V17.4 L12 22.2 L3.8 17.4 V6.6 Z"/><path d="M3.8 6.6 L12 11.4 L20.2 6.6"/><path d="M12 11.4 V22.2" opacity=".45"/></svg></div>
+		<div class="tile dark size56"><svg class="mark mark-dark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 1.8 L20.2 6.6 V17.4 L12 22.2 L3.8 17.4 V6.6 Z"/><path d="M3.8 6.6 L12 11.4 L20.2 6.6"/><path d="M12 11.4 V22.2" opacity=".45"/></svg></div>
+		<div class="tile light size56"><svg class="mark mark-light" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M12 1.8 L20.2 6.6 V17.4 L12 22.2 L3.8 17.4 V6.6 Z"/><path d="M3.8 6.6 L12 11.4 L20.2 6.6"/><path d="M12 11.4 V22.2" opacity=".45"/></svg></div>
+		<div class="tile dark size96"><svg class="mark mark-mono-d" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12 1.8 L20.2 6.6 V17.4 L12 22.2 L3.8 17.4 V6.6 Z"/><path d="M3.8 6.6 L12 11.4 L20.2 6.6"/><path d="M12 11.4 V22.2" opacity=".45"/></svg></div>
+		<div class="lockup dark"><svg class="mark mark-dark" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 1.8 L20.2 6.6 V17.4 L12 22.2 L3.8 17.4 V6.6 Z"/><path d="M3.8 6.6 L12 11.4 L20.2 6.6"/><path d="M12 11.4 V22.2" opacity=".45"/></svg><span class="wordmark-serif">QuartzWrt</span></div>
+	</div>
+</div>
+
+<!-- C：双晶（道芬律穿插双晶的抽象） -->
+<div class="cand">
+	<div>
+		<h2>C · 双晶</h2>
+		<p class="desc">两个错位菱形互相穿插——石英"道芬双晶"的极简抽象。最有品牌个性和"晶体"叙事，但侧面轮廓稍复杂。</p>
+	</div>
+	<div class="tiles">
+		<div class="tile dark size20"><svg class="mark mark-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9.5 2.5 L17 10 L9.5 17.5 L2 10 Z"/><path d="M14.5 7 L21.5 14 L14.5 21 L7.5 14 Z" opacity=".5"/></svg></div>
+		<div class="tile dark size56"><svg class="mark mark-dark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M9.5 2.5 L17 10 L9.5 17.5 L2 10 Z"/><path d="M14.5 7 L21.5 14 L14.5 21 L7.5 14 Z" opacity=".5"/></svg></div>
+		<div class="tile light size56"><svg class="mark mark-light" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M9.5 2.5 L17 10 L9.5 17.5 L2 10 Z"/><path d="M14.5 7 L21.5 14 L14.5 21 L7.5 14 Z" opacity=".5"/></svg></div>
+		<div class="tile dark size96"><svg class="mark mark-mono-d" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M9.5 2.5 L17 10 L9.5 17.5 L2 10 Z"/><path d="M14.5 7 L21.5 14 L14.5 21 L7.5 14 Z" opacity=".5"/></svg></div>
+		<div class="lockup dark"><svg class="mark mark-dark" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9.5 2.5 L17 10 L9.5 17.5 L2 10 Z"/><path d="M14.5 7 L21.5 14 L14.5 21 L7.5 14 Z" opacity=".5"/></svg><span class="wordmark-serif">QuartzWrt</span></div>
+	</div>
+</div>
+
+<!-- D：Q 晶（字母 Q 与晶格同构） -->
+<div class="cand">
+	<div>
+		<h2>D · Q 晶</h2>
+		<p class="desc">字母 Q 与晶体剖面同构：圆环 + 内切十字晶格 + 尾脚。品牌联想直接（Quartz 的 Q），字号缩到 20px 仍可辨。</p>
+	</div>
+	<div class="tiles">
+		<div class="tile dark size20"><svg class="mark mark-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="12" cy="11.5" r="8"/><path d="M12 3.5 V19.5" opacity=".45"/><path d="M4 11.5 H20" opacity=".45"/><path d="M14.8 14.8 L20.5 20.5"/></svg></div>
+		<div class="tile dark size56"><svg class="mark mark-dark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="12" cy="11.5" r="8"/><path d="M12 3.5 V19.5" opacity=".45"/><path d="M4 11.5 H20" opacity=".45"/><path d="M14.8 14.8 L20.5 20.5"/></svg></div>
+		<div class="tile light size56"><svg class="mark mark-light" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="12" cy="11.5" r="8"/><path d="M12 3.5 V19.5" opacity=".45"/><path d="M4 11.5 H20" opacity=".45"/><path d="M14.8 14.8 L20.5 20.5"/></svg></div>
+		<div class="tile dark size96"><svg class="mark mark-mono-d" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><circle cx="12" cy="11.5" r="8"/><path d="M12 3.5 V19.5" opacity=".45"/><path d="M4 11.5 H20" opacity=".45"/><path d="M14.8 14.8 L20.5 20.5"/></svg></div>
+		<div class="lockup dark"><svg class="mark mark-dark" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="12" cy="11.5" r="8"/><path d="M12 3.5 V19.5" opacity=".45"/><path d="M4 11.5 H20" opacity=".45"/><path d="M14.8 14.8 L20.5 20.5"/></svg><span class="wordmark-serif">QuartzWrt</span></div>
+	</div>
+</div>
+
+<p class="note">Wordmark 当前按设计规范用系统衬线（随平台漂移，接受项）；右侧锁定组合亦可切无衬线体（见 <a href="preview.html" style="color:#0a84ff">preview.html</a> 顶栏样式）。选定方向后进入细化：网格对齐、在 16px 下的可读性、favicon 适配（含纯色底与暗色浏览器 UI）。</p>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"inject":"out/chosen.gen.css","cascade":"out/cascade.unlayered.css","verdict":"PASS","diffCount":0,"probeBefore":{"fontSize":"20px","fontWeight":"600"},"probeAfter":{"fontSize":"20px","fontWeight":"600"},"utilityWins":false,"diffs":[]}
