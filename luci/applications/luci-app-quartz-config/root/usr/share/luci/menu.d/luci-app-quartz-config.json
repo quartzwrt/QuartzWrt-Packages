@@ -1,0 +1,13 @@
+{
+	"admin/system/quartz-config": {
+		"title": "Quartz Theme",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "quartz/config"
+		},
+		"depends": {
+			"acl": [ "luci-app-quartz-config" ]
+		}
+	}
+}

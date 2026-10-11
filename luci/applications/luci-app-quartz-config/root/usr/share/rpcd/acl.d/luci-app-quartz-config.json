@@ -1,0 +1,11 @@
+{
+	"luci-app-quartz-config": {
+		"description": "Grant access to QuartzWrt theme configuration",
+		"read": {
+			"uci": [ "quartz" ]
+		},
+		"write": {
+			"uci": [ "quartz" ]
+		}
+	}
+}

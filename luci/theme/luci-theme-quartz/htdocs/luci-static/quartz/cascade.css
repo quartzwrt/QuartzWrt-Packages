@@ -15,11 +15,15 @@
  * ========================================================================== */
 
 :root {
-	/* 背景与材质（浅色） */
+	/* 背景与材质（浅色）。面板/输入井拆分为 RGB + 透明度，透明度由
+	 * luci-app-quartz-config（/etc/config/quartz）注入，未装配置包时默认 1（不透明） */
 	--qz-bg-base: #ececf0;
-	--qz-bg-panel: #ffffff;
+	--qz-bg-panel-rgb: 255, 255, 255;
+	--qz-bg-well-rgb: 242, 242, 247;
 	--qz-bg-raised: #ffffff;
-	--qz-bg-well: #f2f2f7;
+	--qz-panel-alpha: 1;
+	--qz-bg-panel: rgba(var(--qz-bg-panel-rgb), var(--qz-panel-alpha));
+	--qz-bg-well: rgba(var(--qz-bg-well-rgb), var(--qz-panel-alpha));
 	--qz-chrome: rgba(242, 242, 247, .72);
 	--qz-chrome-solid: #f2f2f7;
 	--qz-scrim: rgba(242, 242, 247, .55);
@@ -105,11 +109,11 @@
 }
 
 :root[data-darkmode="true"] {
-	/* 背景与材质（暗色，参考稿三级灰） */
+	/* 背景与材质（暗色，参考稿三级灰；透明度沿用 :root 的 --qz-panel-alpha） */
 	--qz-bg-base: #1c1c1e;
-	--qz-bg-panel: #2c2c2e;
+	--qz-bg-panel-rgb: 44, 44, 46;
+	--qz-bg-well-rgb: 28, 28, 30;
 	--qz-bg-raised: #3a3a3c;
-	--qz-bg-well: #1c1c1e;
 	--qz-chrome: rgba(28, 28, 30, .80);
 	--qz-chrome-solid: #1c1c1e;
 	--qz-scrim: rgba(28, 28, 30, .45);
@@ -874,6 +878,19 @@ input[type="radio"] {
 	border: 1px solid var(--qz-border);
 	border-radius: var(--qz-radius-sm);
 	padding: 8px;
+}
+
+/* 面板毛玻璃：仅当配置包把面板设为半透明时启用（data-qz-translucent 由模板按
+ * /etc/config/quartz 输出）。不透明状态下不挂 backdrop-filter，避免弱机型上
+ * 无谓的合成开销（性能护栏见 DESIGN.md §6）。 */
+html[data-qz-translucent] .cbi-map > .cbi-section,
+html[data-qz-translucent] .cbi-section .cbi-section,
+html[data-qz-translucent] .alert-message,
+html[data-qz-translucent] .cbi-section-error,
+html[data-qz-translucent] #syslog,
+html[data-qz-translucent] .modal {
+	-webkit-backdrop-filter: blur(var(--qz-blur));
+	backdrop-filter: blur(var(--qz-blur));
 }
 
 /* ==========================================================================

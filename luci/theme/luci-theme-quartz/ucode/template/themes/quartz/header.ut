@@ -6,25 +6,43 @@
 
 {%
 	import { getuid, getspnam } from 'luci.core';
+	import { cursor } from 'uci';
 
 	const boardinfo = ubus.call('system', 'board');
+
+	/* 主题可配置项（luci-app-quartz-config 维护 /etc/config/quartz；
+	 * 未安装配置包或读取失败时退回默认值） */
+	const num = (v, d) => { const n = +v; return n === n ? n : d; };
+	let panel_opacity = 100, blur = 20, default_mode = 'auto';
+	try {
+		const t = cursor().get_all('quartz', 'theme');
+		panel_opacity = t.panel_opacity ? num(t.panel_opacity, 100) : 100;
+		blur = (t.blur != null && t.blur !== '') ? num(t.blur, 20) : 20;
+		if (t.default_mode === 'dark' || t.default_mode === 'light')
+			default_mode = t.default_mode;
+	} catch (e) {}
+	panel_opacity = Math.max(50, Math.min(100, panel_opacity));
+	blur = Math.max(0, Math.min(40, blur));
+	const alpha = panel_opacity / 100;
 
 	http.prepare_content('text/html; charset=UTF-8');
 -%}
 
 <!DOCTYPE html>
-<html lang="{{ dispatcher.lang }}">
+<html lang="{{ dispatcher.lang }}" data-qz-default="{{ default_mode }}"{{ alpha < 1 ? ' data-qz-translucent' : '' }}>
 	<head>
 		<meta charset="utf-8">
 		<title>{{ striptags(`${boardinfo.hostname ?? '?'}${dispatched?.title ? ` | ${_(dispatched.title)}` : ''}`) }}</title>
 		<script>
-			/* 首绘前定外观，避免闪烁：localStorage 手动选择优先，否则跟随系统（详见 theme.js） */
+			/* 首绘前定外观，避免闪烁：localStorage 手动选择优先 → 管理端默认外观 → 跟随系统（详见 theme.js） */
 			(function () {
+				var r = document.documentElement;
 				var p = null;
 				try { p = localStorage.getItem('qz-theme'); } catch (e) {}
+				var d = r.getAttribute('data-qz-default') || 'auto';
+				if (!p && d !== 'auto') p = d;
 				var dark = (p === 'dark') ||
 					(p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-				var r = document.documentElement;
 				r.setAttribute('data-darkmode', dark ? 'true' : 'false');
 				r.setAttribute('data-qz-mode', (p === 'dark' || p === 'light') ? p : 'auto');
 			})();
@@ -34,6 +52,7 @@
 		<meta name="theme-color" content="#ececf0" media="(prefers-color-scheme: light)">
 		<meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
 		<link rel="stylesheet" href="{{ media }}/cascade.css">
+		<style>:root { --qz-panel-alpha: {{ alpha }}; --qz-blur: {{ blur }}px; }</style>
 		<link rel="icon" href="{{ media }}/logo.svg" sizes="any" type="image/svg+xml">
 		{% if (node?.css): %}
 		<link rel="stylesheet" href="{{ resource }}/{{ node.css }}">

@@ -1,0 +1,8 @@
+# QuartzWrt 主题配置（luci-app-quartz-config 维护）
+# 主题模板 header.ut 每次渲染时读取本节并内联为 CSS 变量。
+# 未安装配置包 / 本文件缺失时，主题使用内置默认值（等价于以下配置）。
+
+config theme 'theme'
+	option panel_opacity '100'   # 内容面板不透明度（50-100 %）
+	option blur '20'             # 侧边栏/顶栏/半透明面板的模糊强度（0-40 px）
+	option default_mode 'auto'   # 默认外观：auto（跟随系统）/ dark / light

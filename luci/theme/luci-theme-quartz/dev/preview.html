@@ -30,8 +30,11 @@
 	bottom: 16px;
 	z-index: 990;
 	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 	align-items: center;
 	gap: 6px;
+	max-width: 620px;
 	padding: 8px 12px;
 	border-radius: 12px;
 	background: var(--qz-bg-panel);
@@ -42,6 +45,8 @@
 }
 .qz-preview-bar .cbi-button { min-height: 26px; padding: 2px 10px; font-size: 12px; }
 .qz-preview-bar .sep { width: 1px; height: 18px; background: var(--qz-border); }
+.qz-preview-bar .qz-ctl { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.qz-preview-bar input[type="range"] { width: 92px; margin: 0; }
 .qz-stat-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -158,7 +163,7 @@
 <div id="maincontent" class="container">
 	<div class="alert-message notice">
 		<h4>设计预览页（dev/，不进安装包）</h4>
-		<p>本页加载真实主题样式 cascade.css，用于评审 macOS Vibrancy 风格。右下角可切换亮度与壁纸；登录页见 <a href="preview-login.html">preview-login.html</a>。</p>
+		<p>本页加载真实主题样式 cascade.css，用于评审 macOS Vibrancy 风格。下方卡片即<strong>内容面板</strong>（真实 LuCI 中的区段）——右下角可实时调节<strong>面板透明度</strong>与<strong>模糊强度</strong>，对应配置包 luci-app-quartz-config 的三个选项；登录页见 <a href="preview-login.html">preview-login.html</a>。</p>
 	</div>
 
 	<div id="tabmenu">
@@ -398,6 +403,9 @@
 	<span class="sep"></span>
 	<button class="cbi-button" id="btn-wallpaper">壁纸：关</button>
 	<span class="sep"></span>
+	<label class="qz-ctl">面板透明度 <input type="range" id="r-alpha" min="50" max="100" value="100"></label>
+	<label class="qz-ctl">模糊强度 <input type="range" id="r-blur" min="0" max="40" step="2" value="20"></label>
+	<span class="sep"></span>
 	<button class="cbi-button" id="btn-modal">模态框</button>
 	<a class="cbi-button" href="preview-login.html">登录页</a>
 </div>
@@ -438,6 +446,26 @@
 	document.getElementById('btn-modal').addEventListener('click', function () {
 		document.body.classList.add('modal-overlay-active');
 	});
+
+	/* 面板透明度 / 模糊强度（对应配置包选项 panel_opacity / blur） */
+	var rAlpha = document.getElementById('r-alpha');
+	var rBlur = document.getElementById('r-blur');
+
+	function applyAlpha(v) {
+		r.style.setProperty('--qz-panel-alpha', v / 100);
+		if (v < 100)
+			r.setAttribute('data-qz-translucent', '');
+		else
+			r.removeAttribute('data-qz-translucent');
+	}
+
+	rAlpha.addEventListener('input', function () { applyAlpha(+rAlpha.value); });
+	rBlur.addEventListener('input', function () { r.style.setProperty('--qz-blur', rBlur.value + 'px'); });
+
+	/* 支持 ?alpha=70&blur=24 供截图/评审 */
+	var qp = new URLSearchParams(location.search);
+	if (qp.get('alpha')) { rAlpha.value = qp.get('alpha'); applyAlpha(+rAlpha.value); }
+	if (qp.get('blur')) { rBlur.value = qp.get('blur'); r.style.setProperty('--qz-blur', rBlur.value + 'px'); }
 })();
 </script>
 </body>

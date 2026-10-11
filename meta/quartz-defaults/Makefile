@@ -26,6 +26,8 @@ define Package/quartz-defaults
   # （thirdparty 不收录同名包，会被基座遮蔽，docs/TDD.md §3.1）；
   # luci-lib-docker 来自 thirdparty feed。
   DEPENDS:= \
+    +luci-theme-quartz \
+    +luci-app-quartz-config \
     +luci-app-openclash \
     +luci-lib-docker \
     +luci-app-dockerman

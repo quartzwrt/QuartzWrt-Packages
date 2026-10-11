@@ -37,9 +37,9 @@
 | Token | 暗色 | 浅色 | 用途 |
 | :--- | :--- | :--- | :--- |
 | `--qz-bg-base` | `#1c1c1e` | `#ececf0` | 窗口底色（壁纸层之上、面板之下） |
-| `--qz-bg-panel` | `#2c2c2e` | `#ffffff` | 内容面板、卡片、字段集 |
-| `--qz-bg-raised` | `#3a3a3c` | `#ffffff` + 描边 | 按钮等抬升元素 |
-| `--qz-bg-well` | `#1c1c1e` | `#f2f2f7` | 输入框、代码块等"下沉"面 |
+| `--qz-bg-panel` | `rgba(44,44,46,α)` | `rgba(255,255,255,α)` | 内容面板、卡片、字段集（α = `--qz-panel-alpha`，默认 1） |
+| `--qz-bg-raised` | `#3a3a3c` | `#ffffff` + 描边 | 按钮等抬升元素（保持不透明） |
+| `--qz-bg-well` | `rgba(28,28,30,α)` | `rgba(242,242,247,α)` | 输入框、代码块等"下沉"面 |
 | `--qz-chrome` | `rgba(28,28,30,.80)` | `rgba(242,242,247,.72)` | 侧边栏 / 顶栏 / 模态遮罩，叠加 `blur(20px)` |
 | `--qz-scrim` | `rgba(28,28,30,.45)` | `rgba(242,242,247,.55)` | 壁纸与内容之间的压暗/提亮层（保证对比度） |
 
@@ -132,11 +132,27 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 - **兼容层**：cascade.css 同时提供 bootstrap 旧变量名（`--background-color-*` / `--text-color-*` / `--border-color-*` / `--primary-color-*` / `--error/success/warn-*` 等）到 `--qz-*` 的别名映射，引用旧变量的第三方应用自动适配双模与 Quartz 色板。
 - 跨设备持久化（uci）列为后续增强。
 
+### 5.1 外观配置包（luci-app-quartz-config）
+
+主题的可配置项由**独立配置包**提供（用户定案）：主题本体不含设置界面，未安装配置包或读取失败时一律回退内置默认值，两者可独立工作。
+
+| 选项（`/etc/config/quartz`，section `theme`） | 范围 | 默认 | 作用 |
+| :--- | :--- | :--- | :--- |
+| `panel_opacity` | 50–100 (%) | 100 | 内容面板/输入井不透明度；<100% 时自动启用面板毛玻璃（`html[data-qz-translucent]`） |
+| `blur` | 0–40 (px) | 20 | `--qz-blur`：侧边栏、顶栏与半透明面板的背景模糊量 |
+| `default_mode` | auto / dark / light | auto | 首次访问者的默认外观（浏览器内手动选择优先） |
+
+- **生效路径**：`header.ut` 每次渲染读出 uci，输出 `<style>:root{--qz-panel-alpha;--qz-blur}</style>` 与 `data-qz-translucent` / `data-qz-default` 属性；保存后下次页面加载生效，无需重启服务。
+- **性能**：面板毛玻璃仅在半透明时挂 `backdrop-filter`（见 §6）；不透明状态下零额外合成开销。
+- **预览**：`dev/preview.html` 右下角提供等价滑杆（面板透明度 / 模糊强度），可实时体验。
+- 配置页位于 LuCI「系统 → Quartz Theme」（menu.d `admin/system/quartz-config`），ACL 仅开放 `quartz` 配置读写。
+- `quartz-defaults` 元包同时依赖主题与配置包（随发行版默认携带，可在 LuCI 主题选择器切换）。
+
 ## 6. 性能护栏
 
 | 项 | 约束 |
 | :--- | :--- |
-| blur 范围 | 仅固定 chrome 与模态遮罩；滚动容器禁挂；同屏模糊层 ≤3 |
+| blur 范围 | 默认仅固定 chrome 与模态遮罩；面板毛玻璃为用户显式开启（默认关闭）；开启后滚动面板参与模糊，弱机型可通过配置包调低 blur 或保持 100% 不透明 |
 | 回退 | `@supports not (backdrop-filter: blur(1px))` → chrome 用不透明 `--qz-bg-panel` |
 | 体积预算 | cascade.css 压缩后 ≤60KB；主题 JS <10KB；噪点图 <2KB；零 webfont |
 | 动效 | 仅颜色过渡，无 transform 动画 |
@@ -175,6 +191,18 @@ luci/theme/luci-theme-quartz/
 
 主题骨架结构以 luci-theme-bootstrap 为底（Apache-2.0，兼容性最稳）；CSS 100% 自研。注意 25.12 的 LuCI 模板体系已是 **ucode 模板（`.ut`，位于 `ucode/template/themes/<主题名>/`）**，旧式 `luasrc/view/themes/*.htm` 不再适用；`luci.mk` 会把 `ucode/` 安装到 `/usr/share/ucode/luci/`。
 
+配套配置包（独立安装，主题可脱离它工作）：
+
+```text
+luci/applications/luci-app-quartz-config/
+├── Makefile                     # LUCI_DEPENDS:=+luci-base +luci-theme-quartz
+├── htdocs/luci-static/resources/view/quartz/config.js   # 配置页（JS CBI）
+├── root/etc/config/quartz       # 默认配置（section 'theme'）
+├── root/usr/share/luci/menu.d/luci-app-quartz-config.json
+├── root/usr/share/rpcd/acl.d/luci-app-quartz-config.json
+└── po/zh_Hans/quartz-config.po  # 中文翻译
+```
+
 ## 9. 与 WP-3 的接口约定
 
 - **token 单一来源**：主题 `cascade.css` 的 `:root` 变量；Dashboard 的 Tailwind 配置把颜色映射到 `var(--qz-*)`，不另起色板。
@@ -193,16 +221,18 @@ luci/theme/luci-theme-quartz/
 | W2.5 | Tailwind 隔离 spike + 结论写回 TDD §8 | W2.3 |
 | W2.6 | Logo 定稿入库（SVG 候选 → 用户挑选） | W2.3 |
 | W2.7 | 收尾：quartz-defaults 追加依赖（共享文件，追加式）、默认主题、验收 | W2.4–W2.6 |
+| W2.8 | 外观配置包 `luci-app-quartz-config`（面板透明度/模糊强度/默认外观） | W2.3 |
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
 **实现状态（2026-10-12）**：
 
 - ✅ W2.0 设计文档 + 预览页（`dev/preview.html`、`dev/preview-login.html`，含渲染截图 `dev/shots/`）
-- ✅ W2.1 骨架包 / W2.2 模板 / W2.3 token 层 / W2.4 cbi 换皮——**初版完成**，已通过 Edge 无头渲染校验（暗/浅/壁纸/登录四态）
+- ✅ W2.1 骨架包 / W2.2 模板 / W2.3 token 层 / W2.4 cbi 换皮——**初版完成**，已通过 Edge 无头渲染校验（暗/浅/壁纸/登录/半透明面板六态）
+- ✅ W2.8 外观配置包 `luci-app-quartz-config` 初版；`quartz-defaults` 已追加 `+luci-theme-quartz +luci-app-quartz-config`
 - ⬜ W2.5 Tailwind 隔离 spike（结论写回 TDD §8）
 - ⬜ W2.6 Logo 定稿（当前为占位晶体标记）
-- ⬜ W2.7 收尾（quartz-defaults 追加依赖、默认主题、验收）
+- ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（依赖 WP-1 基础设施就绪后执行）
 
 ## 11. TDD 同步清单（待写入两处副本，需用户/架构确认）
@@ -210,6 +240,7 @@ luci/theme/luci-theme-quartz/
 1. §8 待决事项「UI 隔离」→ 已决策：方案 A 先行（spike 通过后回填结论）。
 2. §3.3 / §8：新增「主题双模」决策条目与 DESIGN.md 指针。
 3. §4.4 运行时资源：壁纸投放目录（`/www/quartz-wallpaper/`，用户文件、不随包升级）纳入治理清单。
+4. 外观配置包（§5.1）：主题配置的 uci 归属（`/etc/config/quartz`，section `theme`）与 `luci-app-quartz-config` 包建议在 TDD 中登记。
 
 ## 12. 未决与验证项
 
