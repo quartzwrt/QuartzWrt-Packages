@@ -1,0 +1,13 @@
+{
+	"admin/dashboard": {
+		"title": "Dashboard",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "quartz/dashboard"
+		},
+		"depends": {
+			"acl": [ "luci-app-dashboard-index" ]
+		}
+	}
+}

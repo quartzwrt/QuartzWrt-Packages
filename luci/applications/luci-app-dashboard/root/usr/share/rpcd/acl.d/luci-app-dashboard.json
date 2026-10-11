@@ -1,0 +1,15 @@
+{
+	"luci-app-dashboard-index": {
+		"description": "Grant read access to the Quartz dashboard (aggregated status snapshot)",
+		"read": {
+			"file": {
+				"/var/run/quartz/status.json": [ "read" ],
+				"/var/run/quartz": [ "list" ]
+			},
+			"ubus": {
+				"file": [ "list", "read" ],
+				"luci": [ "getUnixtime" ]
+			}
+		}
+	}
+}

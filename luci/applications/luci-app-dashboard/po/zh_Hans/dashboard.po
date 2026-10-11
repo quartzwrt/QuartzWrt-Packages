@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-dashboard\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# --- 壳层（view/quartz/dashboard.js） ---
+msgid "Dashboard"
+msgstr "概览"
+
+msgid "Dashboard bundle is missing"
+msgstr "Dashboard 产物缺失"
+
+msgid "This is a development state: build src/ and commit the bundle to htdocs/luci-static/resources/quartz-dashboard/ (see docs/DESIGN.md §4)."
+msgstr "这是开发态：请构建 src/ 并把产物提交到 htdocs/luci-static/resources/quartz-dashboard/（见 docs/DESIGN.md §4）。"
+
+msgid "Dashboard failed to render"
+msgstr "Dashboard 渲染失败"
+
+# --- 应用（src/ 产物，手工维护，新增卡片时同步，DESIGN.md §6.6） ---
+msgid "System"
+msgstr "系统资源"
+
+msgid "Network"
+msgstr "网络吞吐"
+
+msgid "Clients"
+msgstr "在线设备"
+
+msgid "Services & cores"
+msgstr "服务与核心"
+
+msgid "Collector is not running"
+msgstr "采集器未运行"
+
+msgid "Collector data is corrupted"
+msgstr "采集器数据损坏"
+
+msgid "Unavailable"
+msgstr "不可用"
+
+msgid "Not installed"
+msgstr "未安装"

@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>luci-app-dashboard · 设计预览（dev）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 加载真实主题样式：预览即所见（路径相对本文件，任意服务器根可用） -->
+<link rel="stylesheet" href="../../../theme/luci-theme-quartz/htdocs/luci-static/quartz/cascade.css">
+<script>
+/* 首绘前应用 URL 参数：?theme=auto|dark|light  ?wallpaper=1  ?alpha=50..100 */
+(function () {
+	var q = new URLSearchParams(location.search);
+	var t = q.get('theme') || 'auto';
+	var r = document.documentElement;
+	var dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+	r.setAttribute('data-darkmode', dark ? 'true' : 'false');
+	r.setAttribute('data-qz-mode', (t === 'dark' || t === 'light') ? t : 'auto');
+	if (q.get('wallpaper') === '1') {
+		r.setAttribute('data-qz-wallpaper', '');
+		/* 自定义属性中的 URL 按声明处解析：此处为内联样式，用运行时绝对化保证任意服务器根可用 */
+		r.style.setProperty('--qz-wallpaper-on',
+			"url('" + new URL('../../../theme/luci-theme-quartz/dev/wallpaper-sample.svg', location.href).href + "')");
+	}
+	if (q.get('alpha')) {
+		r.style.setProperty('--qz-panel-alpha', (+q.get('alpha')) / 100);
+		if (+q.get('alpha') < 100) r.setAttribute('data-qz-translucent', '');
+	}
+})();
+</script>
+<style>
+/* ==========================================================================
+ * 预览页专用样式（dev/，不属于安装包；仅供设计评审）
+ * 卡片材质直接消费主题 token（--qz-*），色板不复制；
+ * 说明：主题当前的毛玻璃选择器只覆盖 .cbi-section / .alert-message 等，
+ *       Dashboard 自有卡片类需自带一条 backdrop-filter 规则——此项已登记给
+ *       WP-2 作为候选接口（cascade.css 提供通用 .qz-panel 面板类）。
+ * ========================================================================== */
+
+/* ---- 布局：12 列栅格（宽屏 12 / 中屏 6 / 手机 1）
+ * 排布原则：同一行内的卡片内容高度应相近（矮卡配矮卡），避免行尾空白。
+ * 行序 = 注册表顺序（system 4 + network 8 / docker 4 + services 8 / clients 12）。
+ * 不采用 masonry：CSS 原生 masonry 未标准化，JS 重排对其余场景是负债。 ---- */
+.qzd-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-bottom: 20px; }
+.qzd-sp-4  { grid-column: span 4; }
+.qzd-sp-6  { grid-column: span 6; }
+.qzd-sp-8  { grid-column: span 8; }
+.qzd-sp-12 { grid-column: span 12; }
+@media (max-width: 1119px) {
+	.qzd-sp-4, .qzd-sp-8 { grid-column: span 6; }
+}
+@media (max-width: 699px) {
+	.qzd-grid { grid-template-columns: 1fr; }
+	.qzd-sp-4, .qzd-sp-6, .qzd-sp-8, .qzd-sp-12 { grid-column: auto; }
+	/* 手机单列顺序 = 注册表 order（设备列表提到服务之前，人对"谁在上网"的关切更高） */
+	#clients  { order: 4; }
+	#services { order: 5; }
+	/* 窄屏：设备表隐藏 MAC 与接口列（次要素不值列空间），防表格最小宽度撑破页面 */
+	.qzd-table th:nth-child(3), .qzd-table td:nth-child(3),
+	.qzd-table th:nth-child(4), .qzd-table td:nth-child(4) { display: none; }
+	.qzd-hero .summary { margin-left: 0; flex-wrap: wrap; gap: 18px 26px; }
+	.qz-preview-bar { left: 12px; right: 12px; max-width: none; }
+}
+
+/* ---- 卡片 = 主题面板材质 ---- */
+.qzd-card {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 14px 16px;
+	scroll-margin-top: calc(var(--qz-topbar-h) + 16px);
+	min-width: 0;   /* 允许栅格子项收缩：表格等内容最小宽度不得撑破页面 */
+}
+html[data-qz-translucent] .qzd-card {
+	-webkit-backdrop-filter: blur(var(--qz-blur));
+	backdrop-filter: blur(var(--qz-blur));
+}
+.qzd-card > h4 {
+	margin: 0 0 10px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--qz-text-2);
+	letter-spacing: .02em;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.qzd-card > h4 .qzd-more { margin-left: auto; font-size: 12.5px; font-weight: 400; }
+
+/* ---- Hero（品牌时刻：衬线主机名 + 元信息 + 右侧摘要） ---- */
+.qzd-hero {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 20px 22px;
+	margin-bottom: 14px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px 28px;
+	align-items: center;
+}
+html[data-qz-translucent] .qzd-hero {
+	-webkit-backdrop-filter: blur(var(--qz-blur));
+	backdrop-filter: blur(var(--qz-blur));
+}
+.qzd-hero .hostname { font-family: var(--qz-font-serif); font-size: 27px; line-height: 1.15; }
+.qzd-hero .meta { margin-top: 5px; font-size: 13px; color: var(--qz-text-2); }
+.qzd-hero .summary { margin-left: auto; display: flex; gap: 26px; }
+.qzd-hero .summary .k { font-size: 12px; color: var(--qz-text-2); margin-bottom: 3px; }
+.qzd-hero .summary .v { font-family: var(--qz-font-mono); font-size: 14px; }
+
+/* ---- 通用小件 ---- */
+.qzd-stat .k { font-size: 12px; color: var(--qz-text-2); margin-bottom: 3px; }
+.qzd-stat .v { font-family: var(--qz-font-mono); font-size: 15px; }
+.qzd-stat-row { display: flex; gap: 26px; flex-wrap: wrap; margin-bottom: 12px; }
+.qzd-kv { display: flex; align-items: center; gap: 10px; margin-top: 9px; font-size: 13px; color: var(--qz-text-2); }
+.qzd-kv .k { flex: 0 0 122px; white-space: nowrap; }
+.qzd-kv .v { margin-left: auto; font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); }
+.qzd-kv .cbi-progressbar { flex: 1 1 auto; max-width: 220px; }
+.qzd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--qz-text-3); flex: 0 0 auto; }
+.qzd-dot.ok { background: var(--qz-ok); }
+.qzd-dot.warn { background: var(--qz-warn); }
+.qzd-dot.err { background: var(--qz-err); }
+.qzd-muted { color: var(--qz-text-3); }
+.qzd-cap { font-size: 12px; color: var(--qz-text-3); margin-top: 8px; }
+.qzd-arrow { color: var(--qz-accent); }
+.qzd-errchip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--qz-warn); margin-top: 8px; }
+
+/* ---- 网络卡 ---- */
+.qzd-wan { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+.qzd-rate { display: flex; gap: 30px; margin: 2px 0 6px; }
+.qzd-rate .k { font-size: 12px; color: var(--qz-text-2); margin-bottom: 2px; }
+.qzd-rate .v { font-family: var(--qz-font-mono); font-size: 19px; }
+.qzd-rate .v.down { color: var(--qz-accent); }
+.qzd-spark { width: 100%; height: 66px; display: block; }
+
+/* ---- 设备表（紧凑密度，技术值等宽；固定布局 + 列宽百分比，避免宽屏下列距失衡） ---- */
+.qzd-table { width: 100%; table-layout: fixed; font-size: 12.5px; }
+.qzd-table th {
+	text-align: left;
+	font-weight: 400;
+	color: var(--qz-text-3);
+	padding: 0 8px 6px 0;
+	border-bottom: 1px solid var(--qz-border);
+}
+.qzd-table td {
+	padding: 6px 8px 6px 0;
+	border-bottom: 1px solid var(--qz-border);
+	color: var(--qz-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.qzd-table .w-host { width: 24%; }
+.qzd-table .w-ip   { width: 18%; }
+.qzd-table .w-mac  { width: 22%; }
+.qzd-table .w-if   { width: 14%; }
+.qzd-table .w-ago  { width: 20%; }
+.qzd-table tr:last-child td { border-bottom: 0; }
+.qzd-table .mono { font-family: var(--qz-font-mono); }
+.qzd-table .dim { color: var(--qz-text-2); }
+
+/* ---- 服务卡 ---- */
+.qzd-svc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 699px) { .qzd-svc { grid-template-columns: 1fr; } }
+.qzd-svc .name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-bottom: 5px; }
+
+/* ---- 空态 / 骨架（静态，无动画——主题硬规则） ---- */
+.qzd-empty { padding: 14px 0 8px; color: var(--qz-text-3); font-size: 13px; }
+.qzd-skel .bar {
+	height: 12px;
+	border-radius: 6px;
+	background: var(--qz-bg-well);
+	border: 1px solid var(--qz-border);
+	margin-top: 10px;
+	opacity: .55;
+}
+
+/* ---- 预览控制条（沿用主题预览页样式） ---- */
+.qz-preview-bar {
+	position: fixed; right: 16px; bottom: 16px; z-index: 990;
+	display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
+	gap: 8px; max-width: 720px; padding: 8px 12px;
+	border-radius: 12px;
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	box-shadow: var(--qz-shadow-raised);
+	font-size: 12.5px; color: var(--qz-text-2);
+}
+.qz-preview-bar .cbi-button { min-height: 26px; padding: 2px 10px; font-size: 12px; }
+.qz-preview-bar .sep { width: 1px; height: 18px; background: var(--qz-border); }
+.qz-preview-bar .qz-ctl { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.qz-preview-bar input[type="range"] { width: 84px; margin: 0; }
+.qz-preview-bar select { min-height: 26px; padding: 2px 6px; font-size: 12px; }
+.qzd-anchor-nav a { margin-right: 10px; }
+</style>
+</head>
+
+<body class="lang_zh-cn">
+<div id="qz-nav-veil"></div>
+
+<!-- ===== 侧边栏（模拟 menu-quartz.js 输出结构：admin 一级项 = Dashboard(order 1) + 分组） ===== -->
+<nav id="qz-sidebar">
+	<a class="brand" href="#">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+			<path d="M12 2 L20 6.6 V17.4 L12 22 L4 17.4 V6.6 Z"/>
+			<path d="M4 6.6 L12 11.6 L20 6.6"/>
+			<path d="M12 11.6 V22" opacity=".45"/>
+		</svg>
+		<span>QuartzWrt-R4S</span>
+	</a>
+	<div class="qz-nav" id="qz-nav">
+		<div class="qz-nav-group">
+			<ul>
+				<li class="qz-nav-item active"><a href="#">Dashboard</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">状态</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">概览</a></li>
+				<li class="qz-nav-item"><a href="#">路由表</a></li>
+				<li class="qz-nav-item"><a href="#">系统日志</a></li>
+				<li class="qz-nav-item"><a href="#">实时图表</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">系统</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">系统</a></li>
+				<li class="qz-nav-item"><a href="#">软件包</a></li>
+				<li class="qz-nav-item"><a href="#">挂载点</a></li>
+				<li class="qz-nav-item"><a href="#">备份 / 升级</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">服务</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">Dockerman</a></li>
+				<li class="qz-nav-item"><a href="#">OpenClash</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">网络</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">接口</a></li>
+				<li class="qz-nav-item"><a href="#">DHCP / DNS</a></li>
+				<li class="qz-nav-item"><a href="#">防火墙</a></li>
+			</ul>
+		</div>
+	</div>
+	<div class="qz-sidebar-foot" style="display:none">
+		<ul class="qz-modes" id="modemenu"><li class="active"><a href="#">管理</a></li></ul>
+	</div>
+</nav>
+
+<!-- ===== 顶栏 ===== -->
+<header>
+	<button type="button" id="qz-nav-toggle" class="qz-icon-btn" aria-label="菜单">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+			<path d="M4 7h16M4 12h16M4 17h16"/>
+		</svg>
+	</button>
+	<div id="indicators" class="pull-right"></div>
+	<button type="button" id="qz-theme-toggle" class="qz-icon-btn" aria-label="外观">
+		<svg class="qz-i-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+			<circle cx="12" cy="12" r="8.5"/>
+			<path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor" stroke="none"/>
+		</svg>
+		<svg class="qz-i-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+			<path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5Z"/>
+		</svg>
+		<svg class="qz-i-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+			<circle cx="12" cy="12" r="4.5"/>
+			<path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
+		</svg>
+	</button>
+</header>
+
+<!-- ===== 内容区 ===== -->
+<div id="maincontent" class="container">
+	<div class="alert-message notice">
+		<h4>设计预览页（dev/，不进安装包，数据为 mock）</h4>
+	<p>对应设计稿 <strong>DESIGN.md §5.1 布局 / §5.2 视觉硬规则 / §6.3 联动</strong>；样例数据读取
+	<span class="qz-mono">dev/mock/status.json</span>（与冻结契约 <strong>docs/AGGREGATE-API.md</strong> 同源）。右下角可切换
+	<strong>数据四态</strong>（正常 / 采集器未运行 / 部分不可用 / 数据损坏）与<strong>明暗外观</strong>。
+		卡片标题右侧的 <span class="qzd-arrow">→</span> 为深链示意（真实实现由壳层判定目标页存在性，不产生死链）；
+		<span class="qzd-anchor-nav">锚点：
+			<a href="#system">系统</a><a href="#network">网络</a><a href="#docker">Docker</a><a href="#clients">设备</a><a href="#services">服务</a>
+		</span></p>
+	</div>
+
+	<div id="view"></div>
+</div>
+
+<footer>
+	<span>Powered by <a href="#">LuCI (25.12)</a> / <a href="#">ImmortalWrt 25.12 (ce35a9e4)</a></span>
+</footer>
+
+<!-- ===== 预览控制条 ===== -->
+<div class="qz-preview-bar">
+	<span>预览</span>
+	<span class="sep"></span>
+	<button class="cbi-button" data-set-theme="auto">跟随系统</button>
+	<button class="cbi-button" data-set-theme="dark">深色</button>
+	<button class="cbi-button" data-set-theme="light">浅色</button>
+	<span class="sep"></span>
+	<label class="qz-ctl">数据态
+		<select id="sel-state">
+			<option value="normal">正常</option>
+			<option value="down">采集器未运行</option>
+			<option value="partial">部分不可用</option>
+			<option value="broken">数据损坏</option>
+		</select>
+	</label>
+	<span class="sep"></span>
+	<button class="cbi-button" id="btn-wallpaper">壁纸：关</button>
+	<label class="qz-ctl">面板透明度 <input type="range" id="r-alpha" min="50" max="100" value="100"></label>
+	<span class="sep"></span>
+	<label class="qz-ctl"><input type="checkbox" id="ck-live" checked> 实时跳动</label>
+</div>
+
+<script src="../../../theme/luci-theme-quartz/htdocs/luci-static/quartz/theme.js"></script>
+<script>
+/* ==========================================================================
+ * 预览渲染（非最终实现；技术栈待拍板）
+ * 结构对齐设计稿：契约样例数据(§3) + 卡片注册表(§5.3) + 四态(§2.2) + 锚点/深链(§6.3)
+ * ========================================================================== */
+
+/* ---- 契约样例数据：读取 dev/mock/*.json（与冻结契约 docs/AGGREGATE-API.md 同源，WP-4 联调基准） ---- */
+var NOW = Math.floor(Date.now() / 1000);
+var MOCK_CACHE = {};
+function loadMock(kind) {
+	var file = (kind === 'partial') ? 'mock/status.partial.json' : 'mock/status.json';
+	if (!MOCK_CACHE[file])
+		MOCK_CACHE[file] = fetch(file, { cache: 'no-store' }).then(function (r) {
+			if (!r.ok) throw new Error('mock http ' + r.status);
+			return r.json();
+		});
+	return MOCK_CACHE[file];
+}
+
+/* ---- 格式化 ---- */
+function fmtRate(bps) {
+	var mbps = bps * 8 / 1e6;
+	return mbps >= 100 ? mbps.toFixed(0) + ' Mbps' : mbps.toFixed(1) + ' Mbps';
+}
+function fmtBytes(n) {
+	return n >= 1073741824 ? (n / 1073741824).toFixed(n % 1073741824 ? 2 : 0) + ' GB'
+	     : n >= 1048576 ? (n / 1048576).toFixed(n % 1048576 ? 1 : 0) + ' MB'
+	     : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
+}
+function fmtUptime(s) {
+	var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+	return (d ? d + ' 天 ' : '') + ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
+}
+function fmtAgo(sec) {
+	return sec < 45 ? '刚刚' : sec < 3600 ? Math.round(sec / 60) + ' 分钟前' : Math.round(sec / 3600) + ' 小时前';
+}
+function dot(state) { return '<span class="qzd-dot ' + (state || '') + '"></span>'; }
+function more(link, label) { return link ? '<a class="qzd-more" href="#" title="深链：' + link + '（运行时判定存在性）">' + label + ' <span class="qzd-arrow">&rarr;</span></a>' : ''; }
+
+/* ---- 卡片（注册表结构对齐 §5.3：id / section / span / title / render / empty） ---- */
+function cardSystem(sys) {
+	if (!sys) return emptyCard('系统', '采集器未返回系统数据');
+	return '' +
+	'<div class="qzd-kv"><span class="k">负载（1/5/15）</span><span class="v">' +
+		sys.load.map(function (x) { return x.toFixed(2); }).join(' / ') + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">CPU 占用</span><div class="cbi-progressbar"><div style="width:' + sys.cpu_pct + '%"></div></div><span class="v">' + sys.cpu_pct.toFixed(1) + '%</span></div>' +
+	'<div class="qzd-kv"><span class="k">内存</span><div class="cbi-progressbar"><div style="width:' + sys.mem.pct + '%"></div></div><span class="v">' + fmtBytes(sys.mem.used) + ' / ' + fmtBytes(sys.mem.total) + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">交换</span><span class="v' + (sys.swap && sys.swap.total ? '' : ' qzd-muted') + '">' +
+		(sys.swap && sys.swap.total ? fmtBytes(sys.swap.used) + ' / ' + fmtBytes(sys.swap.total) : '未启用') + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">存储（/）</span><div class="cbi-progressbar"><div style="width:' + sys.rootfs.pct + '%"></div></div><span class="v">' + fmtBytes(sys.rootfs.used) + ' / ' + fmtBytes(sys.rootfs.total) + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">温度</span><span class="v' + (sys.temp_c == null ? ' qzd-muted' : '') + '">' +
+		(sys.temp_c == null ? '—（无传感器）' : sys.temp_c.toFixed(1) + ' °C') + '</span></div>';
+}
+
+function cardNetwork(net, host) {
+	if (!net || !net.wan) return emptyCard('网络', '采集器未返回网络数据');
+	var wan = net.wan;
+	return '' +
+	'<div class="qzd-wan">' + dot(wan.up ? 'ok' : 'err') +
+		'<span>' + (wan.up ? '在线' : '离线') + '</span>' +
+		'<span class="qzd-muted">' + wan.ifname + ' · ' + wan.proto + '</span>' +
+		'<span class="qz-mono">' + wan.ipv4 + '</span></div>' +
+	'<div class="qzd-rate">' +
+		'<div><div class="k">下行</div><div class="v down" id="qzd-rate-rx">' + fmtRate(wan.rx_bps) + '</div></div>' +
+		'<div><div class="k">上行</div><div class="v" id="qzd-rate-tx">' + fmtRate(wan.tx_bps) + '</div></div>' +
+	'</div>' +
+	'<svg class="qzd-spark" id="qzd-spark" viewBox="0 0 600 66" preserveAspectRatio="none" aria-hidden="true">' +
+		'<polyline id="qzd-spark-tx" fill="none" stroke="var(--qz-text-3)" stroke-width="1.4" points=""/>' +
+		'<polyline id="qzd-spark-rx" fill="none" stroke="var(--qz-accent)" stroke-width="1.6" points=""/>' +
+	'</svg>' +
+	'<div class="qzd-cap">下行（<span class="qzd-arrow">蓝</span>）/ 上行（灰）· 最近 2 分钟 · daemon 环形缓冲</div>';
+}
+
+function cardDocker(d) {
+	if (d == null) return emptyCard('Docker', '不可用：采集器未返回 Docker 数据（契约：available=false 时整卡隐藏）');
+	if (!d.available) return '';
+	var un = (d.unhealthy || []).length;
+	return '' +
+	'<div class="qzd-kv"><span class="k">运行中</span><span class="v">' + d.running + ' / ' + d.total + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">镜像</span><span class="v">' + d.images + '</span></div>' +
+	'<div class="qzd-kv"><span class="k">不健康</span><span class="v">' +
+		(un ? dot('warn') + ' ' + d.unhealthy.join('、') : '无') + '</span></div>';
+}
+
+function cardClients(c, errors) {
+	if (!c) return emptyCard('在线设备', '采集器未返回设备数据');
+	if (!c.items.length)
+		return emptyCard('在线设备', '暂无在线设备（DHCP 租约不可读）', errors);
+	var rows = c.items.map(function (it) {
+		return '<tr><td>' + it.host + '</td>' +
+			'<td class="mono">' + it.ip + '</td>' +
+			'<td class="mono dim">' + it.mac + '</td>' +
+			'<td class="dim">' + it.iface + '</td>' +
+			'<td class="dim">' + fmtAgo((payload && payload.ts ? payload.ts : NOW) - it.last_seen) + '</td></tr>';
+	}).join('');
+	return '' +
+	'<table class="qzd-table"><thead><tr><th class="w-host">主机名</th><th class="w-ip">IP 地址</th><th class="w-mac">MAC 地址</th><th class="w-if">接口</th><th class="w-ago">最近活跃</th></tr></thead>' +
+	'<tbody>' + rows + '</tbody></table>' +
+	'<div class="qzd-cap">共 ' + c.total + ' 台在线 · 列表按最近活跃排序（前 ' + c.items.length + ' 台）</div>' +
+	(errors && errors.length ? '<div class="qzd-errchip">' + dot('warn') + ' 部分数据不可用：' + errors.join('；') + '</div>' : '');
+}
+
+function cardServices(svc, meta) {
+	if (!svc && !(meta && meta.interval != null)) return emptyCard('服务与核心', '采集器未返回服务数据');
+	function item(name, state, detail, extra, link, label) {
+		return '<div><div class="name">' + dot(state) + name + '</div>' +
+			'<div class="qzd-stat"><div class="v">' + detail + '</div></div>' + (extra || '') +
+			(link ? '<div class="qzd-cap"><a href="#" title="深链：' + link + '（运行时判定存在性）">' + (label || '管理页') + ' <span class="qzd-arrow">&rarr;</span></a></div>' : '') +
+			'</div>';
+	}
+	var oc = svc.openclash == null
+		? '<div><div class="name">' + dot() + 'OpenClash</div><div class="qzd-stat"><div class="v qzd-muted">不可用</div></div></div>'
+		: item('OpenClash', svc.openclash.running ? 'ok' : 'err', 'mihomo ' + (svc.openclash.core || '').replace('mihomo ', ''),
+			svc.openclash.core_update ? '<div style="margin-top:6px"><span class="label notice">核心可更新 ' + svc.openclash.core_update + '</span></div>' : '',
+			'admin/services/openclash', '配置页');
+	var dk = svc.dockerd
+		? item('Docker', svc.dockerd.running ? 'ok' : 'err', svc.dockerd.running ? '运行中' : '已停止')
+		: '';
+	/* quartz-daemon 自诊断来自契约顶层字段（AGGREGATE-API.md §2） */
+	var qd = (meta && meta.interval != null)
+		? item('quartz-daemon', 'ok', '采集 ' + meta.interval + 's' +
+			(meta.collect_ms != null ? ' · 上次 ' + meta.collect_ms + 'ms' : ''))
+		: '';
+	return '<div class="qzd-svc">' + oc + dk + qd + '</div>';
+}
+
+function emptyCard(title, msg, errors) {
+	return '<div class="qzd-empty">' + msg + '</div>' +
+		(errors && errors.length ? '<div class="qzd-errchip">' + dot('warn') + ' ' + errors.join('；') + '</div>' : '');
+}
+
+/* ---- 整页渲染 ---- */
+var STATE = 'normal';
+var payload = null;      /* 由 applyState() 从 dev/mock/*.json 装载 */
+
+function render() {
+	var view = document.getElementById('view');
+	var sections = [
+		{ id: 'system',   span: 4,  title: '系统资源',   html: cardSystem(payload && payload.system) },
+		{ id: 'network',  span: 8,  title: '网络吞吐',   link: ['admin/status/realtime', '实时流量'], html: cardNetwork(payload && payload.net, payload && payload.host) },
+		{ id: 'docker',   span: 4,  title: 'Docker',     link: ['admin/services/dockerman/containers', '容器'], html: cardDocker(payload && payload.docker) },
+		{ id: 'services', span: 8,  title: '服务与核心', html: cardServices(payload && payload.services, payload) },
+		{ id: 'clients',  span: 12, title: '在线设备',   link: ['admin/status/routes', '查看全部'], html: cardClients(payload && payload.clients, payload && payload.errors) }
+	].filter(function (s) { return s.html !== ''; });
+
+	var hero = '';
+	if (payload) {
+		var h = payload.host, wan = payload.net && payload.net.wan;
+		hero = '<div class="qzd-hero">' +
+			'<div><div class="hostname">' + h.hostname + '</div>' +
+			'<div class="meta">' + h.model + ' · ' + h.release + ' · Linux ' + h.kernel + '</div></div>' +
+			'<div class="summary">' +
+				'<div><div class="k">运行时间</div><div class="v">' + fmtUptime(h.uptime) + '</div></div>' +
+				'<div><div class="k">WAN</div><div class="v">' + dot(wan && wan.up ? 'ok' : 'err') + ' ' + (wan ? wan.ipv4 : '—') + '</div></div>' +
+				'<div><div class="k">最后采集</div><div class="v" id="qzd-ago">2 秒前</div></div>' +
+			'</div></div>';
+	}
+
+	var banner = '';
+	if (STATE === 'down')
+		banner = '<div class="alert-message error"><h4>采集器未运行</h4>' +
+			'<p><span class="qz-mono">/var/run/quartz/status.json</span> 不存在——quartz-daemon 未启动或未安装。' +
+			'页面每 5 秒自动重试，daemon 就绪后无需刷新。</p>' +
+			'<div class="right"><button class="cbi-button" onclick="render()">立即重试</button></div></div>';
+	if (STATE === 'broken')
+		banner = '<div class="alert-message error"><h4>采集器数据损坏</h4>' +
+			'<p><span class="qz-mono">status.json</span> 解析失败（JSON 不完整）。已保留骨架，等待下一次采集覆盖；不做白屏。</p></div>';
+
+	var skel = (STATE === 'down' || STATE === 'broken')
+		? '<div class="qzd-grid">' + ['系统资源', '网络', 'Docker', '设备'].map(function (t) {
+			return '<div class="qzd-card qzd-skel qzd-sp-6"><h4>' + t + ' <span class="qzd-more qzd-muted">等待数据</span></h4>' +
+				'<div class="bar" style="width:62%"></div><div class="bar" style="width:84%"></div><div class="bar" style="width:47%"></div></div>';
+		}).join('') + '</div>' : '';
+
+	var cards = '';
+	if (payload && (STATE === 'normal' || STATE === 'partial')) {
+		cards = '<div class="qzd-grid">' + sections.map(function (s) {
+			return '<div class="qzd-card qzd-sp-' + s.span + '" id="' + s.id + '"><h4>' + s.title +
+				(s.link ? more(s.link[0], s.link[1]) : '') + '</h4>' + s.html + '</div>';
+		}).join('') + '</div>';
+	}
+
+	view.innerHTML = banner + hero + cards + skel;
+	if (payload && payload.net && payload.net.series) drawSpark();
+	if (payload && payload.net) tickAgo(true);
+}
+
+/* ---- sparkline（手写 SVG，无图表库） ---- */
+function drawSpark() {
+	var s = payload.net.series, all = s.rx.concat(s.tx);
+	var max = Math.max.apply(null, all) * 1.15 || 1;
+	function pts(arr) {
+		return arr.map(function (v, i) {
+			var x = (i / (arr.length - 1)) * 600;
+			var y = 66 - (v / max) * 60 - 3;
+			return x.toFixed(1) + ',' + y.toFixed(1);
+		}).join(' ');
+	}
+	var rx = document.getElementById('qzd-spark-rx'), tx = document.getElementById('qzd-spark-tx');
+	if (rx) rx.setAttribute('points', pts(s.rx));
+	if (tx) tx.setAttribute('points', pts(s.tx));
+}
+
+/* ---- 实时跳动（模拟 2s 采集 / 5s 轮询的观感；截图用 ?live=0 冻结） ---- */
+var live = true, lastTs = Date.now();
+function tickAgo(reset) {
+	if (reset) lastTs = Date.now();
+	var el = document.getElementById('qzd-ago');
+	if (el) el.textContent = Math.max(1, Math.round((Date.now() - lastTs) / 1000)) + ' 秒前';
+}
+setInterval(function () {
+	if (!live || STATE !== 'normal') return;
+	var s = payload.net.series;
+	var rx = Math.max(120000, s.rx[s.rx.length - 1] + (Math.random() - 0.48) * 700000);
+	var tx = Math.max(40000, s.tx[s.tx.length - 1] + (Math.random() - 0.48) * 180000);
+	s.rx.push(Math.round(rx)); s.rx.shift();
+	s.tx.push(Math.round(tx)); s.tx.shift();
+	payload.net.wan.rx_bps = Math.round(rx);
+	payload.net.wan.tx_bps = Math.round(tx);
+	var er = document.getElementById('qzd-rate-rx'), et = document.getElementById('qzd-rate-tx');
+	if (er) er.textContent = fmtRate(rx);
+	if (et) et.textContent = fmtRate(tx);
+	drawSpark();
+	tickAgo(false);
+}, 2000);
+
+/* ---- 预览控制 ---- */
+(function () {
+	var q = new URLSearchParams(location.search);
+	var r = document.documentElement;
+	var mq = matchMedia('(prefers-color-scheme: dark)');
+
+	function setTheme(t) {
+		var dark = t === 'dark' || (t === 'auto' && mq.matches);
+		r.setAttribute('data-darkmode', dark ? 'true' : 'false');
+		r.setAttribute('data-qz-mode', (t === 'dark' || t === 'light') ? t : 'auto');
+	}
+	document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+		b.addEventListener('click', function () { setTheme(b.getAttribute('data-set-theme')); });
+	});
+
+	/* 数据态 */
+	var sel = document.getElementById('sel-state');
+	function applyState(st) {
+		STATE = st;
+		if (st === 'down' || st === 'broken') { payload = null; render(); return; }
+		loadMock(st === 'partial' ? 'partial' : 'normal').then(function (p) {
+			payload = p; render();
+		}).catch(function () {          /* mock 缺失时预览自身按"未运行"态降级 */
+			payload = null; STATE = 'down'; sel.value = 'down'; render();
+		});
+	}
+	sel.value = q.get('state') || 'normal';
+	sel.addEventListener('change', function () { applyState(sel.value); });
+	applyState(sel.value);
+
+	/* 壁纸 / 透明度 / 实时 */
+	var wOn = q.get('wallpaper') === '1';
+	var wBtn = document.getElementById('btn-wallpaper');
+	function syncW() { wBtn.textContent = '壁纸：' + (wOn ? '开' : '关'); }
+	wBtn.addEventListener('click', function () {
+		wOn = !wOn;
+		if (wOn) {
+			r.setAttribute('data-qz-wallpaper', '');
+			r.style.setProperty('--qz-wallpaper-on',
+				"url('" + new URL('../../../theme/luci-theme-quartz/dev/wallpaper-sample.svg', location.href).href + "')");
+		} else {
+			r.removeAttribute('data-qz-wallpaper');
+			r.style.removeProperty('--qz-wallpaper-on');
+		}
+		syncW();
+	});
+	syncW();
+
+	var rAlpha = document.getElementById('r-alpha');
+	function applyAlpha(v) {
+		r.style.setProperty('--qz-panel-alpha', v / 100);
+		if (v < 100) r.setAttribute('data-qz-translucent', '');
+		else r.removeAttribute('data-qz-translucent');
+	}
+	applyAlpha(+rAlpha.value);
+	rAlpha.addEventListener('input', function () { applyAlpha(+rAlpha.value); });
+
+	var ck = document.getElementById('ck-live');
+	live = q.get('live') !== '0';
+	ck.checked = live;
+	ck.addEventListener('change', function () { live = ck.checked; tickAgo(true); });
+
+	/* ?debug=1 —— 溢出诊断（列出超过视口宽度的元素；供 probe 截图脚本 --dump-dom 提取） */
+	if (q.get('debug') === '1') setTimeout(function () {
+		var vw = document.documentElement.clientWidth, out = ['vw=' + vw + ' scrollW=' + document.documentElement.scrollWidth];
+		document.querySelectorAll('body *').forEach(function (el) {
+			var r = el.getBoundingClientRect();
+			if (r.right > vw + 1 && r.width > 8)
+				out.push((el.tagName.toLowerCase()) + '.' + String(el.className || '').split(' ')[0] + '[w=' + Math.round(r.width) + ',r=' + Math.round(r.right) + ']');
+		});
+		var d = document.createElement('div');
+		d.textContent = 'QZD_DEBUG ' + out.slice(0, 24).join(' ');
+		document.body.appendChild(d);
+	}, 200);
+})();
+</script>
+</body>
+</html>
