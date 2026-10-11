@@ -683,7 +683,10 @@ footer a {
 	overflow-wrap: anywhere;
 }
 
-.cbi-value-field {
+/* 控件列（内容纵向堆叠）。排除表格单元格：cbi-section-table 行内的
+ * td.cbi-value-field 必须保持 table-cell，否则单元格脱离表格布局、整行被拆成
+ * 竖排（2026-10-12 VM 逐页测试：通信规则/区域/DHCP 等可编辑表全中招） */
+.cbi-value-field:not(td) {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
@@ -1093,7 +1096,10 @@ input[type="submit"]:hover,
 	border-bottom: 1px solid var(--qz-border);
 }
 
-.cbi-section-table-titles {
+/* 表头行：真实 <tr> 保持表格布局（TH 由 .table th 提供 padding/字号）；
+ * 仅旧式 div 结构（.tr 类 div）用 flex 撑开 —— 真实表格上行级 flex 会把
+ * 单元格 block 化、列宽丢失（2026-10-12 VM 逐页测试） */
+div.cbi-section-table-titles {
 	display: flex;
 	gap: 10px;
 }
@@ -1235,21 +1241,38 @@ input[type="submit"]:hover,
 
 .cbi-progressbar {
 	position: relative;
+	min-width: 170px;
 	height: 6px;
 	border-radius: 3px;
 	background: var(--qz-bg-well);
 	border: 1px solid var(--qz-border);
+	margin: 1.4em 0 4px;
+}
+
+/* 读数文字取自 title 属性（bootstrap 同款机制）。缺失时进度条只剩空槽、
+ * 概览页内存/存储行看不到数值（2026-10-12 VM 逐页测试） */
+.cbi-progressbar::before {
+	content: attr(title);
+	position: absolute;
+	top: -1.4em;
+	left: 0;
+	white-space: pre;
 	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--qz-text-2);
+	font-size: 12.5px;
 }
 
 .cbi-progressbar > div {
 	height: 100%;
 	background: var(--qz-accent);
+	border-radius: 2px;
 	transition: width .2s ease-out;
 }
 
 .cbi-tooltip {
 	position: absolute;
+	left: -10000px;
 	z-index: 1000;
 	max-width: 320px;
 	padding: 6px 10px;
@@ -1259,6 +1282,14 @@ input[type="submit"]:hover,
 	border: 1px solid var(--qz-border);
 	border-radius: var(--qz-radius-sm);
 	box-shadow: var(--qz-shadow-raised);
+	opacity: 0;
+}
+
+/* 悬停显示（bootstrap 同款机制：常态移出屏幕 + 透明，悬停容器才现身）。
+ * 缺失时所有 tooltip 常显并遮挡内容（2026-10-12 VM：防火墙状态页 ICMP 集合框） */
+.cbi-tooltip-container:hover .cbi-tooltip:not(:empty) {
+	left: auto;
+	opacity: 1;
 }
 
 .cbi-tooltip.error {
@@ -1505,6 +1536,20 @@ body.modal-overlay-active #modal_overlay {
 .cbi-tabmenu > li.cbi-tab > a {
 	color: var(--qz-text);
 	border-bottom-color: var(--qz-accent);
+}
+
+/* 分区页签（LuCI 25.12 机制）：非活动分区收起，仅 data-tab-active 的分区展开。
+ * 缺失该机制时所有页签内容会同时铺开（2026-10-12 VM 逐页测试：系统/路由/DHCP 等） */
+[data-tab-title] {
+	height: 0;
+	opacity: 0;
+	overflow: hidden;
+}
+
+[data-tab-active="true"] {
+	height: auto;
+	opacity: 1;
+	overflow: visible;
 }
 
 /* ==========================================================================

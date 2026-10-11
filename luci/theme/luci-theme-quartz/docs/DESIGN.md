@@ -236,6 +236,12 @@ luci/applications/luci-app-quartz-config/
 - ✅ W2.8 外观配置包 `luci-app-quartz-config` 初版；`quartz-defaults` 已追加 `+luci-theme-quartz +luci-app-quartz-config`
 - ✅ W2.5 Tailwind 隔离 spike 完成：结论已写回 TDD §8（两副本同步）；实测矩阵见 `dev/spike/tailwind/RESULTS.md`
 - 🚧 W2.6 Logo：四方向候选已出（`dev/logo-candidates.html` + `dev/shots/logo-candidates.png`），待用户选定后细化
+- ✅ **W2.6.5 全页面逐页真机测试（2026-10-12，VM 预览台）**：Playwright + QEMU VM（`dev/vm-test/`，59 页：菜单树 50 view + OpenClash 6 + 登录/404/退出），暗/浅双轮全量截图（`dev/shots/vm-test-dark/`、`vm-test-light/`）。**发现并修复 4 个 cbi 机制缺口**（均为 bootstrap 有而主题缺失的机制，属 W2.4 换皮遗漏）：
+  ① `.cbi-tooltip` 无隐藏/悬停机制（工具提示常显遮挡，防火墙状态页可见）；
+  ② `.cbi-progressbar` 缺 `::before{content:attr(title)}`（概览页内存/存储读数不显示）；
+  ③ `[data-tab-title]`/`[data-tab-active]` 分区页签收起规则缺失（系统/路由/DHCP 等页所有页签内容同时铺开）；
+  ④ `.cbi-value-field{display:flex}` 泛化误伤 `td.cbi-value-field`（可编辑分区表整行塌成竖排——通信规则/区域/DHCP 静态租约等）。
+  另确认 3 项非主题问题：实时图表白底（上游内联样式）、Dockerman 概览横向溢出（插件 JSON 长值表，bootstrap 同）、sticky 应用条在全页截图中的中段悬停（截图假象，实际贴视口底）。
 - ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
@@ -250,7 +256,8 @@ luci/applications/luci-app-quartz-config/
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。待真机/编译复核（W2.7）。
-- **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI。
+- **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
 ---
 
