@@ -22,6 +22,9 @@ define Package/quartz-defaults
   #   +luci-theme-quartz +luci-app-dashboard +quartz-daemon +quartz-app-api（核心）
   #   +openwrt-bandix +luci-app-bandix（thirdparty，模式 A）
   #   +quartz-ddns-bridge +luci-app-ddns（Bridge + thirdparty，模式 B）
+  # 当前 DEPENDS 来源：luci-app-openclash / luci-app-dockerman 来自基座 luci feed
+  # （thirdparty 不收录同名包，会被基座遮蔽，docs/TDD.md §3.1）；
+  # luci-lib-docker 来自 thirdparty feed。
   DEPENDS:= \
     +luci-app-openclash \
     +luci-lib-docker \
