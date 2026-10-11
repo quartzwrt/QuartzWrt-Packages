@@ -877,12 +877,81 @@ input[type="radio"] {
 	width: 100%;
 }
 
+/* 下拉部件收起/展开机制（bootstrap 同款；缺失时收起态会把全部选项同时铺开——
+ * 2026-10-12 复测：「保存并应用/强制应用」与接口/语言等下拉均全选项常显）。
+ * 语义：收起=只显示带 display 属性的项（单选为当前项、多选为已选项）；
+ * 展开=ul 获 .dropdown 类成浮层，平铺全部项 */
+.cbi-dropdown {
+	display: flex;
+	align-items: center;
+}
+
+.cbi-dropdown > ul {
+	list-style: none;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+.cbi-dropdown > ul > li {
+	display: none;
+	align-items: center;
+	flex-grow: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: inherit;
+}
+
+/* 收起态：仅带 display 属性的项可见 */
+.cbi-dropdown > ul > li[display] {
+	display: flex;
+}
+
+/* 空值占位（未选择时显示“未指定”等） */
+.cbi-dropdown[empty] > ul > li {
+	display: flex;
+}
+
+/* 箭头（▾）/ 溢出标记（···） */
+.cbi-dropdown > .open,
+.cbi-dropdown > .more {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	padding: 0 6px;
+	color: var(--qz-text-2);
+}
+
+/* “···”仅多选且溢出时出现 */
+.cbi-dropdown > .more {
+	display: none;
+}
+
+.cbi-dropdown[multiple][more] > .more,
+.cbi-dropdown[multiple][empty] > .more {
+	display: flex;
+}
+
+/* 按钮型下拉（应用条等）：标签与箭头间加分隔线 */
+.cbi-dropdown.btn > .open,
+.cbi-dropdown.cbi-button > .open {
+	margin-left: 6px;
+	padding-left: 8px;
+	border-left: 1px solid rgba(255, 255, 255, .35);
+	color: inherit;
+}
+
 .cbi-dropdown[open] {
 	border-color: var(--qz-accent);
 	box-shadow: 0 0 0 2px var(--qz-focus);
 }
 
 .cbi-dropdown > ul.dropdown {
+	display: block;
 	position: absolute;
 	z-index: 500;
 	min-width: 100%;
@@ -912,6 +981,11 @@ input[type="radio"] {
 .cbi-dropdown > ul.dropdown > li[selected],
 .cbi-dropdown > ul.dropdown > li.selected {
 	background-image: linear-gradient(var(--qz-active), var(--qz-active));
+}
+
+/* 展开态：浮层内平铺全部选项（含未选中项） */
+.cbi-dropdown[open] > ul.dropdown > li {
+	display: flex;
 }
 
 .cbi-dynlist {
