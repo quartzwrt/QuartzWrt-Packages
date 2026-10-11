@@ -212,6 +212,7 @@ luci/applications/luci-app-quartz-config/
 - **Tailwind 隔离**（已实测定案，TDD §8 已写回）：dashboard 侧构建入口为 `@import "tailwindcss" prefix(qz) source(none);` + `@source` 精确圈定源码，类名写 `qz:` 形式（v4 前缀是变体语法且只能配在完整导入上）；**主题 cascade.css 入层**（层序 `theme < base < qz-theme < components < utilities`），使 preflight（base 层）天然弱于主题、utilities 天然强于主题；preflight 的"单侧泄漏"（主题未声明过的属性，如 `img{display}`）由主题内显式中和规则处理（已内置）。实测矩阵与依据见 `dev/spike/tailwind/RESULTS.md`。
 - **token 命名重叠提示**：Tailwind 生成的 CSS 变量同样带 `qz` 前缀（`--qz-font-sans`、`--qz-radius-sm` 等）与主题 token 同命名空间；层序上主题值胜出（正是 token 单一来源所期望的方向），`--radius-sm` 等语义差异由 dashboard 侧 `@theme` 显式对齐。
 - **容器约定**：Dashboard 渲染在主题内容区内，只消费 token，不改写主题样式（不引入全局 reset 依赖）。
+- **分层边界与第三方样式（2026-10-12 复测新增）**：**未分层的第三方 CSS 优先于任何 `@layer` 内声明（级联规则，与特异性无关）**——第三方应用自带的全局 reset（如 OpenClash `oc.css` 的 `* { margin: 0; padding: 0 }`）会整片压掉主题层内样式（实测页面塌向侧边栏）。主题文件末尾（层外）提供增量兜底：`html, body, html *, html *::before, html *::after { margin: revert-layer; padding: revert-layer; }`，把 margin/padding 回退到主题分层级联值；第三方自己组件的类级样式不受影响。新增第三方样式依赖（更多全局 reset、其他属性）时先评估该边界（WORKPLAN 坑位 #20）。
 
 ## 10. 交付物分解（W2.x）
 
@@ -242,6 +243,7 @@ luci/applications/luci-app-quartz-config/
   ③ `[data-tab-title]`/`[data-tab-active]` 分区页签收起规则缺失（系统/路由/DHCP 等页所有页签内容同时铺开）；
   ④ `.cbi-value-field{display:flex}` 泛化误伤 `td.cbi-value-field`（可编辑分区表整行塌成竖排——通信规则/区域/DHCP 静态租约等）。
   另确认 3 项非主题问题：实时图表白底（上游内联样式）、Dockerman 概览横向溢出（插件 JSON 长值表，bootstrap 同）、sticky 应用条在全页截图中的中段悬停（截图假象，实际贴视口底）。
+- ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px。双模 59 页证据全量重拍。
 - ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
