@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>luci-theme-quartz · 设计预览（dev）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 加载真实主题样式：预览即所见 -->
+<link rel="stylesheet" href="../htdocs/luci-static/quartz/cascade.css">
+<script>
+/* 首绘前应用 URL 参数：?theme=auto|dark|light  ?wallpaper=sample */
+(function () {
+	var q = new URLSearchParams(location.search);
+	var t = q.get('theme') || 'auto';
+	var r = document.documentElement;
+	var dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+	r.setAttribute('data-darkmode', dark ? 'true' : 'false');
+	r.setAttribute('data-qz-mode', (t === 'dark' || t === 'light') ? t : 'auto');
+	if (q.get('wallpaper') === 'sample') {
+		r.setAttribute('data-qz-wallpaper', '');
+		/* 绝对路径：自定义属性中的相对 URL 按样式表位置解析，须用绝对路径（见 DESIGN.md §4） */
+		r.style.setProperty('--qz-wallpaper-on', "url('/dev/wallpaper-sample.svg')");
+	}
+})();
+</script>
+<style>
+/* ==== 预览页专用样式（不属于主题包，仅 dev/ 使用） ==== */
+.qz-preview-bar {
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	z-index: 990;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	border-radius: 12px;
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	box-shadow: var(--qz-shadow-raised);
+	font-size: 12.5px;
+	color: var(--qz-text-2);
+}
+.qz-preview-bar .cbi-button { min-height: 26px; padding: 2px 10px; font-size: 12px; }
+.qz-preview-bar .sep { width: 1px; height: 18px; background: var(--qz-border); }
+.qz-stat-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.qz-stat {
+	background: var(--qz-bg-well);
+	border: 1px solid var(--qz-border);
+	border-radius: 8px;
+	padding: 12px 14px;
+}
+.qz-stat .k { font-size: 12px; color: var(--qz-text-2); margin-bottom: 4px; }
+.qz-stat .v { font-size: 17px; font-weight: 600; font-family: var(--qz-font-mono); }
+.qz-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.qz-swatch { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--qz-text-2); font-family: var(--qz-font-mono); }
+.qz-swatch i { width: 34px; height: 22px; border-radius: 6px; border: 1px solid var(--qz-border-strong); flex: 0 0 auto; }
+.qz-mock-dropdown { position: relative; }
+.qz-mock-dropdown .dropdown { position: static; margin-top: 6px; }
+</style>
+</head>
+
+<body class="lang_zh-cn qz-preview">
+<div id="qz-nav-veil"></div>
+
+<!-- ===== 侧边栏（模拟 menu-quartz.js 输出结构） ===== -->
+<nav id="qz-sidebar">
+	<a class="brand" href="#">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+			<path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/>
+			<path d="M5 5.5 H19"/>
+			<path d="M12 1 V23" opacity=".45"/>
+		</svg>
+		<span>QuartzWrt-R4S</span>
+	</a>
+	<div class="qz-nav" id="qz-nav">
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">状态</h6>
+			<ul>
+				<li class="qz-nav-item active"><a href="#">概览</a></li>
+				<li class="qz-nav-item"><a href="#">防火墙</a></li>
+				<li class="qz-nav-item"><a href="#">路由表</a></li>
+				<li class="qz-nav-item"><a href="#">系统日志</a></li>
+				<li class="qz-nav-item"><a href="#">内核日志</a></li>
+				<li class="qz-nav-item"><a href="#">进程</a></li>
+				<li class="qz-nav-item"><a href="#">实时图表</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">系统</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">系统</a></li>
+				<li class="qz-nav-item"><a href="#">管理权</a></li>
+				<li class="qz-nav-item"><a href="#">软件包</a></li>
+				<li class="qz-nav-item"><a href="#">启动项</a></li>
+				<li class="qz-nav-item"><a href="#">计划任务</a></li>
+				<li class="qz-nav-item"><a href="#">挂载点</a></li>
+				<li class="qz-nav-item"><a href="#">备份 / 升级</a></li>
+				<li class="qz-nav-item"><a href="#">重启</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">服务</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">终端</a></li>
+				<li class="qz-nav-item"><a href="#">动态 DNS</a></li>
+			</ul>
+		</div>
+		<div class="qz-nav-group">
+			<h6 class="qz-nav-title">网络</h6>
+			<ul>
+				<li class="qz-nav-item"><a href="#">接口</a></li>
+				<li class="qz-nav-item"><a href="#">无线</a></li>
+				<li class="qz-nav-item"><a href="#">DHCP / DNS</a></li>
+				<li class="qz-nav-item"><a href="#">主机名</a></li>
+				<li class="qz-nav-item"><a href="#">静态路由</a></li>
+				<li class="qz-nav-item"><a href="#">防火墙</a></li>
+				<li class="qz-nav-item"><a href="#">诊断</a></li>
+			</ul>
+		</div>
+	</div>
+	<div class="qz-sidebar-foot" style="display:none">
+		<ul class="qz-modes" id="modemenu"><li class="active"><a href="#">管理</a></li></ul>
+	</div>
+</nav>
+
+<!-- ===== 顶栏 ===== -->
+<header>
+	<button type="button" id="qz-nav-toggle" class="qz-icon-btn" aria-label="菜单">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+			<path d="M4 7h16M4 12h16M4 17h16"/>
+		</svg>
+	</button>
+	<div id="indicators" class="pull-right">
+		<span data-indicator="changes" data-style="active" data-clickable>未保存的更改：2</span>
+		<span data-indicator="applied" data-style="inactive">已应用</span>
+	</div>
+	<button type="button" id="qz-theme-toggle" class="qz-icon-btn" aria-label="外观">
+		<svg class="qz-i-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+			<circle cx="12" cy="12" r="8.5"/>
+			<path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor" stroke="none"/>
+		</svg>
+		<svg class="qz-i-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+			<path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5Z"/>
+		</svg>
+		<svg class="qz-i-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+			<circle cx="12" cy="12" r="4.5"/>
+			<path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
+		</svg>
+	</button>
+</header>
+
+<!-- ===== 内容区 ===== -->
+<div id="maincontent" class="container">
+	<div class="alert-message notice">
+		<h4>设计预览页（dev/，不进安装包）</h4>
+		<p>本页加载真实主题样式 cascade.css，用于评审 macOS Vibrancy 风格。右下角可切换亮度与壁纸；登录页见 <a href="preview-login.html">preview-login.html</a>。</p>
+	</div>
+
+	<div id="tabmenu">
+		<ul class="tabs">
+			<li class="active tabmenu-item-overview"><a href="#">概览</a></li>
+			<li class="tabmenu-item-firewall"><a href="#">防火墙</a></li>
+			<li class="tabmenu-item-routes"><a href="#">路由表</a></li>
+			<li class="tabmenu-item-log"><a href="#">系统日志</a></li>
+		</ul>
+	</div>
+
+	<div id="view">
+		<h2>概览</h2>
+
+		<div class="cbi-map">
+			<!-- 系统状态 -->
+			<div class="cbi-section">
+				<h3>系统状态</h3>
+				<div class="cbi-section-descr">设备与固件的当前概况。</div>
+				<div class="qz-stat-grid">
+					<div class="qz-stat"><div class="k">运行时间</div><div class="v">3 天 14:22</div></div>
+					<div class="qz-stat"><div class="k">负载（1 / 5 / 15 分钟）</div><div class="v">0.15 / 0.21 / 0.18</div></div>
+					<div class="qz-stat"><div class="k">内存</div><div class="v">155 MB / 405 MB</div></div>
+					<div class="qz-stat"><div class="k">固件版本</div><div class="v">QuartzWrt 1.0.0</div></div>
+				</div>
+				<table class="table">
+					<tr><th style="width:160px">主机名</th><td>QuartzWrt-R4S</td></tr>
+					<tr><th>型号</th><td>FriendlyElec NanoPi R4S</td></tr>
+					<tr><th>内核版本</th><td class="qz-mono">6.6.94</td></tr>
+					<tr><th>架构</th><td class="qz-mono">aarch64_cortex-a53</td></tr>
+				</table>
+			</div>
+
+			<!-- 网络接口 -->
+			<div class="cbi-section">
+				<h3>网络接口</h3>
+				<div class="cbi-section-descr">
+					<span class="ifacebadge ifacebadge-active">br-lan</span>
+					<span class="ifacebadge">eth0</span>
+					<span class="ifacebadge">wg0</span>
+					<span class="zonebadge">lan</span>
+					<span class="zonebadge">wan</span>
+				</div>
+				<table class="table">
+					<tr>
+						<th>接口</th><th>状态</th><th>地址</th><th>流量（RX / TX）</th>
+					</tr>
+					<tr>
+						<td class="qz-mono">br-lan</td>
+						<td><span class="label success">已连接</span></td>
+						<td class="qz-mono">192.168.1.1/24</td>
+						<td class="qz-mono">1.24 GB / 863 MB</td>
+					</tr>
+					<tr>
+						<td class="qz-mono">wan</td>
+						<td><span class="label success">已连接</span></td>
+						<td class="qz-mono">100.64.7.23/24</td>
+						<td class="qz-mono">42.7 GB / 9.31 GB</td>
+					</tr>
+					<tr>
+						<td class="qz-mono">wg0</td>
+						<td><span class="label">已停用</span></td>
+						<td class="qz-mono">10.7.0.1/24</td>
+						<td class="qz-mono">--</td>
+					</tr>
+				</table>
+			</div>
+
+			<!-- 表单样张 -->
+			<div class="cbi-section">
+				<h3>表单样张</h3>
+				<div class="cbi-section-descr">cbi 控件在主题下的观感（下发控件对应固件内真实样式）。</div>
+				<div class="cbi-section-node">
+					<div class="cbi-value">
+						<label class="cbi-value-title">主机名</label>
+						<div class="cbi-value-field"><input type="text" value="QuartzWrt-R4S"></div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">时区</label>
+						<div class="cbi-value-field">
+							<select>
+								<option>Asia/Shanghai (CST-8)</option>
+								<option>Asia/Tokyo (JST-9)</option>
+								<option>UTC</option>
+							</select>
+						</div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">DNS 服务器</label>
+						<div class="cbi-value-field">
+							<div class="cbi-dropdown">223.5.5.5 — AliDNS</div>
+							<div class="cbi-dropdown qz-mock-dropdown" open>
+								223.5.5.5 — AliDNS
+								<ul class="dropdown">
+									<li>223.5.5.5 — AliDNS</li>
+									<li selected>119.29.29.29 — DNSPod</li>
+									<li>1.1.1.1 — Cloudflare</li>
+								</ul>
+							</div>
+							<div class="cbi-value-description">逗号分隔；留空则由运营商分配。</div>
+						</div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">路由器密码</label>
+						<div class="cbi-value-field"><input type="password" value="hunter2hunter2"></div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">选项</label>
+						<div class="cbi-value-field">
+							<label><input type="checkbox" checked> 启用 IPv6</label>
+							<label><input type="radio" name="mode" checked> 静态地址</label>
+							<label><input type="radio" name="mode"> DHCP 客户端</label>
+						</div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">备注</label>
+						<div class="cbi-value-field">
+							<textarea>主路由，旁挂 NAS。</textarea>
+						</div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">固件文件</label>
+						<div class="cbi-value-field"><input type="file"></div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">DNS 白名单</label>
+						<div class="cbi-value-field">
+							<div class="cbi-dynlist">
+								<div>example.com <button class="cbi-button cbi-button-remove" style="min-height:20px;padding:0 6px;font-size:11px">×</button></div>
+								<div>cdn.example.org <button class="cbi-button cbi-button-remove" style="min-height:20px;padding:0 6px;font-size:11px">×</button></div>
+							</div>
+						</div>
+					</div>
+					<div class="cbi-value">
+						<label class="cbi-value-title">上传进度</label>
+						<div class="cbi-value-field">
+							<div class="cbi-progressbar"><div style="width:62%"></div></div>
+						</div>
+					</div>
+				</div>
+				<div class="cbi-section-actions">
+					<button class="cbi-button cbi-button-reset">重置</button>
+					<button class="cbi-button cbi-button-apply">保存并应用</button>
+					<button class="cbi-button cbi-button-save">保存</button>
+				</div>
+			</div>
+
+			<!-- 按钮与消息 -->
+			<div class="cbi-section">
+				<h3>按钮、徽标与消息</h3>
+				<div class="cbi-section-node">
+					<p style="margin-bottom:10px">
+						<button class="cbi-button cbi-button-action">执行</button>
+						<button class="cbi-button">普通按钮</button>
+						<button class="cbi-button cbi-button-add">添加</button>
+						<button class="cbi-button cbi-button-edit">编辑</button>
+						<button class="cbi-button cbi-button-negative">删除</button>
+						<button class="cbi-button cbi-button-negative important">确认删除</button>
+						<button class="cbi-button cbi-button-link">链接型按钮</button>
+						<button class="cbi-button" disabled>已禁用</button>
+					</p>
+					<p style="margin-bottom:10px">
+						<span class="label">默认</span>
+						<span class="label success">已启用</span>
+						<span class="label warning">待更新</span>
+						<span class="label notice">新版本</span>
+						<span class="label danger">错误</span>
+					</p>
+					<div class="alert-message warning"><h4>固件有可用更新</h4><p>检测到 QuartzWrt 1.0.1（2026-10-08），修复了 APK 签名校验问题。</p></div>
+					<div class="alert-message error"><h4>接口 wan 未获取到地址</h4><p>请检查光猫或上游 DHCP 服务。</p></div>
+					<div class="alert-message notice"><h4>提示</h4><p>修改将立即生效，可能需要重启相关服务。</p></div>
+				</div>
+			</div>
+
+			<!-- 表格 -->
+			<div class="cbi-section">
+				<h3>在线设备（表格排序示意）</h3>
+				<table class="table">
+					<tr>
+						<th data-sort-direction="asc">主机名</th>
+						<th>IP 地址</th>
+						<th>MAC 地址</th>
+						<th data-sort-direction="desc">在线时长</th>
+					</tr>
+					<tr><td>MacBook-Pro</td><td class="qz-mono">192.168.1.101</td><td class="qz-mono">a4:83:e7:1c:2d:9f</td><td class="qz-mono">06:12:41</td></tr>
+					<tr><td>iPhone-15</td><td class="qz-mono">192.168.1.117</td><td class="qz-mono">f0:18:98:aa:03:71</td><td class="qz-mono">02:47:03</td></tr>
+					<tr><td>NAS</td><td class="qz-mono">192.168.1.10</td><td class="qz-mono">00:11:32:7d:55:60</td><td class="qz-mono">31 天 04:18</td></tr>
+				</table>
+			</div>
+
+			<!-- token 色板 -->
+			<div class="cbi-section">
+				<h3>设计 Token 色板</h3>
+				<div class="cbi-section-descr">以下色块直接引用主题变量，随亮度模式实时变化。</div>
+				<div class="qz-swatches">
+					<div class="qz-swatch"><i style="background: var(--qz-bg-base)"></i>--qz-bg-base</div>
+					<div class="qz-swatch"><i style="background: var(--qz-bg-panel)"></i>--qz-bg-panel</div>
+					<div class="qz-swatch"><i style="background: var(--qz-bg-raised)"></i>--qz-bg-raised</div>
+					<div class="qz-swatch"><i style="background: var(--qz-bg-well)"></i>--qz-bg-well</div>
+					<div class="qz-swatch"><i style="background: var(--qz-accent)"></i>--qz-accent</div>
+					<div class="qz-swatch"><i style="background: var(--qz-ok)"></i>--qz-ok</div>
+					<div class="qz-swatch"><i style="background: var(--qz-warn)"></i>--qz-warn</div>
+					<div class="qz-swatch"><i style="background: var(--qz-err)"></i>--qz-err</div>
+					<div class="qz-swatch"><i style="background: var(--qz-text)"></i>--qz-text</div>
+					<div class="qz-swatch"><i style="background: var(--qz-text-2)"></i>--qz-text-2</div>
+					<div class="qz-swatch"><i style="background: var(--qz-text-3)"></i>--qz-text-3</div>
+					<div class="qz-swatch"><i style="background: var(--qz-chrome); backdrop-filter: blur(6px)"></i>--qz-chrome</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<footer>
+	<span>Powered by <a href="#">LuCI (25.12)</a> / <a href="#">ImmortalWrt 25.12 (ce35a9e4)</a></span>
+</footer>
+
+<!-- ===== 模态 ===== -->
+<div id="modal_overlay">
+	<div class="modal" role="dialog" aria-modal="true">
+		<h4>确认操作</h4>
+		<p style="color: var(--qz-text-2); margin-bottom: 14px">重启后所有连接会短暂中断，确定继续？</p>
+		<div class="right" style="display:flex;gap:10px;justify-content:flex-end">
+			<button class="cbi-button" onclick="document.body.classList.remove('modal-overlay-active')">取消</button>
+			<button class="cbi-button cbi-button-negative important" onclick="document.body.classList.remove('modal-overlay-active')">重启</button>
+		</div>
+	</div>
+</div>
+
+<!-- ===== 预览控制条 ===== -->
+<div class="qz-preview-bar">
+	<span>预览</span>
+	<span class="sep"></span>
+	<button class="cbi-button" data-set-theme="auto">跟随系统</button>
+	<button class="cbi-button" data-set-theme="dark">深色</button>
+	<button class="cbi-button" data-set-theme="light">浅色</button>
+	<span class="sep"></span>
+	<button class="cbi-button" id="btn-wallpaper">壁纸：关</button>
+	<span class="sep"></span>
+	<button class="cbi-button" id="btn-modal">模态框</button>
+	<a class="cbi-button" href="preview-login.html">登录页</a>
+</div>
+
+<script src="../htdocs/luci-static/quartz/theme.js"></script>
+<script>
+/* 预览控制条逻辑（非主题代码） */
+(function () {
+	var r = document.documentElement;
+	var mq = matchMedia('(prefers-color-scheme: dark)');
+
+	function setTheme(t) {
+		var dark = t === 'dark' || (t === 'auto' && mq.matches);
+		r.setAttribute('data-darkmode', dark ? 'true' : 'false');
+		r.setAttribute('data-qz-mode', (t === 'dark' || t === 'light') ? t : 'auto');
+	}
+
+	document.querySelectorAll('[data-set-theme]').forEach(function (b) {
+		b.addEventListener('click', function () { setTheme(b.getAttribute('data-set-theme')); });
+	});
+
+	var wOn = r.hasAttribute('data-qz-wallpaper');
+	var wBtn = document.getElementById('btn-wallpaper');
+	function syncW() { wBtn.textContent = '壁纸：' + (wOn ? '开' : '关'); }
+	wBtn.addEventListener('click', function () {
+		wOn = !wOn;
+		if (wOn) {
+			r.setAttribute('data-qz-wallpaper', '');
+			r.style.setProperty('--qz-wallpaper-on', "url('/dev/wallpaper-sample.svg')");
+		} else {
+			r.removeAttribute('data-qz-wallpaper');
+			r.style.removeProperty('--qz-wallpaper-on');
+		}
+		syncW();
+	});
+	syncW();
+
+	document.getElementById('btn-modal').addEventListener('click', function () {
+		document.body.classList.add('modal-overlay-active');
+	});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+'use strict';
+/*
+ * luci-theme-quartz — 登录页视图（品牌时刻）
+ * 逻辑同 luci-theme-bootstrap 的 sysauth：把 sysauth.ut 里的隐藏表单
+ * 提升为模态；区别是注入品牌区（石英晶体 logo + wordmark）。
+ */
+'require ui';
+'require view';
+
+return view.extend({
+	render() {
+		const form = document.querySelector('form');
+		const btn = document.querySelector('button');
+
+		const dlg = ui.showModal(
+			_('Authorization Required'),
+			Array.from(document.querySelectorAll('section > *')),
+			'login'
+		);
+
+		/* 品牌区：inline SVG（随主题取色）+ wordmark */
+		dlg.insertBefore(E('div', { 'class': 'qz-login-brand' }, [
+			E('span', { 'innerHTML':
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+				'stroke-linejoin="round" aria-hidden="true">' +
+				'<path d="M12 1 L19 5.5 V18.5 L12 23 L5 18.5 V5.5 Z"/>' +
+				'<path d="M5 5.5 H19"/>' +
+				'<path d="M12 1 V23" opacity=".45"/>' +
+				'</svg>' }),
+			E('div', { 'class': 'qz-brand-word' }, [ 'QuartzWrt' ])
+		]), dlg.firstChild);
+
+		form.addEventListener('keypress', (ev) => {
+			if (ev.key === 'Enter')
+				btn.click();
+		});
+
+		btn.addEventListener('click', () => {
+			dlg.querySelectorAll('*').forEach((node) => {
+				node.style.display = 'none';
+			});
+			dlg.appendChild(E('div', {
+				class: 'spinning'
+			}, _('Logging in…')));
+
+			form.submit();
+		});
+
+		document.querySelector('input[type="password"]').focus();
+
+		return '';
+	},
+
+	addFooter() {},
+
+});

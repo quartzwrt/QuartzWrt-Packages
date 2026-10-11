@@ -2,7 +2,7 @@
 
 **版本**: v1.0（评审稿）
 **日期**: 2026-10-12
-**状态**: 设计定案，待用户评审 → 通过后按 §10 进入实施（W2.1 起）
+**状态**: 设计定案 + 初版实现已落地（骨架/模板/双模样式/预览页/截图），待评审；进度与剩余项见 §10
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -116,16 +116,21 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 
 - **默认**：极低对比度石英噪点纹理（可平铺，暗/浅两变体，各 <2KB）。既是"石英质感"的字面落地，又为模糊提供材质采样；不违反禁渐变规则（噪点非渐变）。
 - **用户自备壁纸**（用户定案，机制先行、上传 UI 后置至 Dashboard / App 二期）：
-  - 实现：背景层用 CSS 多层背景 `url('/quartz-wallpaper/wallpaper.jpg'), url(噪点)`——第一层 404 时浏览器自动跳过、噪点兜底，无需 JS 探测。
+  - 实现：`theme.js` 用一次 `Image()` 探测 `/quartz-wallpaper/wallpaper.jpg`，命中则置 `html[data-qz-wallpaper]`；CSS 据此打开壁纸层（`body::before`）与 scrim 层（`body::after`）。无壁纸时探测即一次 404，可接受。
+  - 踩坑记录：自定义属性中的相对 URL 按声明位置解析，壁纸与预览中的图片 URL 一律使用**绝对路径**。
   - 投放目录 `/www/quartz-wallpaper/` **独立于主题包**，apk 包升级不会覆盖用户文件。
-  - scrim 层压在壁纸之上保证文字对比度；`prefers-reduced-transparency` 时壁纸层降为纯色。
+  - scrim 层压在壁纸之上保证文字对比度；`prefers-reduced-transparency` 时壁纸与模糊整体退化为纯色。
   - 建议约束（写入用户文档）：≤2MB、宽 ≥1920px、JPEG；上传 UI 落地时做客户端压缩与尺寸校验。
 
-## 5. 双模机制
+## 5. 双模机制（已对齐基座原生机制，源码核实）
 
-- `:root` 定义浅色；`@media (prefers-color-scheme: dark)` 覆写为暗色；`html[data-qz-theme="dark"|"light"]` 手动覆盖优先级最高。
-- 顶栏切换钮三态：跟随系统 / 暗 / 浅；手动态存 `localStorage`（MVP）。跨设备持久化（uci）列为后续增强。
-- **检出基座后验证**：若 ImmortalWrt 25.12 的 luci-base 提供内建暗色机制，优先复用，否则按上述自管。
+基座 LuCI 25.12 原生提供 `html[data-darkmode="true|false"]` 外观开关（luci-theme-bootstrap 同款），且生态应用（OpenClash、luci-mod-dashboard 等）均以此属性响应暗色。本主题直接对齐该机制，不自造一套：
+
+- `ucode/template/themes/quartz/header.ut` 内联脚本在首绘前设定 `data-darkmode` 与 `data-qz-mode`：`localStorage('qz-theme')` 手动选择优先，否则跟随 `prefers-color-scheme`（避免闪烁）。
+- 顶栏三态切换钮（跟随系统 / 深 / 浅）由 `theme.js` 维护；`color-scheme` 随模式同步，原生控件与滚动条自动适配。
+- 主题注册：`luci.themes.Quartz=/luci-static/quartz`（uci-defaults 注册；全新安装时设为默认，升级不覆盖用户选择）。模板按 `themes/$(basename mediaurlbase)/` 解析为 `ucode/template/themes/quartz/*.ut`。
+- **兼容层**：cascade.css 同时提供 bootstrap 旧变量名（`--background-color-*` / `--text-color-*` / `--border-color-*` / `--primary-color-*` / `--error/success/warn-*` 等）到 `--qz-*` 的别名映射，引用旧变量的第三方应用自动适配双模与 Quartz 色板。
+- 跨设备持久化（uci）列为后续增强。
 
 ## 6. 性能护栏
 
@@ -147,21 +152,28 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 
 ```text
 luci/theme/luci-theme-quartz/
-├── Makefile                     # include $(TOPDIR)/feeds/luci/luci.mk（同 argon 方式）
+├── Makefile                     # include $(TOPDIR)/feeds/luci/luci.mk
 ├── docs/DESIGN.md               # 本文件
-├── dev/                         # preview.html + 噪点纹理生成脚本（不进包）
+├── dev/                         # 开发资源（不进安装包）
+│   ├── preview.html             # 主界面设计预览（加载真实 cascade.css）
+│   ├── preview-login.html       # 登录页预览（壁纸品牌时刻）
+│   ├── gen-assets.py            # 噪点纹理生成（纯标准库，可复现）
+│   ├── wallpaper-sample.svg     # 示例壁纸（仅预览用）
+│   └── shots/                   # 渲染基准截图（评审与视觉回归）
 ├── htdocs/luci-static/quartz/
-│   ├── cascade.css              # 全部样式（手写 CSS，非 Tailwind）
-│   ├── theme.js                 # 模式切换（<10KB）
-│   ├── noise-dark.png / noise-light.png
-│   └── logo.svg / favicon.png
-├── luasrc/view/themes/quartz/
-│   └── header.htm / footer.htm / login.htm
-├── po/                          # zh_Hans / en
-└── root/etc/uci-defaults/40-luci-theme-quartz   # 首启设默认主题
+│   ├── cascade.css              # 全部样式（手写 CSS，双模 token + cbi 全组件）
+│   ├── theme.js                 # 三态外观切换 / 壁纸探测 / 移动端导航
+│   ├── noise-dark.png / noise-light.png   # 石英噪点（各 <2KB，96px 可平铺）
+│   └── logo.svg                 # 晶体标记（占位，W2.6 定稿）
+├── htdocs/luci-static/resources/
+│   ├── menu-quartz.js           # 侧边栏菜单（改自 menu-bootstrap.js）
+│   └── view/quartz/sysauth.js   # 登录视图（注入品牌区）
+├── ucode/template/themes/quartz/
+│   └── header.ut / footer.ut / sysauth.ut  # LuCI 25.12 的 ucode 模板（非旧式 .htm）
+└── root/etc/uci-defaults/40-luci-theme-quartz   # 注册主题 + 首装设默认
 ```
 
-主题模板骨架以 luci-theme-bootstrap 为底（兼容性最稳、模板体量最小），CSS 100% 自研。
+主题骨架结构以 luci-theme-bootstrap 为底（Apache-2.0，兼容性最稳）；CSS 100% 自研。注意 25.12 的 LuCI 模板体系已是 **ucode 模板（`.ut`，位于 `ucode/template/themes/<主题名>/`）**，旧式 `luasrc/view/themes/*.htm` 不再适用；`luci.mk` 会把 `ucode/` 安装到 `/usr/share/ucode/luci/`。
 
 ## 9. 与 WP-3 的接口约定
 
@@ -184,6 +196,15 @@ luci/theme/luci-theme-quartz/
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
+**实现状态（2026-10-12）**：
+
+- ✅ W2.0 设计文档 + 预览页（`dev/preview.html`、`dev/preview-login.html`，含渲染截图 `dev/shots/`）
+- ✅ W2.1 骨架包 / W2.2 模板 / W2.3 token 层 / W2.4 cbi 换皮——**初版完成**，已通过 Edge 无头渲染校验（暗/浅/壁纸/登录四态）
+- ⬜ W2.5 Tailwind 隔离 spike（结论写回 TDD §8）
+- ⬜ W2.6 Logo 定稿（当前为占位晶体标记）
+- ⬜ W2.7 收尾（quartz-defaults 追加依赖、默认主题、验收）
+- ⬜ 单包编译验证（依赖 WP-1 基础设施就绪后执行）
+
 ## 11. TDD 同步清单（待写入两处副本，需用户/架构确认）
 
 1. §8 待决事项「UI 隔离」→ 已决策：方案 A 先行（spike 通过后回填结论）。
@@ -192,8 +213,8 @@ luci/theme/luci-theme-quartz/
 
 ## 12. 未决与验证项
 
-- **Logo**：待手绘 SVG 候选（石英晶体图形 + wordmark）供用户挑选；在此之前用占位。
-- **验证项（检出基座后执行）**：luci.mk 引用路径、主题注册机制（mediaurlbase）、luci-base 双模机制、uci-defaults 在 apk 体系下的首启行为、cbi 类名现状。
+- **Logo**：当前为占位晶体标记（`logo.svg` + 模板内联 SVG 两处同源）；待手绘 SVG 候选供用户挑选。
+- **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。待真机/编译复核（W2.7）。
 - **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI。
 
 ---

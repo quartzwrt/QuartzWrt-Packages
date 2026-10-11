@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <!-- 仅用于 dev/preview.html 的示例壁纸（演示 vibrancy 采样）；非主题资源 -->
+  <defs>
+    <filter id="qz-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="120"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="#15171c"/>
+  <g filter="url(#qz-blur)">
+    <ellipse cx="420" cy="240" rx="430" ry="310" fill="#3d4a7a"/>
+    <ellipse cx="1190" cy="780" rx="530" ry="370" fill="#2b5f63"/>
+    <ellipse cx="1310" cy="170" rx="310" ry="260" fill="#6a4b7c"/>
+    <ellipse cx="700" cy="920" rx="470" ry="280" fill="#27364f"/>
+  </g>
+</svg>

@@ -1,0 +1,27 @@
+#!/bin/sh
+# luci-theme-quartz: 注册主题并在全新安装时设为默认（升级不覆盖用户选择）
+# 参考 luci-theme-bootstrap 的 30_luci-theme-bootstrap
+
+changed=0
+
+set_opt() {
+	local key=$1
+	local val=$2
+
+	if ! uci -q get "luci.$key" 2>/dev/null; then
+		uci set "luci.$key=$val"
+		changed=1
+	fi
+}
+
+set_opt themes.Quartz /luci-static/quartz
+
+if [ "$PKG_UPGRADE" != 1 ] && [ $changed = 1 ]; then
+	set_opt main.mediaurlbase /luci-static/quartz
+fi
+
+if [ $changed = 1 ]; then
+	uci commit luci
+fi
+
+exit 0
