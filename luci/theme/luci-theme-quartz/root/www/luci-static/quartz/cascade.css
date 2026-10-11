@@ -777,6 +777,34 @@ input::placeholder, textarea::placeholder {
 	color: var(--qz-text-3);
 }
 
+/* 密码类输入组（LuCI PasswordValue：输入框 + 显示/隐藏按钮）：组内同一行、
+ * 按钮贴住输入框右缘合并为整体；组宽按常规控件宽度收敛，避免全列宽的窄用字段。
+ * （缺失时 input 独占整行、按钮被挤到下一行——2026-10-12 VM 实测） */
+.control-group {
+	display: inline-flex;
+	align-items: stretch;
+	max-width: 400px;
+	width: 100%;
+}
+
+.control-group > input,
+.control-group > select {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.control-group > input + button,
+.control-group > select + button {
+	flex: 0 0 auto;
+	margin-left: -1px;
+	padding: 0 10px;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
 input[disabled], select[disabled], textarea[disabled],
 .cbi-button[disabled] {
 	opacity: var(--qz-disabled-opacity);
@@ -833,7 +861,6 @@ input[type="radio"] {
 /* 下拉控件（LuCI 自绘 widget） */
 .cbi-dropdown {
 	position: relative;
-	width: 100%;
 	min-height: 34px;
 	padding: 5px 10px;
 	background-color: var(--qz-bg-well);
@@ -841,6 +868,13 @@ input[type="radio"] {
 	border-radius: var(--qz-radius-sm);
 	cursor: pointer;
 	transition: border-color .2s ease-out, box-shadow .2s ease-out;
+}
+
+/* 下拉宽度：表单内撑满列宽；按钮型下拉（“保存并应用 ▾”等带 .btn/.cbi-button）
+ * 保持内容宽度——bootstrap 同款作用域；缺失时应用条下拉被 width:100% 撑成大蓝条
+ * （2026-10-12 VM 实测） */
+.cbi-dropdown:not(.btn):not(.cbi-button) {
+	width: 100%;
 }
 
 .cbi-dropdown[open] {
@@ -1670,4 +1704,28 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 }
 
 } /* @layer qz-theme */
+
+/* ==========================================================================
+ * 13. 未分层兜底：防第三方无分层全局 reset 覆盖主题层内规则
+ * --------------------------------------------------------------------------
+ * CSS 级联约定（Cascade L5）：未分层（unlayered）声明优先于任何 @layer 内的
+ * 声明（与特异性无关）。第三方 LuCI 应用自带无分层全局 reset 时（如 OpenClash
+ * 的 oc.css `* { margin: 0; padding: 0 }`），会压掉主题层内全部 margin/padding：
+ * #maincontent 让位侧边栏的 margin-left 归零、各组件内边距全部消失 → 页面整体
+ * 塌掉（2026-10-12 VM 实测）。
+ *
+ * 兜底策略：用 revert-layer 将 margin/padding 回退到"主题分层级联的值"
+ * （主题未声明的回落 UA 默认）；本规则特异性 (0,0,1~2) 高于 `*` 与元素级
+ * reset，又低于任何类选择器——第三方自己组件的类级样式不受影响。
+ * 主题规则仍全部在 @layer 内（Tailwind 层序约定不变），本文件其余声明不受影响。
+ * ========================================================================== */
+
+html,
+body,
+html *,
+html *::before,
+html *::after {
+	margin: revert-layer;
+	padding: revert-layer;
+}
 
