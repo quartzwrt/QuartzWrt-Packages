@@ -176,18 +176,21 @@ luci/theme/luci-theme-quartz/
 │   ├── gen-assets.py            # 噪点纹理生成（纯标准库，可复现）
 │   ├── wallpaper-sample.svg     # 示例壁纸（仅预览用）
 │   └── shots/                   # 渲染基准截图（评审与视觉回归）
-├── htdocs/luci-static/quartz/
-│   ├── cascade.css              # 全部样式（手写 CSS，双模 token + cbi 全组件）
-│   ├── theme.js                 # 三态外观切换 / 壁纸探测 / 移动端导航
-│   ├── noise-dark.png / noise-light.png   # 石英噪点（各 <2KB，96px 可平铺）
-│   └── logo.svg                 # 切面宝石标记（方案 B，2026-10-12 暂定）
+├── root/
+│   ├── www/luci-static/quartz/  # 静态资源（走 root/ 原样安装，见下方说明）
+│   │   ├── cascade.css          # 全部样式（手写 CSS，双模 token + cbi 全组件）
+│   │   ├── theme.js             # 三态外观切换 / 壁纸探测 / 移动端导航
+│   │   ├── noise-dark.png / noise-light.png   # 石英噪点（各 <2KB，96px 可平铺）
+│   │   └── logo.svg             # 切面宝石标记（方案 B，2026-10-12 暂定）
+│   └── etc/uci-defaults/40-luci-theme-quartz   # 注册主题 + 首装设默认
 ├── htdocs/luci-static/resources/
 │   ├── menu-quartz.js           # 侧边栏菜单（改自 menu-bootstrap.js）
 │   └── view/quartz/sysauth.js   # 登录视图（注入品牌区）
-├── ucode/template/themes/quartz/
-│   └── header.ut / footer.ut / sysauth.ut  # LuCI 25.12 的 ucode 模板（非旧式 .htm）
-└── root/etc/uci-defaults/40-luci-theme-quartz   # 注册主题 + 首装设默认
+└── ucode/template/themes/quartz/
+    └── header.ut / footer.ut / sysauth.ut  # LuCI 25.12 的 ucode 模板（非旧式 .htm）
 ```
+
+**静态资源的安装路径（构建期处理链，2026-10-12 容器实测）**：LuCI 构建在 `htdocs/` 安装路径上会跑两个遗留压缩器——csstidy（CSS）与 classic jsmin（JS）。**csstidy 1.x 不认识 CSS `@layer`**：它带 `--remove_last_semicolon` 运行，会剥掉 `@layer theme, base, …;` 语句的分号，导致整张样式表解析失败、主题完全失效（正是"真机全裸"事故的根因）。因此本包的静态资源（含需要入层的 cascade.css）**走 `root/www/` 原样安装**，绕开压缩器；JS 保留在 `htdocs/`（JsMin 实测无损，但**约束：本包 JS 必须保持 ES5 兼容写法**）。其他后续要发现代 CSS（尤其 Tailwind 产物）的包请遵循同一规则，或由 WP-1 统一评估关闭 `CONFIG_LUCI_CSSTIDY`。
 
 主题骨架结构以 luci-theme-bootstrap 为底（Apache-2.0，兼容性最稳）；CSS 100% 自研。注意 25.12 的 LuCI 模板体系已是 **ucode 模板（`.ut`，位于 `ucode/template/themes/<主题名>/`）**，旧式 `luasrc/view/themes/*.htm` 不再适用；`luci.mk` 会把 `ucode/` 安装到 `/usr/share/ucode/luci/`。
 

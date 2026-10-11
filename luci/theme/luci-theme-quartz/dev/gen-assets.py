@@ -4,7 +4,7 @@
 用法:
     python3 dev/gen-assets.py
 
-输出（写入 htdocs/luci-static/quartz/）:
+输出（写入 root/www/luci-static/quartz/）:
     noise-dark.png   暗色模式噪点（白色颗粒）
     noise-light.png  浅色模式噪点（黑色颗粒）
 
@@ -17,7 +17,7 @@ import struct
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'htdocs', 'luci-static', 'quartz')
+OUT = os.path.join(HERE, '..', 'root', 'www', 'luci-static', 'quartz')
 
 SIZE = 96          # 平铺块尺寸（像素）
 SEED = 0x517A      # "QZ" 的十六进制彩蛋，固定种子保证可复现

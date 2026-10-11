@@ -27,7 +27,7 @@ mkdir -p out
 python3 - <<'PY'
 import pathlib
 
-src = pathlib.Path('../../../htdocs/luci-static/quartz/cascade.css')
+src = pathlib.Path('../../../root/www/luci-static/quartz/cascade.css')
 out = pathlib.Path('out/cascade.unlayered.css')
 
 text = src.read_text(encoding='utf-8')
