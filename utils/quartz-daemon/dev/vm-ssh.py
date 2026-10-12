@@ -52,6 +52,12 @@ def run_remote(remote_cmd: str, timeout: float = 60.0) -> tuple[int, bytes]:
             if (not sent) and (b"password" in buf.lower()):
                 os.write(fd, (VM_PASS + "\n").encode())
                 sent = True
+    # 剥离交互式密码提示（"root@... password: "，可能带 \r\n），保证输出纯净
+    if b"password" in buf.lower():
+        idx = buf.lower().rfind(b"password")
+        nl = buf.find(b"\n", idx)
+        if 0 <= nl < 512:
+            buf = buf[nl + 1:]
     code = 255
     marker = b"__EXIT__"
     if marker in buf:
