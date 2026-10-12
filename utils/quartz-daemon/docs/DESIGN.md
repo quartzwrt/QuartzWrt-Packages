@@ -1,8 +1,8 @@
 # quartz-daemon 设计规范
 
-**版本**: v1.0（**定案**——按 §9 推荐案实施；用户指示"推进 WP-4"后开工）
+**版本**: v1.0.2（**定案**——按 §9 推荐案实施；v1.0.1/v1.0.2 为并入修正与完成补记）
 **日期**: 2026-10-12
-**状态**: W4.1–W4.5 已落地，单包交叉编译通过（验收①）；§1 事实与 §3 数据源经锁定基座 / VM 实机核实
+**状态**: **完成**（W4.1–W4.7：验收①单包交叉编译 + 验收② QEMU 新镜像 VM 集成，双通道全绿）；§1 事实与 §3 数据源经锁定基座 / VM 实机核实
 **只读契约（实现必须对齐，本文不得与之冲突）**: `luci/applications/luci-app-dashboard/docs/AGGREGATE-API.md`（冻结 v1）——
 本文描述"如何实现"，不新增字段；需要新数据一律走契约加法流程（契约 §0）
 **依据**: TDD §3.3 / §3.4 / §4.4 / §8；WORKPLAN §3 WP-4；WP-3 `DESIGN.md`（消费端，含 §2.2 降级四态）
@@ -432,3 +432,4 @@ Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
 *v0.3.1 2026-10-12 —— 拍板前校验修正：§3.4 docker 采集改**无版本路径**（核实锁定基座 dockerd 29.6.1 的默认最低接受 API 已升至 1.40，写死 `/v1.24` 会被版本中间件拒 "client version 1.24 is too old"；无版本请求按当前版本接受；§1.2 事实表补记该边界）；§3.6 探测集描述对齐 §13.1（消除 v0.1 "代码内常量" 残文）；头部"版本/待拍板项数"元信息同步至 v0.3/十项。*
 *v1.0 2026-10-12 —— **定案并开工**（用户指示"推进 WP-4"）：§9 十项按推荐案实施；W4.1–W4.5 落地（包骨架/Makefile/采集全层/配置/单测 25 例/dev 工具 `vm-ssh.py`+`contract-check.py`），单包交叉编译通过（验收①，产物 `quartz-daemon-0.1.0-r1.apk`）。实现期修正（同步进正文）：①§3.3 `up` 判定放宽为"非 down"（pppoe/wg 的 operstate=unknown）；②§7.1 `GO_PKG_LDFLAGS_X` 改 `main.version`（完整 import path 对 main 包静默失配，实测）；③采纳 v0.3.1 的 docker 无版本路径（§3.4）与 docker 移出预装（出厂 `available=false` 为常态）。*
 *v1.0.1 2026-10-12 —— 并入并行对话（引导对话）经 WORKPLAN §4 登记的校验修正（docker 无版本路径 / §1.2 事实表 / §3.6 描述对齐）；W4.6–W4.7 进行中。*
+*v1.0.2 2026-10-12 —— 完成补记：W4.6–W4.7 落地——QEMU 新镜像 VM 集成验收全绿（procd 自启 / 快照 2s·0644 / 契约校验 / HTTP 语义 / kill -9 恢复；Dashboard 真数据联调闭环、未装 Docker 卡正确隐藏），README/TDD 定稿同步；过程修复 rpcd realpath 二次 ACL（WORKPLAN 坑位 #25）、记录 procd respawn crash-loop 语义（#26）。已推送（Packages `917f5d2..93f9075`、Builder feed 锁定 bump `3e77e9c`——常规构建自动携带本包）。*
