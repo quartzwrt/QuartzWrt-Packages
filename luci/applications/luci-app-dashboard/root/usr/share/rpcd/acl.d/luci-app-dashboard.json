@@ -4,7 +4,9 @@
 		"read": {
 			"file": {
 				"/var/run/quartz/status.json": [ "read" ],
-				"/var/run/quartz": [ "list" ]
+				"/var/run/quartz": [ "list" ],
+				"/tmp/run/quartz/status.json": [ "read" ],
+				"/tmp/run/quartz": [ "list" ]
 			},
 			"ubus": {
 				"file": [ "list", "read" ],

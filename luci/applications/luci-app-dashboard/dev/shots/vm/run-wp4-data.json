@@ -1,0 +1,69 @@
+{
+  "tag": "wp4-data",
+  "base": "http://127.0.0.1:8080",
+  "landing_url": "http://127.0.0.1:8080/cgi-bin/luci/",
+  "landing": {
+    "url": "http://127.0.0.1:8080/cgi-bin/luci/",
+    "title": "ImmortalWrt | 概览",
+    "cards": 4,
+    "hero": true,
+    "banner": null,
+    "emptyStates": 0,
+    "tableRows": 1,
+    "deepLinks": [
+      "/cgi-bin/luci/admin/status/realtime | 实时流量 →",
+      "/cgi-bin/luci/admin/status/routes | 查看全部 →"
+    ],
+    "hostname": "ImmortalWrt",
+    "rates": [
+      "0.0 Mbps",
+      "0.0 Mbps"
+    ],
+    "cardsText": [
+      "系统",
+      "网络实时流量 →",
+      "服务与核心",
+      "在线设备查看全部 →"
+    ],
+    "menuActive": "概览",
+    "sidebarFirst": "概览"
+  },
+  "dashboard": {
+    "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/dashboard",
+    "title": "ImmortalWrt | 概览",
+    "cards": 4,
+    "hero": true,
+    "banner": null,
+    "emptyStates": 0,
+    "tableRows": 1,
+    "deepLinks": [
+      "/cgi-bin/luci/admin/status/realtime | 实时流量 →",
+      "/cgi-bin/luci/admin/status/routes | 查看全部 →"
+    ],
+    "hostname": "ImmortalWrt",
+    "rates": [
+      "0.0 Mbps",
+      "0.0 Mbps"
+    ],
+    "cardsText": [
+      "系统",
+      "网络实时流量 →",
+      "服务与核心",
+      "在线设备查看全部 →"
+    ],
+    "menuActive": "概览",
+    "sidebarFirst": "概览"
+  },
+  "console": [
+    "error: Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "http_4xx_5xx": [
+    "403 http://127.0.0.1:8080/cgi-bin/luci/",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg"
+  ]
+}
