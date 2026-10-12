@@ -1588,8 +1588,15 @@ body.modal-overlay-active #modal_overlay {
  * 10. 工具类与杂项
  * ========================================================================== */
 
-.left, .pull-left { float: left; }
-.right, .pull-right { float: right; }
+/* 布局工具类（对齐 bootstrap 语义）：.pull-* 才是浮动、.left/.right 是文本对齐。
+ * 主题此前把 .left/.right 也当浮动用——命中 LuCI 标记里的 td.left / td.right（文本
+ * 对齐语义）后，float 会把真实表格单元格 block 化（display 变 block、脱离表格布局、
+ * 列宽收缩为内容宽），概览/状态等页整行的列宽、行分隔线与悬停底色都只延伸到数值
+ * 单元格为止（2026-10-12 用户对照 argon 主题实测定位，坑位 #22） */
+.pull-left { float: left; }
+.pull-right { float: right; }
+.left { text-align: left !important; }
+.right { text-align: right !important; }
 .center { text-align: center; }
 .middle { vertical-align: middle; }
 .nowrap { white-space: nowrap; }
