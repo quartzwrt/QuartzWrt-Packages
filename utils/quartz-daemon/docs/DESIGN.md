@@ -25,6 +25,7 @@
 | 历史持久化（月度流量等） | series 仅内存环形缓冲；持久化需求出现再评估 |
 | 直读第三方插件内部文件 | 一律经 ubus / bridge（TDD §5）；openclash core 版本为"尽力"探测（§3.6） |
 | App 专属机制（事件发送、mDNS、TLS pinning） | 归 WP-5/6；daemon 仅预留事件检测 seam（§12） |
+| 控制面（写操作 / 动作） | **daemon 全寿命只读**；执行归 WP-5 + Bridge（§12.4 / §9-D9） |
 
 ## 1. 事实核实（2026-10-12，锁定基座 + VM 实机）
 
@@ -162,6 +163,7 @@
 - 监听 `127.0.0.1:8899`（默认，uci 可改；VM 实测空闲）。**未来 WP-5 与 App 走此通道**（契约 §1）。
 - `GET /api/v1/status` → `200 application/json`（内容 = 最近成功快照字节）+ `Cache-Control: no-store`；非 GET → 405；未知路径 → 404（JSON 短体）。
 - 超时：`ReadHeaderTimeout 5s`、`IdleTimeout 60s`；无 TLS / 无认证（回环边界，认证归 WP-5）。
+- **只读面**：本端口永不承载写操作（控制面归属见 §12.4 / §9-D9）——"回环 + 零凭据"的安全边界由此成立。
 - 不产生任何 DNS 查询（unix socket + 回环），不触发解析器路径。
 - **App / WP-5 上游通道**：本接口是专属 App 数据链路的唯一上游（WP-5 认证后转发）；义务边界、预留 seam 与不做清单见 §12。
 
@@ -245,7 +247,7 @@ utils/quartz-daemon/
 
 **单元测试（host `go test ./...`）**：
 - fixtures = **VM 实机样张**（`/proc/stat`、`meminfo`、`route`、`arp`、`leases`、docker JSON、`service list` JSON，W4.5 抓取固化）；
-- 覆盖：解析口径（CPU delta / mem / rootfs / route / arp / lease / docker Status）、边界（计数器回绕、空 lease、无 wan、无温度、ubus not found）、上限截断自守、原子写、config clamp。
+- 覆盖：解析口径（CPU delta / mem / rootfs / route / arp / lease / docker Status）、边界（计数器回绕、空 lease、无 wan、无温度、ubus not found）、上限截断自守、原子写、config clamp、**探针描述文件解析与校验**（含路径/字符集拒绝）。
 
 **验收链（对齐 WORKPLAN 验收①②）**：
 1. 单包编译 `make package/feeds/quartz/quartz-daemon/compile` 通过；build-local 全量带包构建通过；
@@ -272,6 +274,8 @@ utils/quartz-daemon/
 | D6 | services v1 范围 | openclash + dockerd 的 `running`；`openclash.core` 尽力（exec -v 缓存）；`core_update` 后置；dashboard 维持软依赖 | core_update v1 做：需联网比较，越 §0 边界 |
 | D7 | 发行版标识 | 新增 `/etc/quartz-release`（由 **quartz-defaults** 提供），daemon 只读；缺失时降级拼串 | daemon 自带版本文件：身份文件应随发行版元包走 |
 | D8 | App 适配范围 | daemon 只承诺 **HTTP 一等公民**（§12.1）+ 冻结事件检测 seam（只产生、不发送，v1 不实现）；推送发送 / mDNS / 认证归 WP-5/6 后置 | daemon v1 内建 webhook 发送：推送通道（Bark/PushDeer/Telegram）未定，配置与测试面过早扩大，易返工 |
+| D9 | 控制面归属 | **执行归 WP-5 + Bridge（ubus/rpcd ACL），daemon 全寿命只读**（§12.4）；App 对外只见 WP-5 一个 API；控制后可视化由 2s 快照天然满足 | daemon 内建控制端点：回环无认证 + 动作 = 本机任意进程可触发的权限提升面；且与 WP-3/TDD/契约已定方向三重分叉 |
+| D10 | 扩展机制 v1 范围 | **v1 即落地 drop-in 探针描述文件**（`services` 采集器以数据文件为 registry；内置 openclash/dockerd 描述符随包投放，§13.1） | v1 硬编码 registry + v1.1 再上 descriptor：省少量 v1 工量，但"新包接入要重编"的问题立刻回访 |
 
 ## 10. W4.x 交付分解
 
@@ -280,7 +284,7 @@ utils/quartz-daemon/
 | W4.0 | 本设计稿定案（v1.0）+ 决策记录 | 用户拍板 |
 | W4.1 | 包骨架 + Makefile（golang 交叉编译打通，`--version` 最小二进制编译通过） | W4.0 |
 | W4.2 | 采集核心：fast 循环（host/system/net）+ 快照 marshal + 原子写 + HTTP | W4.1 |
-| W4.3 | 慢采集：docker / clients / services + 错误隔离 + 上限自守 | W4.2 |
+| W4.3 | 慢采集：docker / clients / services（含 **drop-in 探针描述文件机制**，§13.1）+ 错误隔离 + 上限自守 | W4.2 |
 | W4.4 | 配置：uci 解析 + procd 脚本 + reload 链路 | W4.1 |
 | W4.5 | 单测与 fixtures（VM 样张抓取固化）+ `dev/contract-check.py` | W4.2 |
 | W4.6 | VM 集成验收：镜像 → 运行面/契约/HTTP/Playwright 真数据（闭 WP-3 待办） | W4.3、W4.4 |
@@ -297,6 +301,9 @@ utils/quartz-daemon/
 | `luci-app-dashboard` | 维持软依赖（建议 D6）；`dev/mock/` 无需变更（契约未动） | 登记通知 WP-3 |
 | 本 WP 文件所有权 | `utils/quartz-daemon/` 已登记为 WP-4（WORKPLAN §4，无冲突） | — |
 | WP-5 / WP-6（App 链路边界） | 登记：daemon 数据面止于 HTTP 回环（§12）；认证/转发归 WP-5，mDNS/TLS/轮询策略归 WP-6；事件 seam 归属随 §9-D8 拍板后登记 | 登记通知两对话 |
+| WP-5 / WP-8（控制面） | 登记：写操作执行归 WP-5 + Bridge（动作路径表 §12.4）；daemon 全寿命只读；控制入口可见性可读同一快照 | 登记通知 |
+| WP-3（卡片层泛化） | 建议：服务卡**泛化渲染未知键**（通用行：title + 运行点），使 descriptor 投放全链路自动可见（§13.3）；是否采纳由 WP-3 评估 | 登记通知 |
+| WP-7 / thirdparty | 约定：收录新包时**随薄 Makefile 投放探针描述文件**（§13.1；仅打包层面追加文件，不改上游源码，符合"不可变上游"） | 登记通知 |
 
 ## 12. 专属 App（WP-6）适配
 
@@ -332,13 +339,91 @@ quartz-daemon ──HTTP 127.0.0.1:8899（本设计 §5）──▶ WP-5 quartz-
 | :--- | :--- |
 | mDNS 发现、TLS / 证书 pinning | WP-5 / WP-6 |
 | 推送消息发送（Bark / PushDeer / Telegram） | 后置（通道未定，§9-D8） |
-| 写操作 / 控制面（重启服务、触发核心更新） | WP-5 rpcd 体系（契约 v1 注记） |
+| 写操作 / 控制面（重启服务、触发核心更新） | 执行归 **WP-5 + Bridge**（路径与机制见 §12.4；契约 v1 注记）；daemon 全寿命只读 |
 | App 专属字段 | **禁止**——App 与 Dashboard 共享同一契约；单端需求走"加法可选字段"，不得私加 |
 
 **App 侧义务提醒（WP-6 照契约办）**：轮询降频 / 后台不取数（契约 §5 的移动端版本）、未知字段与未知 `v` 容忍。
+
+### 12.4 控制面（App 控制路由器）的归属与路径
+
+**需求**：App 需要对路由器"控制"——重启服务 / 容器、启停插件、触发核心更新、限速等设备管理动作。
+
+**归属（§9-D9，推荐）**：**执行在 WP-5 + Bridge，daemon 全寿命保持只读**。App 对外只见一个 API（WP-5），数据与动作在 WP-5 汇聚：
+
+```
+Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
+                          ├─ 数据：读 daemon 回环 HTTP 快照（本设计 §5）
+                          └─ 动作：ubus（service / system / bandix… 模式 A）
+                                    └─ Bridge（rpcd 白名单封装，模式 B，TDD §5）
+```
+
+**daemon 不承接写操作的理由**（三条，任一条成立即否决 daemon 内建控制）：
+
+1. **安全边界**：回环 HTTP 无认证——本机任何进程可达。只读时风险仅是数据可见性；一旦承载动作，即成"本机任意进程可触发"的权限提升面。只读是"回环 + 零凭据"架构选择成立的前提；
+2. **权限机制复用**：ubus/rpcd ACL 是基座成熟机制，TDD §3.4 已定"App 权限统一收敛 quartz-app-api"；daemon 另起认证 = 第二套凭据 + 第二处吊销逻辑；
+3. **三处文档已一致**：WP-3 DESIGN §6.3-5（写操作走 WP-5）、契约 §5 注记、TDD §3.4——本设计不引入分叉。
+
+**动作路径表（归属记录，供 WP-5/8 设计时对齐）**：
+
+| 动作示例 | 执行方 | 机制 |
+| :--- | :--- | :--- |
+| 重启 / 启停 OpenClash 等服务 | WP-5 | ubus `service`（procd 事件）或 init 脚本白名单 |
+| Docker 容器启停 / 重启 | WP-5 | docker socket 或 CLI 白名单封装（不经 daemon；其 socket 客户端仅供采集） |
+| bandix 限速 / 设备管控（模式 A） | WP-5 直调 | 原生 ubus（TDD §5 模式 A） |
+| DDNS 等单体插件配置（模式 B） | WP-8 Bridge | rpcd 白名单封装 |
+| 触发核心 / 规则更新（TDD §4.4） | WP-5 / Bridge | **版本与更新状态由 daemon 报告**（services extras），触发动作归控制面 |
+
+**daemon 为控制面提供的（无需写权限）**：
+
+1. **控制后可视化**：动作执行 → 快照 ≤ `interval`（2s）反映新状态（服务状态点 / 容器计数自动刷新），App 无需专门"回读"接口；
+2. **动作可用性同源**：WP-5 判定"应显示哪些控制入口"可读同一快照（`services` 节）——数据与动作判定共用一份事实，避免两处状态漂移。
+
+**逃生舱（seam，v1 不做）**：若未来某动作只能由 daemon 承接（如需复用其 docker socket 客户端），形态为 **unix socket 控制端点 + `SO_PEERCRED`**（仅本机 root 进程可调），而非回环 TCP——冻结形状，出现真实需求再启用。
+
+## 13. 新软件包扩展机制（灵活接入）
+
+**目标**：新装软件包（`apk add` / thirdparty 收录新插件）后，**不重编 daemon、不改契约**即可在 Dashboard / App 可见（若需控制则经 §12.4 归属路径）。
+
+### 13.1 数据面：drop-in 探针描述文件（v1 落地，§9-D10）
+
+`services` 采集器**不硬编码 registry**，改为扫描声明式描述文件：
+
+- 目录：`/usr/share/quartz-daemon/probes.d/*.json`（包内置）+ `/etc/quartz-daemon/probes.d/*.json`（本地追加；同 id 覆盖内置）；
+- 生效：慢周期（10s）重扫——**运行期 `apk add` 后 ≤10s 自动出现，无需重启 daemon**；
+- schema v1（冻结形状；产物即契约 `services` 开放映射的键值）：
+
+```json
+{
+  "id": "passwall",
+  "title": "PassWall",
+  "running": { "type": "procd", "name": "passwall" },
+  "extras": {
+    "core": { "type": "exec", "path": "/usr/bin/xray", "args": ["-version"], "regex": "Xray ([0-9.]+)" }
+  }
+}
+```
+
+- **探针类型 v1**：`procd`（`/etc/init.d/<name>` 存在=已装；ubus `service list` 存在运行实例=运行中）、`pidof`、`exec`（绝对路径 + 固定 args + 正则捕获；结果 5min 缓存）。`ubus` / `file` 类型为后续加法（形状不变）；
+- **三态**：未装 → `services` 键缺省（消费方按"不可用/未装"显示）；已装停止 → `{"running": false}`；运行中 → `{"running": true, ...extras}`。可选 `title` 供消费方在未知键场合显示；
+- **安全**：仅 root 可写目录；**声明式、无 shell、绝对路径**；exec 超时 2s；id 字符集 `^[a-z0-9_-]{1,32}$`；恶意/非法描述文件整条拒绝并记 `errors`；
+- openclash / dockerd 的内置描述符随本包 `files/probes.d/` 投放——**"已知服务集合"从代码变为数据**。
+
+### 13.2 代码面：新"节"扩展（Tier 2）
+
+新数据类别（WiFi 客户端、多网口、UPS、多区温度）不是服务状态，须加采集器：**加一节 + 契约加法（旧前端自动忽略）**，走 W4.x 同款流程（单测 / 样张 / 验收）。节级扩展是少量 in-tree 代码（本仓库可控），契约纪律保证前端无破坏——两层机制合计覆盖"新包接入"的两类需求。
+
+### 13.3 端到端闭环走查（模拟"收录 passwall"）
+
+1. thirdparty 薄 Makefile 收录时**随包投放 descriptor**（打包层面追加文件，不改上游源码，符合"不可变上游"）；
+2. daemon 慢周期自动拾取 → `services.passwall` 出现（**零重编**）；
+3. Dashboard 服务卡按 §11 登记的泛化建议渲染未知键（通用行：title + 运行点）→ 自动显示；
+4. 若需控制入口 → WP-8 Bridge 或 WP-5 直调（§12.4 归属表）。
+
+⇒ 全链路"新包可见"仅需：**一个描述文件** +（首次）**WP-3 一次泛化改造**；无需重编 daemon、无需契约升版。
 
 ---
 
 *变更记录：*
 *v0.1 2026-10-12 —— 首稿（讨论稿）：契约实现方案（§3 数据源逐节经 VM 实机核实）、架构（快慢分离 + 双缓冲 + 单写者）、打包（golang-package.mk + in-tree 源码）、验收链（编译 / VM 契约校验 / Dashboard 真数据联调）、待拍板 7 项（§9）。*
 *v0.2 2026-10-12 —— 用户评审反馈（"考虑对专属 App 的适配"）：新增 §12（App 经 WP-5 的链路图、五项承诺——同字节/降级合法 JSON/并发/零凭据/机器可读、四项预留 seam——事件检测/运行时资源清单/clients 分页/OTA 字段、不做清单、App 侧义务）；§0 不做表补 App 专属机制行；§5 补上游通道指针；§9 增 D8（App 适配范围与 seam 归属）；§11 登记 WP-5/6 边界。**v1 实现计划（§10 W4.x）不受此节影响**——适配以 seam 冻结为主。*
+*v0.3 2026-10-12 —— 用户评审反馈（"App 控制路由器"+"新加软件包要能灵活拓展"）：新增 **§12.4 控制面归属**（执行归 WP-5 + Bridge、daemon 全寿命只读，三条否决理由、动作路径表、控制后可视化、逃生舱 seam）与 **§13 新包扩展机制**（`services` drop-in 探针描述文件——新包零重编自动进快照；Tier 2 契约加法节；端到端闭环走查）；§0/§5 补"只读面"行；§12.3 写操作行改指 §12.4；§9 增 **D9（控制面归属）/ D10（扩展机制 v1 范围）** → 待拍板 10 项；§10 W4.3 含 descriptor 机制；§8 单测覆盖补描述文件校验；§11 增 WP-5/8 动作归属、WP-3 服务卡泛化建议、WP-7 投放约定三项登记。*
