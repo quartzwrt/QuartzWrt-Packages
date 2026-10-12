@@ -24,6 +24,7 @@
 | 联网检查（核心版本比较、资源下载） | TDD §4.4 运行时资源治理，WP-7/8 链路，后置 |
 | 历史持久化（月度流量等） | series 仅内存环形缓冲；持久化需求出现再评估 |
 | 直读第三方插件内部文件 | 一律经 ubus / bridge（TDD §5）；openclash core 版本为"尽力"探测（§3.6） |
+| App 专属机制（事件发送、mDNS、TLS pinning） | 归 WP-5/6；daemon 仅预留事件检测 seam（§12） |
 
 ## 1. 事实核实（2026-10-12，锁定基座 + VM 实机）
 
@@ -162,6 +163,7 @@
 - `GET /api/v1/status` → `200 application/json`（内容 = 最近成功快照字节）+ `Cache-Control: no-store`；非 GET → 405；未知路径 → 404（JSON 短体）。
 - 超时：`ReadHeaderTimeout 5s`、`IdleTimeout 60s`；无 TLS / 无认证（回环边界，认证归 WP-5）。
 - 不产生任何 DNS 查询（unix socket + 回环），不触发解析器路径。
+- **App / WP-5 上游通道**：本接口是专属 App 数据链路的唯一上游（WP-5 认证后转发）；义务边界、预留 seam 与不做清单见 §12。
 
 ## 6. 配置（`/etc/config/quartz-daemon`）
 
@@ -269,6 +271,7 @@ utils/quartz-daemon/
 | D5 | 配置载体 | 独立 `/etc/config/quartz-daemon`（interval / listen / port 最小面；reload=重启生效） | 并入 `/etc/config/quartz`：跨 WP 所有权混淆，否决 |
 | D6 | services v1 范围 | openclash + dockerd 的 `running`；`openclash.core` 尽力（exec -v 缓存）；`core_update` 后置；dashboard 维持软依赖 | core_update v1 做：需联网比较，越 §0 边界 |
 | D7 | 发行版标识 | 新增 `/etc/quartz-release`（由 **quartz-defaults** 提供），daemon 只读；缺失时降级拼串 | daemon 自带版本文件：身份文件应随发行版元包走 |
+| D8 | App 适配范围 | daemon 只承诺 **HTTP 一等公民**（§12.1）+ 冻结事件检测 seam（只产生、不发送，v1 不实现）；推送发送 / mDNS / 认证归 WP-5/6 后置 | daemon v1 内建 webhook 发送：推送通道（Bark/PushDeer/Telegram）未定，配置与测试面过早扩大，易返工 |
 
 ## 10. W4.x 交付分解
 
@@ -293,8 +296,49 @@ utils/quartz-daemon/
 | `meta/quartz-defaults` | 追加 `+quartz-daemon`；新增安装 `/etc/quartz-release`（D7） | WP-4 追加（共享文件）；登记通知 |
 | `luci-app-dashboard` | 维持软依赖（建议 D6）；`dev/mock/` 无需变更（契约未动） | 登记通知 WP-3 |
 | 本 WP 文件所有权 | `utils/quartz-daemon/` 已登记为 WP-4（WORKPLAN §4，无冲突） | — |
+| WP-5 / WP-6（App 链路边界） | 登记：daemon 数据面止于 HTTP 回环（§12）；认证/转发归 WP-5，mDNS/TLS/轮询策略归 WP-6；事件 seam 归属随 §9-D8 拍板后登记 | 登记通知两对话 |
+
+## 12. 专属 App（WP-6）适配
+
+**链路**：App **不走文件通道**（那是 LuCI 会话 + rpcd ACL 的专属路径），一律经 HTTP：
+
+```
+quartz-daemon ──HTTP 127.0.0.1:8899（本设计 §5）──▶ WP-5 quartz-app-api（JWT / ACL / 转发）
+                                                        │ HTTPS（TLS / 证书 pinning 归 WP-6）
+                                                        ▼
+                                                     Flutter App
+```
+
+### 12.1 WP-4 的承诺（本设计已覆盖，此处显式化）
+
+| 承诺 | 落地位置 |
+| :--- | :--- |
+| HTTP 与文件**同字节** | 单写者双通道（§2）：App 所见与 Dashboard 严格一致，不存在第二份数据逻辑 |
+| 任何降级下**仍是合法 JSON** | 单节失败置 `null` + `errors`（§4）：App 无"非 JSON / 白屏"路径 |
+| **并发安全** | `atomic.Value` 无锁读：App + WP-5 + Dashboard 并存无压力 |
+| **零新增凭据** | daemon 仅回环、无认证（§5）：认证 / 签发 / 吊销全部集中 WP-5，App 链路上不出现第二套认证面 |
+| **机器可读输出** | `errors` 短串、服务键、epoch 秒：本地化由 App 做，daemon 零 i18n 负担 |
+
+### 12.2 预留 seam（冻结形状，v1 不实现）
+
+1. **事件检测（TDD §8 "App 推送"待决项的天然落点）**：daemon 是唯一全天候状态观察者，快照序列即事件源（WAN 掉线、设备上/下线、容器转 unhealthy）。v1 **冻结形状不实现**；演进二选一：**(a)** daemon 内建 webhook 外发（出站连接，配置入 uci）；**(b)** WP-5 拉取事件列表。**归属建议**：事件"产生"留在 daemon（只有它有连续视图），"发送/订阅"归 WP-5 或独立模块（§9-D8）。
+2. **运行时资源清单（TDD §4.4 点名 daemon）**：插件核心 / 规则库版本与更新状态——经 `services` 开放映射接入（`openclash.core` 即首例），**这就是 §4.4 的物化通道**，无需新机制。
+3. **`clients` 全量 / 分页**：`total > items` 语义契约已有；App 设备页如需 >32 条，走契约加法（提升上限或加查询参数），对既有前端无破坏。
+4. **OTA / 固件提示（WP-9）**：`system` 节将来以加法字段（如 `upgrade`）进入，App 首页与 Dashboard 同源。
+
+### 12.3 明确不做（防越界）
+
+| 不做 | 归属 |
+| :--- | :--- |
+| mDNS 发现、TLS / 证书 pinning | WP-5 / WP-6 |
+| 推送消息发送（Bark / PushDeer / Telegram） | 后置（通道未定，§9-D8） |
+| 写操作 / 控制面（重启服务、触发核心更新） | WP-5 rpcd 体系（契约 v1 注记） |
+| App 专属字段 | **禁止**——App 与 Dashboard 共享同一契约；单端需求走"加法可选字段"，不得私加 |
+
+**App 侧义务提醒（WP-6 照契约办）**：轮询降频 / 后台不取数（契约 §5 的移动端版本）、未知字段与未知 `v` 容忍。
 
 ---
 
 *变更记录：*
 *v0.1 2026-10-12 —— 首稿（讨论稿）：契约实现方案（§3 数据源逐节经 VM 实机核实）、架构（快慢分离 + 双缓冲 + 单写者）、打包（golang-package.mk + in-tree 源码）、验收链（编译 / VM 契约校验 / Dashboard 真数据联调）、待拍板 7 项（§9）。*
+*v0.2 2026-10-12 —— 用户评审反馈（"考虑对专属 App 的适配"）：新增 §12（App 经 WP-5 的链路图、五项承诺——同字节/降级合法 JSON/并发/零凭据/机器可读、四项预留 seam——事件检测/运行时资源清单/clients 分页/OTA 字段、不做清单、App 侧义务）；§0 不做表补 App 专属机制行；§5 补上游通道指针；§9 增 D8（App 适配范围与 seam 归属）；§11 登记 WP-5/6 边界。**v1 实现计划（§10 W4.x）不受此节影响**——适配以 seam 冻结为主。*
