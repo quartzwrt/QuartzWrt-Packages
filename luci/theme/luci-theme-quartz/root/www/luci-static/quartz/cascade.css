@@ -352,6 +352,7 @@ h4 {
 	-webkit-backdrop-filter: blur(var(--qz-blur));
 	backdrop-filter: blur(var(--qz-blur));
 	border-right: 1px solid var(--qz-border);
+	transition: transform .24s ease-out;
 }
 
 header {
@@ -540,9 +541,9 @@ footer a {
 	background-image: linear-gradient(var(--qz-hover), var(--qz-hover));
 }
 
-/* 移动端汉堡按钮（桌面隐藏） */
+/* 顶栏汉堡按钮：桌面=侧边栏收起切换（html.qz-nav-collapsed），窄屏=抽屉开合（html.qz-nav-open） */
 #qz-nav-toggle {
-	display: none;
+	display: inline-flex;
 }
 
 /* 移动端侧边栏遮罩 */
@@ -1284,6 +1285,7 @@ div.cbi-section-table-titles {
  * ========================================================================== */
 
 .alert-message {
+	display: flow-root;
 	background: var(--qz-bg-panel);
 	border: 1px solid var(--qz-border);
 	border-left: 2px solid var(--qz-text-3);
@@ -1291,6 +1293,11 @@ div.cbi-section-table-titles {
 	padding: 12px 16px;
 	margin-bottom: 14px;
 }
+
+/* 内部浮动按钮（.right，“转到密码配置…”等）必须由卡片自行容纳：
+ * 否则浮动逸出卡片下缘，进入 #maincontent 的块格式化上下文，把后续
+ * BFC 根（如 Dashboard 的 .qzd-hero flex 容器）挤窄并压出卡片
+ * ——2026-10-12 用户实测：未设密码横幅按钮出框 + 首卡宽度收缩 141px */
 
 .alert-message h4 {
 	margin-bottom: 4px;
@@ -1682,6 +1689,32 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 /* ==========================================================================
  * 12. 响应式
  * ========================================================================== */
+
+/* 桌面（>900px）：侧边栏可收起——顶栏汉堡切换 html.qz-nav-collapsed，
+ * 侧边栏左移隐藏、顶栏与内容列让位收回；状态持久化见 theme.js / header.ut */
+@media (min-width: 901px) {
+	header {
+		transition: left .24s ease-out;
+	}
+
+	#maincontent,
+	footer {
+		transition: margin-left .24s ease-out;
+	}
+
+	html.qz-nav-collapsed #qz-sidebar {
+		transform: translateX(-100%);
+	}
+
+	html.qz-nav-collapsed header {
+		left: 0;
+	}
+
+	html.qz-nav-collapsed #maincontent,
+	html.qz-nav-collapsed footer {
+		margin-left: 0;
+	}
+}
 
 @media (max-width: 900px) {
 	#qz-sidebar {

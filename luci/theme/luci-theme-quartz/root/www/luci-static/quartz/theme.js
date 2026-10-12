@@ -5,14 +5,16 @@
  * 职责:
  *   1) 顶栏三态外观切换（跟随系统 / 深色 / 浅色），手动选择存入 localStorage('qz-theme')
  *   2) 自备壁纸探测: /quartz-wallpaper/wallpaper.jpg 存在时启用壁纸层与 scrim
- *   3) 移动端侧边栏开合
+ *   3) 侧边栏开合: 窄屏(≤900px)抽屉式开合(html.qz-nav-open)；桌面(>900px)收起切换
+ *      (html.qz-nav-collapsed, 选择存入 localStorage('qz-nav-collapsed'))
  *
- * 注意: 首绘前的外观（data-darkmode / data-qz-mode）由 header 模板中的内联
- * 脚本设置，避免闪烁；本文件只接管交互，不做首绘。
+ * 注意: 首绘前的外观（data-darkmode / data-qz-mode）与桌面侧边栏收起态由 header
+ * 模板中的内联脚本设置，避免闪烁；本文件只接管交互，不做首绘。
  */
 (function () {
 	var root = document.documentElement;
 	var KEY = 'qz-theme';
+	var NAV_KEY = 'qz-nav-collapsed';
 	var MODES = ['auto', 'dark', 'light'];
 
 	function mq() {
@@ -73,12 +75,38 @@
 			m.addListener(onChange);
 	}
 
+	function setCollapsed(on) {
+		root.classList.toggle('qz-nav-collapsed', on);
+
+		try {
+			if (on)
+				localStorage.setItem(NAV_KEY, '1');
+			else
+				localStorage.removeItem(NAV_KEY);
+		} catch (e) { /* 隐私模式下忽略 */ }
+	}
+
 	function initNavToggle() {
 		var btn = document.getElementById('qz-nav-toggle');
+		var bp = window.matchMedia('(max-width: 900px)');
+
 		if (btn)
 			btn.addEventListener('click', function () {
-				root.classList.toggle('qz-nav-open');
+				if (bp.matches)
+					root.classList.toggle('qz-nav-open');
+				else
+					setCollapsed(!root.classList.contains('qz-nav-collapsed'));
 			});
+
+		/* 跨断点清理互斥状态（桌面收起态 / 窄屏抽屉态） */
+		var onBp = function () {
+			root.classList.remove(bp.matches ? 'qz-nav-collapsed' : 'qz-nav-open');
+		};
+
+		if (bp.addEventListener)
+			bp.addEventListener('change', onBp);
+		else if (bp.addListener)
+			bp.addListener(onBp);
 
 		var veil = document.getElementById('qz-nav-veil');
 		if (veil)

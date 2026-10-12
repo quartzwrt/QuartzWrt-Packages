@@ -47,6 +47,8 @@
 					(p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 				r.setAttribute('data-darkmode', dark ? 'true' : 'false');
 				r.setAttribute('data-qz-mode', (p === 'dark' || p === 'light') ? p : 'auto');
+				/* 桌面侧边栏收起态：首绘前恢复，避免闪烁（仅在 >900px 生效，见 cascade.css） */
+				try { if (localStorage.getItem('qz-nav-collapsed') === '1') r.classList.add('qz-nav-collapsed'); } catch (e) {}
 			})();
 		</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -85,7 +87,7 @@
 			</div>
 		</nav>
 		<header>
-			<button type="button" id="qz-nav-toggle" class="qz-icon-btn" aria-label="{{ _('Menu') }}">
+			<button type="button" id="qz-nav-toggle" class="qz-icon-btn" aria-label="{{ _('Menu') }}" title="{{ _('Toggle sidebar') }}">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
 					<path d="M4 7h16M4 12h16M4 17h16"/>
 				</svg>
