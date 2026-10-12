@@ -1,0 +1,7 @@
+Station a4:83:e7:1c:2d:9f (on wlan0)
+	inactive time:	1500 ms
+	rx bytes:	123456
+	signal:  	-45 [-50] dBm
+Station 3c:22:fb:9e:11:04 (on wlan0)
+	inactive time:	65000 ms
+	rx bytes:	98765

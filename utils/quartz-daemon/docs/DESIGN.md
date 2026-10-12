@@ -1,8 +1,8 @@
-# quartz-daemon 设计规范（讨论稿）
+# quartz-daemon 设计规范
 
-**版本**: v0.1（**讨论稿**）
+**版本**: v1.0（**定案**——按 §9 推荐案实施；用户指示"推进 WP-4"后开工）
 **日期**: 2026-10-12
-**状态**: 待用户拍板（§9 七项）；§1 事实与 §3 数据源均已按锁定基座 / VM 实机核实，可直接作为拍板依据
+**状态**: W4.1–W4.5 已落地，单包交叉编译通过（验收①）；§1 事实与 §3 数据源经锁定基座 / VM 实机核实
 **只读契约（实现必须对齐，本文不得与之冲突）**: `luci/applications/luci-app-dashboard/docs/AGGREGATE-API.md`（冻结 v1）——
 本文描述"如何实现"，不新增字段；需要新数据一律走契约加法流程（契约 §0）
 **依据**: TDD §3.3 / §3.4 / §4.4 / §8；WORKPLAN §3 WP-4；WP-3 `DESIGN.md`（消费端，含 §2.2 降级四态）
@@ -49,7 +49,7 @@
 | `/proc/net/route` | **无默认路由**（VM 网络仅 lan + docker，无 wan 段） | WAN 解析链与"无 WAN"降级路径在 VM 即可实测覆盖 |
 | ubus CLI | `/bin/ubus` 可用；`ubus call network.interface.wan status` → `Command failed: Not found` | ubus 调用必须容忍 not found（属合法态，非 errors） |
 | `ubus call service list` | 含 dockerd / dnsmasq / network…；openclash init 为 `USE_PROCD=1`（当前未运行） | `services` 节数据源（一次调用取全量） |
-| Docker | `/var/run/docker.sock` = `srw-rw---- root:docker 660`；`dockerd`/`docker` 在 `/usr/bin` | daemon 以 root 运行可直连；`available` 判定看可执行文件 |
+| Docker | `/var/run/docker.sock` = `srw-rw---- root:docker 660`；`dockerd`/`docker` 在 `/usr/bin`；**dockerd 29.6.1：默认最低接受 API = 1.40**（低于它的版本化请求被版本中间件拒绝："client version … is too old. Minimum supported API version is 1.40"；1.24 硬地板仅 `DOCKER_MIN_API_VERSION` 环境变量特例可开），**无版本请求按当前版本（MaxAPIVersion 1.55）接受** | daemon 以 root 运行可直连；`available` 判定看可执行文件；**docker 采集一律用无版本路径**（§3.4）；**docker 为按需安装包（2026-10-12 拍板移出预装）——出厂固件 `available=false`、Docker 卡隐藏是常态** |
 | `/tmp/dhcp.leases` | 存在、当前为空；dnsmasq `dhcp-leasefile=/tmp/dhcp.leases` | clients 主机名源 |
 | `/proc/net/arp` | 1 条（`192.168.1.2` on `br-lan`，slirp 网关） | clients 在线判定主源；VM 冒烟有 1 条可测 |
 | `/var/run` | 符号链接到 `/tmp/run`（**tmpfs，重启清空**） | 目录须启动自建；无需 fsync；开机后首写要快 |
@@ -107,7 +107,7 @@
   1. 快（每周期）：`/proc/net/route` 默认路由（Destination=00000000）的 Iface；接口地址（`ipv4`）用 Go `net.Interfaces` 取该接口 IPv4（微秒级，不 exec）；
   2. 慢（10s 刷新）：`ubus call network.interface.wan status` 取 `proto`（`l3_device` 用于校正默认路由设备，如 pppoe-wan）；
   3. 无默认路由且无 wan 段（VM 实测形态）→ `up=false`、`ifname/proto/ipv4` 空串——**合法态，不记 `errors`**。
-- `up` = 默认路由存在 且 承载接口 operstate 为 up。
+- `up` = 默认路由存在 且 承载接口 operstate **非 down**（实现期修正：pppoe/wireguard 等隧道接口 operstate 常为 "unknown"，按原措辞会误判离线——仅 "down" 视为离线）。
 - `rx_bps`/`tx_bps`：`/sys/class/net/<ifname>/statistics/{rx,tx}_bytes` delta ÷ Δt；Δ 为负（计数器回绕 / 接口重建）→ 重置基点并记 0。
 - `series`：内存环形缓冲，`step = interval`，各数组 ≤60 点，初值 `[0]`（契约示例同款）。
 
@@ -116,8 +116,8 @@
 | 项 | 实现 |
 | :--- | :--- |
 | `available` | **dockerd 可执行存在与否**（未安装 → `false` → Dashboard 隐藏整卡，契约语义） |
-| `running`/`total` | `http.Client` + `DialContext`(unix) → `GET /v1.24/containers/json?all=1`；`State=="running"` 计数 |
-| `images` | `GET /v1.24/images/json` 数组长度 |
+| `running`/`total` | `http.Client` + `DialContext`(unix) → `GET /containers/json?all=1`（**无版本路径**——dockerd 29.6.1 默认最低 API 已抬到 1.40，写死 `/v1.24` 会被拒 "too old"，§1.2）；`State=="running"` 计数 |
+| `images` | `GET /images/json`（无版本，同前）数组长度 |
 | `unhealthy` | 容器 `Status` 字符串含 `(unhealthy)` → 容器名；≤8 截断 |
 | 失败 | 二进制在但 socket 不可用 → **整节 `null` + `errors["docker: ..."]`**（区分"未装"与"装了连不上"）；下轮自动重试 |
 
@@ -138,7 +138,7 @@
 
 ### 3.6 `services`（可空，开放映射；慢刷 10s）
 
-- 单次 `ubus call service list` → 探测集 **{openclash, dockerd}**（代码内常量，扩展 = 加键不改契约）；
+- 单次 `ubus call service list` → 探测集来自 **drop-in 探针描述文件**（§13.1；v1 落地待 §9-D10 拍板）；内置 openclash/dockerd 描述符随包投放；扩展 = 投放描述文件，零重编；
 - `running`：对应服务任一 procd instance `running=true`（openclash init 实测 `USE_PROCD=1`，适用）；
 - `services.openclash.core`（**尽力提供**）：core 二进制存在时 exec `<core> -v` 解析版本串，5min 缓存；不存在 → 字段缺省（Dashboard 显示 Unavailable）；`core_update` **后置**（需联网比较，属 TDD §4.4 治理）；
 - ubus 不可用 → `services = null` + `errors`。
@@ -196,8 +196,10 @@ PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 
 GO_PKG:=github.com/quartzwrt/quartz-daemon        # 零依赖，路径仅作标识；go 指令 1.22
 GO_PKG_BUILD_PKG:=$(GO_PKG)/cmd/quartz-daemon
-GO_PKG_LDFLAGS_X:=$(GO_PKG)/cmd/quartz-daemon.version=$(PKG_VERSION) \
-                  $(GO_PKG)/cmd/quartz-daemon.release=$(PKG_RELEASE)
+# -X 目标：main 包符号名是 "main.<var>"——实测完整 import path 写法静默失配；
+# feed 惯例同（如 gotop main.Version）
+GO_PKG_LDFLAGS_X:=main.version=$(PKG_VERSION) \
+                  main.release=$(PKG_RELEASE)
 GO_PKG_INSTALL_BIN_PATH:=/usr/sbin
 
 define Build/Prepare
@@ -262,7 +264,7 @@ utils/quartz-daemon/
 
 **架构覆盖**：x86_64 + aarch64（R4S/R5S）优先；`GO_ARCH_DEPENDS` 限定受支持架构。
 
-## 9. 待拍板决策（推荐案）
+## 9. 决策记录（v1.0 定案：全部按推荐案实施；实现期内如有异议仍可低成本调整）
 
 | # | 决策 | 推荐 | 备选与理由 |
 | :--- | :--- | :--- | :--- |
@@ -384,7 +386,7 @@ Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
 
 **目标**：新装软件包（`apk add` / thirdparty 收录新插件）后，**不重编 daemon、不改契约**即可在 Dashboard / App 可见（若需控制则经 §12.4 归属路径）。
 
-### 13.1 数据面：drop-in 探针描述文件（v1 落地，§9-D10）
+### 13.1 数据面：drop-in 探针描述文件（§9-D10 推荐案 = v1 落地）
 
 `services` 采集器**不硬编码 registry**，改为扫描声明式描述文件：
 
@@ -427,3 +429,6 @@ Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
 *v0.1 2026-10-12 —— 首稿（讨论稿）：契约实现方案（§3 数据源逐节经 VM 实机核实）、架构（快慢分离 + 双缓冲 + 单写者）、打包（golang-package.mk + in-tree 源码）、验收链（编译 / VM 契约校验 / Dashboard 真数据联调）、待拍板 7 项（§9）。*
 *v0.2 2026-10-12 —— 用户评审反馈（"考虑对专属 App 的适配"）：新增 §12（App 经 WP-5 的链路图、五项承诺——同字节/降级合法 JSON/并发/零凭据/机器可读、四项预留 seam——事件检测/运行时资源清单/clients 分页/OTA 字段、不做清单、App 侧义务）；§0 不做表补 App 专属机制行；§5 补上游通道指针；§9 增 D8（App 适配范围与 seam 归属）；§11 登记 WP-5/6 边界。**v1 实现计划（§10 W4.x）不受此节影响**——适配以 seam 冻结为主。*
 *v0.3 2026-10-12 —— 用户评审反馈（"App 控制路由器"+"新加软件包要能灵活拓展"）：新增 **§12.4 控制面归属**（执行归 WP-5 + Bridge、daemon 全寿命只读，三条否决理由、动作路径表、控制后可视化、逃生舱 seam）与 **§13 新包扩展机制**（`services` drop-in 探针描述文件——新包零重编自动进快照；Tier 2 契约加法节；端到端闭环走查）；§0/§5 补"只读面"行；§12.3 写操作行改指 §12.4；§9 增 **D9（控制面归属）/ D10（扩展机制 v1 范围）** → 待拍板 10 项；§10 W4.3 含 descriptor 机制；§8 单测覆盖补描述文件校验；§11 增 WP-5/8 动作归属、WP-3 服务卡泛化建议、WP-7 投放约定三项登记。*
+*v0.3.1 2026-10-12 —— 拍板前校验修正：§3.4 docker 采集改**无版本路径**（核实锁定基座 dockerd 29.6.1 的默认最低接受 API 已升至 1.40，写死 `/v1.24` 会被版本中间件拒 "client version 1.24 is too old"；无版本请求按当前版本接受；§1.2 事实表补记该边界）；§3.6 探测集描述对齐 §13.1（消除 v0.1 "代码内常量" 残文）；头部"版本/待拍板项数"元信息同步至 v0.3/十项。*
+*v1.0 2026-10-12 —— **定案并开工**（用户指示"推进 WP-4"）：§9 十项按推荐案实施；W4.1–W4.5 落地（包骨架/Makefile/采集全层/配置/单测 25 例/dev 工具 `vm-ssh.py`+`contract-check.py`），单包交叉编译通过（验收①，产物 `quartz-daemon-0.1.0-r1.apk`）。实现期修正（同步进正文）：①§3.3 `up` 判定放宽为"非 down"（pppoe/wg 的 operstate=unknown）；②§7.1 `GO_PKG_LDFLAGS_X` 改 `main.version`（完整 import path 对 main 包静默失配，实测）；③采纳 v0.3.1 的 docker 无版本路径（§3.4）与 docker 移出预装（出厂 `available=false` 为常态）。*
+*v1.0.1 2026-10-12 —— 并入并行对话（引导对话）经 WORKPLAN §4 登记的校验修正（docker 无版本路径 / §1.2 事实表 / §3.6 描述对齐）；W4.6–W4.7 进行中。*

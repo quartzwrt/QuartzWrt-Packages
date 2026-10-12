@@ -1,0 +1,5 @@
+{
+  "id": "dockerd",
+  "title": "Docker",
+  "running": { "type": "procd", "name": "dockerd" }
+}

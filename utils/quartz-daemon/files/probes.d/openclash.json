@@ -1,0 +1,14 @@
+{
+  "id": "openclash",
+  "title": "OpenClash",
+  "running": { "type": "procd", "name": "openclash" },
+  "extras": {
+    "core": {
+      "type": "exec",
+      "path": "/etc/openclash/clash",
+      "args": ["-v"],
+      "regex": "v?([0-9]+\\.[0-9]+\\.[0-9]+)",
+      "cache": 300
+    }
+  }
+}

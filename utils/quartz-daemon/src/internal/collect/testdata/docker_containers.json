@@ -1,0 +1,6 @@
+[
+  {"Id":"abc1","Names":["/nextcloud"],"State":"running","Status":"Up 2 hours (unhealthy)"},
+  {"Id":"abc2","Names":["/nginx"],"State":"running","Status":"Up 3 hours (healthy)"},
+  {"Id":"abc3","Names":["/redis"],"State":"exited","Status":"Exited (0) 1 hour ago"},
+  {"Id":"abc4","Names":["/old-app"],"State":"running","Status":"Up 5 minutes (unhealthy)"}
+]
