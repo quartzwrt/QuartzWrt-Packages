@@ -47,8 +47,9 @@ func TestLoginIssuesTokens(t *testing.T) {
 			t.Fatalf("missing %s in %v", k, p)
 		}
 	}
-	if p["ok"] != true || p["api"] != envelope.API {
-		t.Fatalf("envelope: %v", p)
+	// 载荷不带信封（由调用层统一包裹，见 cmd/quartz-app-api reply()）
+	if _, has := p["ok"]; has {
+		t.Fatalf("auth 层不应自带信封: %v", p)
 	}
 	// 存储里只有哈希，没有明文 refresh
 	st, _ := svc.Store.Load()
@@ -259,6 +260,29 @@ func TestSanitizeIP(t *testing.T) {
 	for _, bad := range []string{"192.168.1.1; rm -rf /", "abc", strings.Repeat("1", 46), "999.1.1.1", ""} {
 		if got := sanitizeIP(bad); got != "" {
 			t.Fatalf("bad ip accepted: %q -> %q", bad, got)
+		}
+	}
+}
+
+func TestRootPasswordSet(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"empty shadow", "", false},
+		{"no root entry", "daemon:*:1:1:99999:7:::\n", false},
+		{"root empty password", "root::0:0:99999:7:::\n", false},
+		{"root locked", "root:!::0:99999:7:::\n", false},
+		{"root locked star", "root:*:0:0:99999:7:::\n", false},
+		{"root locked hash", "root:!$6$abc$def:0:0:99999:7:::\n", false},
+		{"root sha512", "root:$6$salt$hashvalue:0:0:99999:7:::\n", true},
+		{"root des", "root:aBcDeFgHiJkLm:0:0:99999:7:::\n", true},
+		{"multi-entry", "daemon:*:1:1:99999:7:::\nroot:$6$x$y:0:0:99999:7:::\nnobody:*:2:2:99999:7:::\n", true},
+	}
+	for _, tc := range cases {
+		if got := RootPasswordSet(tc.content); got != tc.want {
+			t.Fatalf("%s: got %v want %v", tc.name, got, tc.want)
 		}
 	}
 }

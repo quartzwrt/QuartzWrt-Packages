@@ -131,6 +131,9 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 		info := hostinfo.Info()
 		info["features"] = []string{"status", "actions", "devices", "mdns"}
 		info["auth"] = []string{"password"}
+		// 根口令是否已设（未设时 rpcd session.login 接受任意密码——
+		// DESIGN v1.0.2 / WORKPLAN 坑位 #28；App 应在配对前提示）
+		info["password_set"] = rootPasswordSet()
 		return envelope.OK(info)
 
 	case "login":
@@ -200,11 +203,15 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 	}
 }
 
+// reply 统一封装信封（auth 层全部方法返回**裸载荷**；错误已带信封）。
 func reply(p map[string]any, e *envelope.Error) map[string]any {
 	if e != nil {
 		return envelope.Err(e)
 	}
-	return p
+	if p == nil {
+		p = map[string]any{}
+	}
+	return envelope.OK(p)
 }
 
 // whitelist 默认集 ∪ uci 追加项（config.WhitelistExtra）。
@@ -216,9 +223,15 @@ func whitelist(cfg config.Config) []string {
 
 // validateCredentials 生产凭据校验：rpcd session.login 探测 + 立即销毁
 // （DESIGN §3.1：复用平台凭据机制，尊重密码变更；探测会话不留残余）。
+//
+// 前置：要求根口令已设置（DESIGN v1.0.2 / WORKPLAN 坑位 #28——shadow 空口令
+// 时 rpcd 接受任意密码，会签发长效凭据，必须显式拒绝）。
 func validateCredentials(ctx context.Context, username, password string) error {
 	if username == "" || password == "" {
 		return errors.New("empty credentials")
+	}
+	if !rootPasswordSet() {
+		return errors.New("router password not set")
 	}
 	req, err := json.Marshal(map[string]string{"username": username, "password": password})
 	if err != nil {
@@ -237,6 +250,16 @@ func validateCredentials(ctx context.Context, username, password string) error {
 	destroy, _ := json.Marshal(map[string]string{"ubus_rpc_session": resp.SID})
 	_ = ubusCommand(ctx, "call", "session", "destroy", string(destroy)).Run()
 	return nil
+}
+
+// rootPasswordSet 读 /etc/shadow 判断 root 口令（读失败时按"已设"放行，
+// 以 session.login 结果为准）。
+func rootPasswordSet() bool {
+	b, err := os.ReadFile("/etc/shadow")
+	if err != nil {
+		return true
+	}
+	return auth.RootPasswordSet(string(b))
 }
 
 // ubusCommand 构造 ubus CLI 命令（PATH 查找，回退常见绝对路径——rpcd 子进程

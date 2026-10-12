@@ -138,6 +138,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | HMAC 密钥 | 32B 随机 `secret` | 长期（重置即全员失效） | `/etc/quartz-app-api/secret`（0600） | — |
 
 - **每次调用**同时校验：JWT 签名/时限 → `sub` 设备在注册表且未吊销 → 限速/锁定状态。
+- **登录前置（v1.0.2，坑位 #28）**：要求根口令已设置——rpcd `session.login` 在 shadow 口令为空时**接受任意密码**（源码语义），未设口令的机器不允许签发长效凭据；`info.password_set` 供 App 事前提示。
 - **refresh 旋转**：每次 refresh 换发新 refresh（旧的立即作废）；**复用检测**（旧 refresh 被再次使用）→ 判定泄露 → 吊销该设备并审计。
 - **logout** = 删除设备记录（含 refresh）；**revoke** = 停止其他设备；**revoke_all** = 清空注册表 + 换 `secret`（全员强制重配对）。
 - JWT 是 TDD 「短时有效 + 刷新机制」的直译；长效 API Key 见 D2（后置）。
@@ -173,7 +174,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 
 | 方法 | 认证 | 参数 | 返回（成功信封） | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| `info` | 无 | `{}` | `{ok,api,name,model,release,kernel,features[]}` | 配对前展示路由器身份（mDNS 兜底） |
+| `info` | 无 | `{}` | `{ok,api,name,model,release,kernel,password_set,features[]}` | 配对前展示路由器身份（mDNS 兜底）；`password_set=false` 时 App 应提示先设管理密码（v1.0.2） |
 | `login` | 凭据 | `{username,password,device_name,client_ip?}` | `{ok,api,access_token,access_exp,refresh_token,refresh_exp,device_id,router{…,ts}}` | 用户名/密码=系统管理员（rpcd login 校验，§1.1）；限速+审计；`client_ip` 为 App 自报的展示元数据（不参与安全决策，v1.0.1） |
 | `refresh` | refresh | `{device_id,refresh_token}` | 同 login（换发两枚令牌；旋转） | 复用检测→吊销（§3.1） |
 | `logout` | refresh | `{device_id,refresh_token}` | `{ok,api}` | 删设备记录 |
@@ -391,3 +392,4 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v0.1 2026-10-12 —— 首稿（讨论稿）：定位/范围（§0）、事实核实（§1：rpcd/uhttpd 源码 + VM 实测四条）、架构与三案对比（§2）、认证模型（§3）、API 面八方法与错误码（§4）、控制面白名单（§5）、传输/证书/mDNS/残面（§6）、打包与集成（§7）、测试与验收（§8）、待拍板十项（§9）、W5.x 分解（§10）、同步项（§11）。*
 *v1.0 2026-10-12 —— **用户拍板「就先按这个方案来」：§9 十项决策按推荐案定案**（D1 rpcd exec 插件 + uhttpd 443 专用实例 / D2 JWT+refresh 旋转 / D3 专用实例 / D4 TOFU+DER pin / D5 umdns / D6 代理 daemon HTTP / D7 动作三组 / D8 参数 uci 化 / D9 推送不做 / D10 限速+审计）；状态转「定案并开工」，按 §10 W5.x 实施。*
 *v1.0.1 2026-10-12 —— 实施期机制修正：**限速键改为全局**（uhttpd `/ubus` 不向插件转发客户端 IP——源码核实仅注入 `ubus_rpc_session`，per-IP 不可实现；全局键对单管理员场景更强）；`login` 增加可选 `client_ip`（App 自报展示元数据）；§3.3/§4.1/§9-D10 同步。*
+*v1.0.2 2026-10-12 —— 实施期安全修正（VM 验收暴露，坑位 #28）：**登录要求根口令已设置**——rpcd 对 `/etc/config/rpcd` 的 `$p$root` 语义是"查 shadow 的 root 口令"，而 shadow 口令**为空时校验函数直接放行（任意密码通过）**；未设口令的机器被 WP-5 显式拒绝（避免为"任意密码"签发长效凭据）；`info` 增 `password_set` 字段供 App 事前提示；§3.1/§4.1 同步。另：uci-defaults 的 uhttpd 实例创建修正为 `uci set uhttpd.app=uhttpd`（`uci add uhttpd app` 第二参数是类型，生成匿名节——坑位 #27）。*

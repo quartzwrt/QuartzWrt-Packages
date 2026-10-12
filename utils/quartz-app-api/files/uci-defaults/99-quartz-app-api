@@ -7,8 +7,12 @@
 [ -x /usr/libexec/rpcd/quartz-app-api ] || exit 0
 
 # 1) uhttpd 'app' 实例（DESIGN §6.1）
+#    注意：`uci add uhttpd app` 的第二参数是**类型**（生成匿名节 @app[0]），
+#    命名节必须用 `uci set uhttpd.app=uhttpd`（实测坑，WORKPLAN 坑位 #27）。
+#    顺带清理历史误生成的匿名 app 型节（幂等，仅本包使用该类型）。
+while uci -q delete uhttpd.@app[0] 2>/dev/null; do :; done
 if ! uci -q get uhttpd.app >/dev/null; then
-	uci add uhttpd app >/dev/null
+	uci set uhttpd.app=uhttpd
 	uci add_list uhttpd.app.listen_https='0.0.0.0:443'
 	uci add_list uhttpd.app.listen_https='[::]:443'
 	uci set uhttpd.app.cert='/etc/uhttpd.crt'
@@ -17,7 +21,7 @@ if ! uci -q get uhttpd.app >/dev/null; then
 	uci set uhttpd.app.script_timeout='60'
 	uci set uhttpd.app.max_requests='16'
 	uci set uhttpd.app.rfc1918_filter='0'
-	uci commit uhttpd
+	uci commit uhttpd || exit 1
 	/etc/init.d/uhttpd restart >/dev/null 2>&1
 fi
 

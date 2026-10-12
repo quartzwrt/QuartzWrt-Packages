@@ -299,7 +299,8 @@ func (s *Service) Revoke(currentDeviceID, targetDeviceID string) *envelope.Error
 	return nil
 }
 
-// issue 组装双令牌响应。
+// issue 组装双令牌响应载荷（不含信封——信封由调用层统一包裹，避免
+// "部分方法已包、部分未包"的契约不对称）。
 func (s *Service) issue(secret []byte, d *store.Device, refresh string, now time.Time) (map[string]any, *envelope.Error) {
 	exp := now.Unix() + int64(s.Cfg.AccessTTL)
 	access, err := token.Sign(secret, token.Claims{
@@ -312,14 +313,14 @@ func (s *Service) issue(secret []byte, d *store.Device, refresh string, now time
 	if err != nil {
 		return nil, envelope.ED(envelope.CodeInternal, "token generation failed", err.Error())
 	}
-	return envelope.OK(map[string]any{
+	return map[string]any{
 		"access_token":  access,
 		"access_exp":    exp,
 		"refresh_token": refresh,
 		"refresh_exp":   d.RefreshExp,
 		"device_id":     d.ID,
 		"router":        s.router(),
-	}), nil
+	}, nil
 }
 
 // sanitizeName 展示名：去控制字符、限 32 字符、空则 "device"。
@@ -356,4 +357,28 @@ func sanitizeIP(ip string) string {
 		return ""
 	}
 	return ip
+}
+
+// RootPasswordSet 判断 /etc/shadow 内容中 root 是否已设口令。
+//
+// 必要性（rpcd 语义，WORKPLAN 坑位 #28）：`/etc/config/rpcd` 的
+// `password '$p$root'` 表示"到 shadow 查 root 口令"，而 rpcd 的
+// rpc_login_test_password 在**口令为空（未设置）时直接返回 true**——
+// 未设口令的机器上 session.login 接受任意密码。WP-5 会签发长效凭据，
+// 因此显式要求已设口令，避免"任意密码即可配对"。
+func RootPasswordSet(shadowContent string) bool {
+	for _, line := range strings.Split(shadowContent, "\n") {
+		if !strings.HasPrefix(line, "root:") {
+			continue
+		}
+		rest := line[len("root:"):]
+		field := rest
+		if i := strings.IndexByte(rest, ':'); i >= 0 {
+			field = rest[:i]
+		}
+		field = strings.TrimSpace(field)
+		// 空 / "!" / "*"（及 "!"、"*" 前缀，如 "!*"、"!$6$…"）均为"未设口令"
+		return field != "" && field[0] != '!' && field[0] != '*'
+	}
+	return false
 }
