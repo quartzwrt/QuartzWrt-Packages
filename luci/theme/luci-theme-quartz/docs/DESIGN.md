@@ -97,6 +97,7 @@
 | LuCI 元素 | 样式落点 |
 | :--- | :--- |
 | 侧边栏 mainmenu / 顶栏 | `--qz-chrome` + blur，固定定位；激活项 active 叠加 + `--qz-text`；hover 用 hover 叠加 |
+| 侧边栏开合（顶栏汉堡） | 窄屏(≤900px)：抽屉式（`html.qz-nav-open` + 遮罩，默认收起）；桌面(>900px)：收起切换（`html.qz-nav-collapsed`，侧边栏左移 + 顶栏/内容列让位），选择存 localStorage、header 首绘前恢复 |
 | 内容区背景 | `--qz-bg-base` |
 | 字段集 fieldset / cbi-section / 卡片 | `--qz-bg-panel` + 1px `--qz-border` + `--qz-radius` |
 | 输入类（cbi-input-*、下拉、textarea） | `--qz-bg-well` + `--qz-border`；focus 时边框提亮 + `--qz-focus` 环 |
@@ -179,7 +180,7 @@ luci/theme/luci-theme-quartz/
 ├── root/
 │   ├── www/luci-static/quartz/  # 静态资源（走 root/ 原样安装，见下方说明）
 │   │   ├── cascade.css          # 全部样式（手写 CSS，双模 token + cbi 全组件）
-│   │   ├── theme.js             # 三态外观切换 / 壁纸探测 / 移动端导航
+│   │   ├── theme.js             # 三态外观切换 / 壁纸探测 / 侧边栏开合（窄屏抽屉 + 桌面收起）
 │   │   ├── noise-dark.png / noise-light.png   # 石英噪点（各 <2KB，96px 可平铺）
 │   │   └── logo.svg             # 切面宝石标记（方案 B，2026-10-12 暂定）
 │   └── etc/uci-defaults/40-luci-theme-quartz   # 注册主题 + 首装设默认
@@ -244,6 +245,7 @@ luci/applications/luci-app-quartz-config/
   ④ `.cbi-value-field{display:flex}` 泛化误伤 `td.cbi-value-field`（可编辑分区表整行塌成竖排——通信规则/区域/DHCP 静态租约等）。
   另确认 3 项非主题问题：实时图表白底（上游内联样式）、Dockerman 概览横向溢出（插件 JSON 长值表，bootstrap 同）、sticky 应用条在全页截图中的中段悬停（截图假象，实际贴视口底）。
 - ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`/`bc78dd3`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px；④**下拉部件收起/展开显隐机制整组补齐**（`li{display:none}`+`li[display]{display:flex}` 收起只显当前项、`[empty]` 显占位、`[open] > ul.dropdown{display:block}` 竖排平铺、`.more` 仅 `[multiple][more/empty]`）——缺失时所有下拉收起态把全部选项铺开。双模 59 页证据全量重拍。
+- ✅ **W2.6.7 复测轮补充 2（2026-10-12 用户实测反馈，`5fc60ec`）**：①**桌面侧边栏收起**能力补齐（此前从未实现：汉堡仅 ≤900px 显示）——汉堡全宽度可见，桌面点击切换 `html.qz-nav-collapsed`（侧边栏左移 + 顶栏/内容列让位，.24s 与窄屏一致），localStorage 持久化 + 首绘前恢复 + 跨断点清理互斥态；②横幅 `.alert-message` 浮动按钮**逸出卡片**并挤窄 Dashboard 首卡（非 BFC 根 → 浮动进入共享 BFC，flex 卡避让收缩 1204→1063）→ 卡片 `display: flow-root` 自包含（WORKPLAN 坑位 #21）。证据双模 60 页重拍 + `dev/shots/sidebar-{collapsed,expanded}.png`。
 - ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
