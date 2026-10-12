@@ -1,0 +1,19 @@
+{
+	"unauthenticated": {
+		"description": "QuartzWrt App API (quartz-app-api; JWT-gated methods; see docs/DESIGN.md)",
+		"read": {
+			"ubus": {
+				"quartz-app-api": [
+					"info",
+					"login",
+					"refresh",
+					"logout",
+					"status",
+					"action",
+					"devices",
+					"revoke"
+				]
+			}
+		}
+	}
+}

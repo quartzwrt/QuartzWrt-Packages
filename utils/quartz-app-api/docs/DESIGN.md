@@ -1,8 +1,8 @@
-# quartz-app-api 设计规范（讨论稿）
+# quartz-app-api 设计规范
 
-**版本**: v0.1 —— **讨论稿**（待用户评审；§9 十项决策待拍板）
+**版本**: v1.0.1 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1 为实施期机制修正，见变更记录）
 **日期**: 2026-10-12
-**状态**: 设计讨论启动（WORKPLAN §2：WP-5 ⬜→🚧）；**未开工实现**
+**状态**: 定案并开工（W5.1 起实施，跟踪见 WORKPLAN §2/§3）
 **依据**: TDD §3.4（认证与 API 隔离）/ §3.2（元包）/ §5（模式 A/B）/ §8（App 推送待决）；WORKPLAN §3 WP-5；
 WP-4 `quartz-daemon/docs/DESIGN.md` §12（App 承诺与 seam）/ §12.4（控制面归属与动作路径表）；
 数据契约 `luci/applications/luci-app-dashboard/docs/AGGREGATE-API.md`（冻结 v1）
@@ -150,7 +150,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 
 ### 3.3 防爆破与审计
 
-- 登录限速：默认每 IP 5 次失败 → 锁定 5 min（指数退避，上限 64×）；另有全局阈值（如 20 次/10 min）。限速状态落 `/var/run/quartz-app-api/ratelimit.json`（tmpfs，重启清空可接受）。
+- 登录限速（**v1.0.1 机制修正**：uhttpd `/ubus` 端点**不向插件转发客户端 IP**——源码核实仅注入 `ubus_rpc_session`，per-IP 键不可实现；v1 采用**全局键**：任意来源失败统一计数，对单管理员口令场景等价且更强〔不可绕〕，per-IP 维度待机制出现再启用）：默认 5 次失败 → 锁定 5 min（指数退避 ×2，上限 64×）；成功登录清零。限速状态落 `/var/run/quartz-app-api/ratelimit.json`（tmpfs，重启清空可接受）。
 - 令牌比较恒定时间；错误统一返回 `invalid_credentials`（不区分「用户不存在/密码错误」）。
 - 审计（logd 短串，机器可读）：`login ok/fail ip=<ip>`, `refresh rot/deny`, `revoke <device>`, `action <id> <result>`；不记录任何凭据材料。
 
@@ -174,7 +174,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | 方法 | 认证 | 参数 | 返回（成功信封） | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
 | `info` | 无 | `{}` | `{ok,api,name,model,release,kernel,features[]}` | 配对前展示路由器身份（mDNS 兜底） |
-| `login` | 凭据 | `{username,password,device_name}` | `{ok,api,access_token,access_exp,refresh_token,refresh_exp,device_id,router{…,ts}}` | 用户名/密码=系统管理员（rpcd login 校验，§1.1）；限速+审计 |
+| `login` | 凭据 | `{username,password,device_name,client_ip?}` | `{ok,api,access_token,access_exp,refresh_token,refresh_exp,device_id,router{…,ts}}` | 用户名/密码=系统管理员（rpcd login 校验，§1.1）；限速+审计；`client_ip` 为 App 自报的展示元数据（不参与安全决策，v1.0.1） |
 | `refresh` | refresh | `{device_id,refresh_token}` | 同 login（换发两枚令牌；旋转） | 复用检测→吊销（§3.1） |
 | `logout` | refresh | `{device_id,refresh_token}` | `{ok,api}` | 删设备记录 |
 | `status` | access | `{access_token}` | `{ok,api,snapshot:{…AGGREGATE-API v1 原文…}}` | 代理 daemon 回环 HTTP；语义同构（经 ubus JSON 重序列化，非字节级） |
@@ -347,9 +347,9 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 
 证据落 `dev/`（脚本 + 输出），截图沿用 Dashboard 的 Playwright 仅当涉及 UI（本 WP 无 UI）。
 
-## 9. 决策记录（待拍板）
+## 9. 决策记录（v1.0 定案：十项按推荐案实施）
 
-| # | 决策 | 推荐 | 备选与理由 |
+| # | 决策 | 定案 | 备选与理由 |
 | :--- | :--- | :--- | :--- |
 | D1 | 运行时形态 | **rpcd exec 插件（Go）+ uhttpd 专用实例**（§2.2 案 1） | 独立 Go HTTP 服务：自造第二套传输/证书面且与「基于 rpcd」分歧，仅作事件推送期备选 |
 | D2 | 凭据模型 | **JWT(15min) + refresh(30d 滑动/180d 绝对，旋转+复用检测)**；长效 API Key 后置 | 纯 API Key：无法短时收敛、撤销粒度粗；TDD 为「或」，v1 取 JWT 达标 |
@@ -360,7 +360,7 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 | D7 | 控制面 v1 范围 | **service.{start,stop,restart}（白名单）+ system.reboot + docker 容器三动作** | 一并做核心更新/限速：依赖 WP-7/8 链路，易返工 |
 | D8 | 令牌/吊销参数 | 上述默认值全部 **uci 可调**；`revoke_all` 换密钥 | — |
 | D9 | 事件/推送 seam | **v1 不实现**；方法位形状冻结（未来 `events` 拉取或 daemon webhook，TDD §8 定案后择一） | 现在做 webhook：通道未定（WP-4 §9-D8 同款理由） |
-| D10 | 防爆破/审计 | **每 IP 5 次/5min 锁定 + 指数退避；logd 审计短串** | 更严（每设备独立限额）v1.1 |
+| D10 | 防爆破/审计 | **全局 5 次/5min 锁定 + 指数退避（v1.0.1 修正：/ubus 不转发客户端 IP）；logd 审计短串** | 更严（per-IP）等机制出现再启用 |
 
 ## 10. W5.x 分解（拍板后）
 
@@ -389,3 +389,5 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 ## 12. 变更记录
 
 *v0.1 2026-10-12 —— 首稿（讨论稿）：定位/范围（§0）、事实核实（§1：rpcd/uhttpd 源码 + VM 实测四条）、架构与三案对比（§2）、认证模型（§3）、API 面八方法与错误码（§4）、控制面白名单（§5）、传输/证书/mDNS/残面（§6）、打包与集成（§7）、测试与验收（§8）、待拍板十项（§9）、W5.x 分解（§10）、同步项（§11）。*
+*v1.0 2026-10-12 —— **用户拍板「就先按这个方案来」：§9 十项决策按推荐案定案**（D1 rpcd exec 插件 + uhttpd 443 专用实例 / D2 JWT+refresh 旋转 / D3 专用实例 / D4 TOFU+DER pin / D5 umdns / D6 代理 daemon HTTP / D7 动作三组 / D8 参数 uci 化 / D9 推送不做 / D10 限速+审计）；状态转「定案并开工」，按 §10 W5.x 实施。*
+*v1.0.1 2026-10-12 —— 实施期机制修正：**限速键改为全局**（uhttpd `/ubus` 不向插件转发客户端 IP——源码核实仅注入 `ubus_rpc_session`，per-IP 不可实现；全局键对单管理员场景更强）；`login` 增加可选 `client_ip`（App 自报展示元数据）；§3.3/§4.1/§9-D10 同步。*

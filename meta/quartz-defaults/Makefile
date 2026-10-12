@@ -31,6 +31,7 @@ define Package/quartz-defaults
     +luci-app-quartz-config \
     +luci-app-dashboard \
     +quartz-daemon \
+    +quartz-app-api \
     +luci-app-openclash
 endef
 

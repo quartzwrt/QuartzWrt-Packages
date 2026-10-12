@@ -1,0 +1,62 @@
+#!/bin/sh /etc/rc.common
+# quartz-app-api — 启动期收尾（无守护进程；插件本体由 rpcd 按需 exec）
+#
+# 职责（DESIGN §6.2/§6.3）：
+#  1) 确保状态目录 /etc/quartz-app-api（0700；插件首调用亦会自建，双保险）
+#  2) 证书缺失时触发一次 uhttpd 生成（首装/证书被清场景）
+#  3) 计算 pin（sha256 of DER 证书）并生成 umdns 服务文件、刷新宣告
+START=99
+
+start() {
+	[ -x /usr/libexec/rpcd/quartz-app-api ] || return 0
+	mkdir -p /etc/quartz-app-api
+	chmod 700 /etc/quartz-app-api
+
+	# uhttpd 'app' 实例带 https 监听时会在启动时自动生成证书；
+	# 若尚无证书（未重启过 uhttpd），此处尽力补齐。
+	if [ ! -s /etc/uhttpd.crt ]; then
+		/etc/init.d/uhttpd restart >/dev/null 2>&1
+	fi
+
+	advertise
+}
+
+reload() {
+	advertise
+}
+
+advertise() {
+	[ "$(uci -q get quartz-app-api.main.mdns)" = "0" ] && return 0
+
+	local fp="" port name rel
+	if [ -s /etc/uhttpd.crt ]; then
+		fp=$(sha256sum /etc/uhttpd.crt | cut -d' ' -f1)
+	fi
+	port=$(uci -q get quartz-app-api.main.port)
+	[ -n "$port" ] || port=443
+	name=$(uci -q get system.@system[0].hostname)
+	[ -n "$name" ] || name=$(uname -n)
+	rel=$(sed -n "s/^QUARTZ_DESCRIPTION='\(.*\)'/\1/p" /etc/quartz-release 2>/dev/null | head -n1)
+
+	# JSON 安全化（去引号/反斜杠/换行）
+	name=$(printf '%s' "$name" | tr -d '"\\\n')
+	rel=$(printf '%s' "$rel" | tr -d '"\\\n')
+
+	mkdir -p /etc/umdns
+	{
+		printf '{\n'
+		printf '  "service": "_quartz-app._tcp.local",\n'
+		printf '  "port": %s,\n' "$port"
+		printf '  "txt": ["v=1", "path=/ubus", "name=%s"' "$name"
+		[ -n "$fp" ] && printf ', "fp=%s"' "$fp"
+		[ -n "$rel" ] && printf ', "rel=%s"' "$rel"
+		printf ']\n}\n'
+	} > /etc/umdns/quartz-app.json
+
+	ubus -t 5 call umdns update >/dev/null 2>&1
+}
+
+stop() {
+	rm -f /etc/umdns/quartz-app.json
+	ubus -t 5 call umdns update >/dev/null 2>&1
+}

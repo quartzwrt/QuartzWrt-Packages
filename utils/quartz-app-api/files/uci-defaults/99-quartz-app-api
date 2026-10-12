@@ -1,0 +1,46 @@
+#!/bin/sh
+# quartz-app-api 安装期初始化（幂等；随固件烘焙首启执行，运行时安装由 postinst 立即执行）
+#  1) uhttpd 'app' 实例（443/TLS-only，ubus_prefix=/ubus）
+#  2) uhttpd 证书段 commonname 品牌化（仅未生成证书前有意义）
+#  3) umdns 启用 + 本包 init 启用/启动（mDNS 宣告）
+#  4) rpcd 重扫插件目录（运行时安装即刻注册）
+[ -x /usr/libexec/rpcd/quartz-app-api ] || exit 0
+
+# 1) uhttpd 'app' 实例（DESIGN §6.1）
+if ! uci -q get uhttpd.app >/dev/null; then
+	uci add uhttpd app >/dev/null
+	uci add_list uhttpd.app.listen_https='0.0.0.0:443'
+	uci add_list uhttpd.app.listen_https='[::]:443'
+	uci set uhttpd.app.cert='/etc/uhttpd.crt'
+	uci set uhttpd.app.key='/etc/uhttpd.key'
+	uci set uhttpd.app.ubus_prefix='/ubus'
+	uci set uhttpd.app.script_timeout='60'
+	uci set uhttpd.app.max_requests='16'
+	uci set uhttpd.app.rfc1918_filter='0'
+	uci commit uhttpd
+	/etc/init.d/uhttpd restart >/dev/null 2>&1
+fi
+
+# 2) 证书 commonname 品牌化（不改动已生成证书——pin 不因本步变化）
+if uci -q get uhttpd.@cert[0] >/dev/null 2>&1; then
+	cur=$(uci -q get uhttpd.@cert[0].commonname)
+	if [ -z "$cur" ] || [ "$cur" = "ImmortalWrt" ]; then
+		uci set uhttpd.@cert[0].commonname='QuartzWrt'
+		uci commit uhttpd
+	fi
+fi
+
+# 3) umdns：启用（配置段随 umdns 包投放；此处仅启用与启动）
+if [ -x /usr/sbin/umdns ]; then
+	/etc/init.d/umdns enable >/dev/null 2>&1
+	/etc/init.d/umdns restart >/dev/null 2>&1
+fi
+
+# 本包 init（boot 时宣告 mDNS；此处启动一次让运行时安装即刻可见）
+/etc/init.d/quartz-app-api enable >/dev/null 2>&1
+/etc/init.d/quartz-app-api start >/dev/null 2>&1
+
+# 4) rpcd 重扫插件（SIGHUP；会话 freeze/thaw 不丢）
+/etc/init.d/rpcd reload >/dev/null 2>&1
+
+exit 0
