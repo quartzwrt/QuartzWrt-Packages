@@ -5,7 +5,7 @@
 <title>luci-app-dashboard · 设计预览（dev）</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 加载真实主题样式：预览即所见（路径相对本文件，任意服务器根可用） -->
-<link rel="stylesheet" href="../../../theme/luci-theme-quartz/htdocs/luci-static/quartz/cascade.css">
+<link rel="stylesheet" href="../../../theme/luci-theme-quartz/root/www/luci-static/quartz/cascade.css">
 <script>
 /* 首绘前应用 URL 参数：?theme=auto|dark|light  ?wallpaper=1  ?alpha=50..100 */
 (function () {
@@ -320,7 +320,7 @@ html[data-qz-translucent] .qzd-hero {
 	<label class="qz-ctl"><input type="checkbox" id="ck-live" checked> 实时跳动</label>
 </div>
 
-<script src="../../../theme/luci-theme-quartz/htdocs/luci-static/quartz/theme.js"></script>
+<script src="../../../theme/luci-theme-quartz/root/www/luci-static/quartz/theme.js"></script>
 <script>
 /* ==========================================================================
  * 预览渲染（非最终实现；技术栈待拍板）
@@ -567,10 +567,10 @@ setInterval(function () {
 		var view = document.getElementById('view');
 		var bust = '?v=' + Date.now();
 		document.head.appendChild(Object.assign(document.createElement('link'),
-			{ rel: 'stylesheet', href: '../htdocs/luci-static/resources/quartz-dashboard/app.css' + bust }));
+			{ rel: 'stylesheet', href: '../root/www/luci-static/resources/quartz-dashboard/app.css' + bust }));
 
 		var script = document.createElement('script');
-		script.src = '../htdocs/luci-static/resources/quartz-dashboard/app.js' + bust;
+		script.src = '../root/www/luci-static/resources/quartz-dashboard/app.js' + bust;
 		script.onload = function () {
 			var host = {
 				version: 'dev',

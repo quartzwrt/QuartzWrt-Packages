@@ -1,9 +1,9 @@
 # luci-app-dashboard 设计规范（讨论稿）
 
-**版本**: v1.0（**定案**）
+**版本**: v1.2（**定案，W3.1–W3.6 已落地并在固件内验收**）
 **日期**: 2026-10-12
-**状态**: 六项决策已由用户拍板（记录见 §10）；聚合契约已冻结为 [`AGGREGATE-API.md`](AGGREGATE-API.md)；W3.1 开工。
-历史：v0.2 扩展模型与联动（§5.3、§6）→ v0.3 设计预览页（`dev/preview.html`）→ v0.4 布局按内容高度配对（§5.1）→ v1.0 定案。
+**状态**: 六项决策用户拍板（§10）；契约冻结 [`AGGREGATE-API.md`](AGGREGATE-API.md)；**固件内验收通过**（QEMU 真启动，证据 `dev/shots/vm/`）。
+历史：v0.2 扩展模型与联动 → v0.3 设计预览页 → v0.4 布局配对 → v1.0 定案 → v1.1 W3.2–W3.4 → v1.2 固件集成验收（W3.5/W3.6）+ 打包坑位。
 **依据**: TDD §3.3 / §8（`QuartzWrt-Builder/docs/TDD.md`，两副本同步）；WP-2 `luci-theme-quartz/docs/DESIGN.md`（token / 层序 / 容器约定）；
 **跨 WP**: §3 聚合契约冻结后为 **WP-4（`quartz-daemon`）的实现依据**；WP-3 开发不阻塞于 WP-4（mock 先行，见 §8）。
 
@@ -124,7 +124,11 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 - **产物策略（定案）**：`src/` 源码 + 构建产物（`app.js`/`app.css`）**提交入库**；包 Makefile 只装文件——**固件构建与 CI 构建保持零 node 依赖**（符合 TDD §7 可重现原则）。`dev/build.sh` 一键重建并断言体积预算；CI 增加廉价 job：`npm ci && vite build && git diff --exit-code`（防漂移门禁）。
 - 集成：Vite 以 `formats:['iife']` 输出单文件，暴露 `window.QuartzDashboard.mount(el, host)`；壳层 `<script>` 注入（§1.2）。
 - **依赖预算（可维护性护栏）**：运行时依赖只允许"框架 + Tailwind"两类；新增运行时依赖须在提交说明中给出理由与体积账（§6.5-1）。
-- **构建坑位（W3.2 已踩）**：Vite **lib 模式不替换 `process.env.NODE_ENV`**，必须在 `define` 显式定义为 `'production'`——否则浏览器端 `process` 未定义，产物加载即抛错、页面空白（实测）。
+- **构建坑位（W3.2/固件集成已踩）**：
+  1. Vite **lib 模式不替换 `process.env.NODE_ENV`**，必须在 `define` 显式定义为 `'production'`——否则浏览器端 `process` 未定义，产物加载即抛错、页面空白（实测）；
+  2. luci.mk 会把 `htdocs/` 下的 **CSS 交给 CSSTidy 1.3**（`CONFIG_LUCI_CSSTIDY`）：不识别 `@layer`/现代属性，实测解析告警——故 CSS/JS 资产一律走 **`root/www/` 原样安装**（主题包同款先例）；
+  3. luci.mk 视包内 **`src/` 目录为 C 源码目录**（要求 `src/Makefile` 且 install 阶段调用 `make install`）——前端源码目录命名 `frontend/` 规避（实测 `No rule to make target 'install'`）；
+  4. luci.mk 的 i18n 包名 = `luci-i18n-$(LUCI_BASENAME)-<lang>`，basename 由包名剥前缀而来——`luci-app-dashboard` 与基座 `luci-mod-dashboard` 都剥成 `dashboard` → **kconfig 符号重名**（连带 lmo 文件名 `dashboard.zh_Hans.lmo` 冲突），实测导致 `quartz-defaults` 依赖解析失败被 defconfig 关闭。规避：`LUCI_BASENAME:=qdashboard` + po 文件名 `qdashboard.po`（用户拍板命名）。
 - **工具链**：pnpm 经 corepack 固定版本（`packageManager: pnpm@10.15.0`），无需全局安装；`dev/build.sh` 首次运行自动 `corepack pnpm install`。
 - **体积增长路径（预留）**：卡片增多致总量超预算时，切换为 ESM 产物 + 壳层原生 `import()` 分包（壳层加载方式无需重构，卡片模块边界即分包边界，§7）。
 - 本机现状：node v20.19.2 可用、npm 缺失（`corepack enable` 或 apt 补装即可）；仅开发侧需要。
@@ -280,7 +284,9 @@ export default {
 luci-app-dashboard/
 ├── Makefile                        # LUCI_DEPENDS:=+luci-base +quartz-daemon；CONFLICTS:=luci-mod-dashboard
 ├── docs/DESIGN.md                  # 本文件（v1.0 定案）；AGGREGATE-API.md（✅ 冻结 v1）；EXTENDING.md（W3.7）
-├── src/                            # ✅ 前端源码（Vue 3 + Vite + Tailwind v4；node 工具链仅开发侧）
+├── frontend/                       # ✅ 前端源码（Vue 3 + Vite + Tailwind v4；node 工具链仅开发侧）
+│   │                               #    目录名不可叫 src/：luci.mk 视 src/ 为 C 源码目录，
+│   │                               #    要求 src/Makefile 并提供 install 目标（实测报 install 失败）
 │   ├── pnpm-lock.yaml              # ✅ 提交（构建可复现；node_modules 由 .gitignore 排除）
 │   └── src/{main.js,App.vue,components/,cards/,lib/,styles/}
 ├── dev/
@@ -291,14 +297,39 @@ luci-app-dashboard/
 │   ├── build.sh                    # ✅ 构建：corepack pnpm 安装 + vite build + 体积断言 + 壳层 BUILD 回写
 │   ├── serve.sh                    # ✅ 预览服务（根 = QuartzWrt-Packages/luci，端口 8898）
 │   ├── probe.sh                    # ✅ 无头截图（Edge 经 WSL 互操作，沿用 WP-2 做法）
-│   ├── shots/                      # ✅ 视觉回归基线：dashboard-*（静态基准）/ app-*（真实产物）
+│   ├── vm-shot.py                  # ✅ 固件内验收（Playwright 登录 VM 内的 LuCI 并截图 + 采集 DOM/网络证据）
+│   ├── check-freshness.sh          # ✅ 产物新鲜度门禁（重建 + git diff；CI 手动化后的本地版门禁）
+│   ├── shots/                      # ✅ 视觉回归基线：dashboard-*（静态基准）/ app-*（真实产物）/ vm/（固件内）
 │   └── mock/status.json            # ✅ 契约样例（联调基准）；status.partial.json（部分不可用变体）——与冻结契约同源
-├── htdocs/luci-static/resources/
+├── root/www/luci-static/resources/ # 资产走 root/ 原样安装：htdocs/ 下 CSS 会被构建期
+│   │                               #    csstidy 1.x 处理（不识别 @layer，实测毁样式表；主题同款先例）
 │   ├── view/quartz/dashboard.js    # LuCI 壳（手写，不构建）：加载产物 + 宿主适配器 + poll
-│   └── quartz-dashboard/           # 构建产物（提交入库）
+│   └── quartz-dashboard/           # 构建产物（提交入库：app.js / app.css）
 ├── root/usr/share/luci/menu.d/…    # §1.3
 ├── root/usr/share/rpcd/acl.d/…     # §1.3
 └── po/zh_Hans/dashboard.po         # 手工维护（沿用 quartz-config 模式）
+```
+
+**固件内验证流程（W3.6 实操，可复跑）**：
+
+```sh
+# ① 构建树 quartz feed 临时指向本地工作副本（src-link；下次 build-local.sh 会按锁定 SHA 重置）
+cd $BUILD/immortalwrt
+cp feeds.conf /tmp/feeds.conf.bak
+sed -i 's|^src-git quartz .*|src-link quartz '"$REPO"'/QuartzWrt-Packages|' feeds.conf
+rm -rf feeds/quartz package/feeds/quartz && ./scripts/feeds update quartz
+./scripts/feeds install luci-app-dashboard luci-theme-quartz luci-app-quartz-config quartz-defaults
+cp $REPO/QuartzWrt-Builder/config/seed.config .config && make defconfig   # 确认 CONFIG_PACKAGE_luci-app-dashboard=y
+# ② 全量构建（WSL 必须净化 PATH，坑位 #13）
+export PATH=$(echo $PATH | tr ':' '
+' | grep -v '^/mnt/' | paste -sd:)
+make -j16 V=w
+# ③ 起 VM（宿主 8080）并验收
+$REPO/QuartzWrt-Builder/scripts/test-in-vm.sh --detach
+python3 dev/vm-shot.py --tag nodata                      # 降级态（无快照）
+ssh -p 2222 root@127.0.0.1 "mkdir -p /var/run/quartz && cat > /var/run/quartz/status.json" < dev/mock/status.json
+python3 dev/vm-shot.py --tag data --locale zh-CN         # 正常态 + 中文
+# 验收后可 ssh 热更 /www/luci-static/... 快速复验（提交前以源码为准）
 ```
 
 **验证路径**：
@@ -316,9 +347,9 @@ luci-app-dashboard/
 | W3.2 | ✅ 构建链落地（2026-10-12）：pnpm 经 corepack 固定 `10.15.0`；Vite lib/IIFE 单文件 + Tailwind v4 入口；`dev/build.sh` 含体积断言与壳层 BUILD 回写——实测 app.js **28.6KB gzip** / app.css **2.4KB gzip** | W3.1 |
 | W3.3 | ✅ 数据层（2026-10-12）：宿主适配器两实现（生产壳层 / 预览 harness）；轮询可见性包装、四态降级、单卡错误边界 | W3.1 |
 | W3.4 | ✅ 卡片注册表 + primitives + 五卡 + Hero（2026-10-12）：真实产物在预览 harness（`?app=1`）渲染通过，与静态基准一致 | W3.2、W3.3 |
-| W3.5 | 🚧 视觉打磨（双模 × 正常/降级 × 移动端；截图回归基线已出 `shots/app-*.png`，剩固件内真机复核与细节） | W3.4 |
-| W3.6 | 固件集成验收（本地构建 + QEMU；WP-4 首版后真数据联调） | W3.5、（WP-4） |
-| W3.7 | 扩展机制沉淀：`docs/EXTENDING.md`（§6.6 流程成文）+ 深链存在性检查 | W3.4 |
+| W3.5 | ✅ 视觉打磨（2026-10-12）：预览/产物/固件三档截图基线齐全；固件内修正 KV 数值换行（主题 `.cbi-progressbar{min-width:170px}` 与卡片竞争宽度，卡片内覆盖为可收缩） | W3.4 |
+| W3.6 | ✅ 固件集成验收（2026-10-12）：本地全量构建 → `scripts/test-in-vm.sh` QEMU 真启动 → Playwright 登录验收（`dev/vm-shot.py`）——**登录落地页即 Dashboard**；快照经 rpcd `file.read`+ACL 读取渲染（hero+5 卡+8 行设备表）；三条深链存在性判定通过；i18n 中文生效；无数据时降级横幅正常。证据 `dev/shots/vm/`（run-{nodata,data}.json + 截图）。真数据联调待 WP-4 | W3.5 |
+| W3.7 | ✅ 扩展机制沉淀（2026-10-12）：`docs/EXTENDING.md` 成文（新增数据节/卡片/深链流程 + 卡片 DoD）；深链存在性检查由壳层 `host.hasPage()` 实现并在固件内验证 | W3.4 |
 
 W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 

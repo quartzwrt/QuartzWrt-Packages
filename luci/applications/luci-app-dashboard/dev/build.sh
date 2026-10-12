@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-SRC=../src
-OUT=../htdocs/luci-static/resources/quartz-dashboard
-SHELL_JS=../htdocs/luci-static/resources/view/quartz/dashboard.js
+SRC=../frontend
+OUT=../root/www/luci-static/resources/quartz-dashboard
+SHELL_JS=../root/www/luci-static/resources/view/quartz/dashboard.js
 
 JS_BUDGET=51200     # 50KB gzip
 CSS_BUDGET=12288    # 12KB gzip

@@ -28,6 +28,7 @@ define Package/quartz-defaults
   DEPENDS:= \
     +luci-theme-quartz \
     +luci-app-quartz-config \
+    +luci-app-dashboard \
     +luci-app-openclash \
     +luci-lib-docker \
     +luci-app-dockerman

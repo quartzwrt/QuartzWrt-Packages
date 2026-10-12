@@ -93,8 +93,8 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-stat-v { font-family: var(--qz-font-mono); font-size: 15px; }
 .qzd-kv { display: flex; align-items: center; gap: 10px; margin-top: 9px; font-size: 13px; color: var(--qz-text-2); }
 .qzd-kv-k { flex: 0 0 122px; white-space: nowrap; }
-.qzd-kv-v { margin-left: auto; font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); display: flex; align-items: center; gap: 6px; }
-.qzd-kv .cbi-progressbar { flex: 1 1 auto; max-width: 220px; }
+.qzd-kv-v { margin-left: auto; font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.qzd-kv .cbi-progressbar { flex: 1 1 auto; min-width: 60px; max-width: 220px; margin: 0; }
 .qzd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--qz-text-3); flex: 0 0 auto; }
 .qzd-dot.ok { background: var(--qz-ok); }
 .qzd-dot.warn { background: var(--qz-warn); }

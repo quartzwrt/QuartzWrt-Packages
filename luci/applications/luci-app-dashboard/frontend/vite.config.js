@@ -19,7 +19,7 @@ export default defineConfig({
   },
 
   build: {
-    outDir: '../htdocs/luci-static/resources/quartz-dashboard',
+    outDir: '../root/www/luci-static/resources/quartz-dashboard',
     emptyOutDir: true,
     target: 'es2019',
     cssCodeSplit: false,
