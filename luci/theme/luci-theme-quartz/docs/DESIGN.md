@@ -131,6 +131,7 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 - 顶栏三态切换钮（跟随系统 / 深 / 浅）由 `theme.js` 维护；`color-scheme` 随模式同步，原生控件与滚动条自动适配。
 - 主题注册：`luci.themes.Quartz=/luci-static/quartz`（uci-defaults 注册；全新安装时设为默认，升级不覆盖用户选择）。模板按 `themes/$(basename mediaurlbase)/` 解析为 `ucode/template/themes/quartz/*.ut`。
 - **兼容层**：cascade.css 同时提供 bootstrap 旧变量名（`--background-color-*` / `--text-color-*` / `--border-color-*` / `--primary-color-*` / `--error/success/warn-*` 等）到 `--qz-*` 的别名映射，引用旧变量的第三方应用自动适配双模与 Quartz 色板。
+- **布局工具类语义（对齐 bootstrap，`0c6f665`）**：`.pull-left/.pull-right` 才是浮动；`.left/.right` 是 `text-align`（`!important`）——LuCI 标记大量以 `td.left`/`td.right` 表示文本对齐，若按浮动实现会把真实表格单元格 block 化（行宽/分隔线/底色半途而止，见 WORKPLAN 坑位 #22）。
 - 跨设备持久化（uci）列为后续增强。
 
 ### 5.1 外观配置包（luci-app-quartz-config）
@@ -246,6 +247,7 @@ luci/applications/luci-app-quartz-config/
   另确认 3 项非主题问题：实时图表白底（上游内联样式）、Dockerman 概览横向溢出（插件 JSON 长值表，bootstrap 同）、sticky 应用条在全页截图中的中段悬停（截图假象，实际贴视口底）。
 - ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`/`bc78dd3`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px；④**下拉部件收起/展开显隐机制整组补齐**（`li{display:none}`+`li[display]{display:flex}` 收起只显当前项、`[empty]` 显占位、`[open] > ul.dropdown{display:block}` 竖排平铺、`.more` 仅 `[multiple][more/empty]`）——缺失时所有下拉收起态把全部选项铺开。双模 59 页证据全量重拍。
 - ✅ **W2.6.7 复测轮补充 2（2026-10-12 用户实测反馈，`5fc60ec`）**：①**桌面侧边栏收起**能力补齐（此前从未实现：汉堡仅 ≤900px 显示）——汉堡全宽度可见，桌面点击切换 `html.qz-nav-collapsed`（侧边栏左移 + 顶栏/内容列让位，.24s 与窄屏一致），localStorage 持久化 + 首绘前恢复 + 跨断点清理互斥态；②横幅 `.alert-message` 浮动按钮**逸出卡片**并挤窄 Dashboard 首卡（非 BFC 根 → 浮动进入共享 BFC，flex 卡避让收缩 1204→1063）→ 卡片 `display: flow-root` 自包含（WORKPLAN 坑位 #21）。证据双模 60 页重拍 + `dev/shots/sidebar-{collapsed,expanded}.png`。
+- ✅ **W2.6.8 工具类语义修复（2026-10-12，用户对照 argon 实测，`0c6f665`）**：`.left/.right` 由浮动改回 bootstrap 语义（text-align），修复概览页/实时图表页因 `td.left/td.right` 被 float 块化导致的行宽、分隔线、悬停底色与右对齐统计失效（§5 兼容层已记；坑位 #22）。
 - ⬜ W2.7 收尾（默认主题复核、验收）
 - ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
 
