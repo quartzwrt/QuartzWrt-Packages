@@ -22,16 +22,16 @@ define Package/quartz-defaults
   #   +luci-theme-quartz +luci-app-dashboard +quartz-daemon +quartz-app-api（核心）
   #   +openwrt-bandix +luci-app-bandix（thirdparty，模式 A）
   #   +quartz-ddns-bridge +luci-app-ddns（Bridge + thirdparty，模式 B）
-  # 当前 DEPENDS 来源：luci-app-openclash / luci-app-dockerman 来自基座 luci feed
-  # （thirdparty 不收录同名包，会被基座遮蔽，docs/TDD.md §3.1）；
-  # luci-lib-docker 来自 thirdparty feed。
+  # 当前 DEPENDS 来源：luci-app-openclash 来自基座 luci feed
+  # （thirdparty 不收录同名包，会被基座遮蔽，docs/TDD.md §3.1）。
+  # docker 栈（luci-app-dockerman / luci-lib-docker）已按用户拍板移出预装
+  # （2026-10-12，WORKPLAN §1；docker 与 fw4 冲突的安装配方见坑位 #24）。
   DEPENDS:= \
     +luci-theme-quartz \
     +luci-app-quartz-config \
     +luci-app-dashboard \
-    +luci-app-openclash \
-    +luci-lib-docker \
-    +luci-app-dockerman
+    +quartz-daemon \
+    +luci-app-openclash
 endef
 
 define Package/quartz-defaults/description
@@ -44,7 +44,10 @@ define Build/Compile
 endef
 
 define Package/quartz-defaults/install
-	$(INSTALL_DIR) $(1)/
+	$(INSTALL_DIR) $(1)/etc
+	# 发行版标识：quartz-daemon 读取为 host.release（WP-4 DESIGN §9-D7；
+	# 缺失时 daemon 回退 /etc/openwrt_release 的 DISTRIB_DESCRIPTION）
+	$(INSTALL_DATA) ./files/quartz-release $(1)/etc/quartz-release
 endef
 
 $(eval $(call BuildPackage,quartz-defaults))

@@ -1,0 +1,3 @@
+# QuartzWrt 发行版标识（由 quartz-defaults 安装；随版本升级更新）
+# quartz-daemon 读取 QUARTZ_DESCRIPTION 作为快照 host.release 字段。
+QUARTZ_DESCRIPTION='QuartzWrt 0.1.0 (ImmortalWrt 25.12)'
