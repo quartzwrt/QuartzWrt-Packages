@@ -1,0 +1,39 @@
+== -1. 测试源（serve.py；可切换 stage1=仅 1.0.0 / stage2=含 1.0.1） ==
+PASS  测试源可达（http://192.168.1.2:9990/x86_64/packages.adb）
+== 0. 前置（登录 / 测试包按名安装 → world 无钉） ==
+PASS  根口令已设置（坑位 #28 前提）
+PASS  login → access_token
+PASS  测试包按名安装（world=裸名无钉、实装 1.0.0-r1）
+== 1. packages 读方法（认证 / 分页 / scope / 搜索） ==
+PASS  无令牌 → token_invalid
+PASS  installed 分页（total>=340, pages=ceil(total/5), item.installed=true）
+      total=340 pages=68 first=apk-openssl
+PASS  page 回显（page=3）
+PASS  per_page 上限夹紧（200→100）
+PASS  未知 scope → bad_request
+PASS  available 子串搜索（tail→命中含 tailscale）
+      available(tail) total=9
+PASS  搜索词非法字符（apk 模式通配）→ bad_request
+== 2. upgradable 语义（上游发布新版 → 版本 diff 数据面） ==
+PASS  upgradable 含 1.0.0-r1 → 1.0.1-r1（target/installed/upgradable 三字段）
+PASS  installed 范围内同项带 upgradable + target_version
+== 3. 动作（refresh / upgrade 全部与单包 / remove / 拒否） ==
+PASS  packages.refresh → ok（含 duration_ms）
+      refresh 耗时 3s（uhttpd /ubus 单调用窗口 60s 内）
+PASS  packages.upgrade（全部）→ ok 且实装 1.0.1-r1（真执行）
+PASS  packages.upgrade name=…（单包，1.0.0-r1→1.0.1-r1）→ ok
+PASS  packages.remove quartz-pkgtest → ok 且已卸载
+PASS  注入式包名 → forbidden_action
+PASS  remove 缺 name → bad_request
+PASS  未注册动作 packages.install（v1 后置）→ forbidden_action
+PASS  卸载不存在包 → action_failed（附 apk 错误摘录）
+== 4. 操作记录（history scope，结构化近 30 条） ==
+PASS  history 有条目且最新在前（显式字段 action/target/ok/ts）
+      history total=5 latest=packages.remove target=no-such-pkg-xyz ok=False
+PASS  history 含成功与失败两类（升级记录存在）
+PASS  history.json 落盘（0600）
+== 5. ACL 面（packages 方法在授权内，其余对象仍拒） ==
+PASS  默认 sid 对 packages 有 ACL 授权
+PASS  对照：file.read 仍 Access denied
+
+== 汇总: PASS=26 FAIL=0 ==
