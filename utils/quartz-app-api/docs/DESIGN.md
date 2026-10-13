@@ -242,9 +242,10 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | `history` | 本地 `history.json`（不存在于 apk） | 见下 |
 
 - **字段集**（`--fields`，不含 `contents` 等膨胀字段）：
-  `name,version,description,arch,license,origin,installed-size,file-size`；条目统一超集
+  `name,version,description,arch,license,origin,installed-size,file-size`；包 scope 条目统一超集
   `{name,version,installed_version?,target_version?,description,arch,license,origin,
-  installed_size,file_size,installed,upgradable}`。
+  installed_size,file_size,installed,upgradable}`；`history` 条目为独立形态
+  `{ts,action,target,ok,output,duration_ms}`（同一 `items` 数组承载）。
 - **分页**：`page`（1 基，越界夹紧）`per_page`（默认 24，上限 100）；`total/pages` 随回；
   结果按 `name` 升序（确定性）。
 - **搜索**：`query` = 包名**子串**（服务端包裹为 apk 模式 `*q*`，小写化）；字符集白名单

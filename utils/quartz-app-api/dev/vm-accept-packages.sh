@@ -73,6 +73,11 @@ ck "login → access_token" $([ -n "$TOK" ] && [ "$TOK" != "None" ] && echo 0 ||
 
 stage stage1
 vsh "
+# 环境前置（已知产品缺陷，见 WORKPLAN 记录）：出厂 distfeeds 里 quartz/thirdparty/video
+# 三条 feed 指向 VERSION_REPO 下不存在的路径（feed 未发布）——apk update 标 unavailable，
+# 且 apk upgrade 会直接拒绝（'stale/unavailable repositories'），add/del 不受影响。
+# 此处按「设备管理员排障口径」移除不可达 feed 后再验收；真实修复归 Builder/WP-9。
+sed -i '/x86_64\/quartz\//d; /x86_64\/thirdparty\//d; /x86_64\/video\//d' /etc/apk/repositories.d/distfeeds.list 2>/dev/null
 wget -q -O /etc/apk/keys/qz-test.pem http://$REPO_HOST:$REPO_PORT/qz-test.pem
 echo '$REPO_URL' > /etc/apk/repositories.d/qz-test.list
 apk del quartz-pkgtest >/dev/null 2>&1

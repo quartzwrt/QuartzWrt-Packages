@@ -28,8 +28,13 @@ state = {"stage": "stage1"}
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
-        # 每个请求都按当前 stage 解析（/swap 切换后立即生效，连接复用不受影响）
-        self.directory = os.path.join(BASE, state["stage"])
+        # 根目录下的共享文件（如 qz-test.pem）优先按 BASE 提供；
+        # 其余（/x86_64/…）按当前 stage 解析（/swap 切换后立即生效，连接复用不受影响）。
+        rel = path.split("?", 1)[0].split("#", 1)[0].lstrip("/")
+        if rel and os.path.isfile(os.path.join(BASE, rel)):
+            self.directory = BASE
+        else:
+            self.directory = os.path.join(BASE, state["stage"])
         return super().translate_path(path)
 
     def do_GET(self):  # noqa: N802

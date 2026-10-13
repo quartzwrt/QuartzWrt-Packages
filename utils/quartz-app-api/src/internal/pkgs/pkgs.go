@@ -68,7 +68,8 @@ func New(dir string) *Manager {
 	return &Manager{Bin: "", Run: execRun, Hist: history.New(dir)}
 }
 
-// Item 一个软件包条目（三种 scope 的统一超集；App 按存在性渲染）。
+// Item 一个软件包条目（installed/upgradable/available 三 scope 的统一超集；
+// App 按存在性渲染）。
 type Item struct {
 	Name             string `json:"name"`
 	Version          string `json:"version"`
@@ -84,14 +85,24 @@ type Item struct {
 	Upgradable       bool   `json:"upgradable"`
 }
 
-// Page 分页结果。
+// Op 一条操作记录（history 范围条目；App「操作记录」页直出）。
+type Op struct {
+	TS         int64  `json:"ts"`
+	Action     string `json:"action"` // packages.refresh|upgrade|remove
+	Target     string `json:"target,omitempty"`
+	OK         bool   `json:"ok"`
+	Output     string `json:"output,omitempty"` // stdout/stderr 摘录（尾部）
+	DurationMS int64  `json:"duration_ms"`
+}
+
+// Page 分页结果（Items 为 []Item 或（history 时）[]Op）。
 type Page struct {
 	Scope   string `json:"scope"`
 	Page    int    `json:"page"`
 	PerPage int    `json:"per_page"`
 	Total   int    `json:"total"`
 	Pages   int    `json:"pages"`
-	Items   []Item `json:"items"`
+	Items   any    `json:"items"`
 }
 
 // 分页参数边界（DESIGN §4.5）。
@@ -110,15 +121,15 @@ func (m *Manager) List(ctx context.Context, scope, q string, page, perPage int) 
 	case "installed", "upgradable", "available":
 	case "history":
 		recs := m.Hist.List(history.Cap)
-		items := make([]Item, 0, len(recs))
+		ops := make([]Op, 0, len(recs))
 		for _, r := range recs {
-			items = append(items, histItem(r))
+			ops = append(ops, Op{TS: r.TS, Action: r.Action, Target: r.Target, OK: r.OK, Output: r.Output, DurationMS: r.DurationMS})
 		}
 		pages := 0
-		if len(items) > 0 {
+		if len(ops) > 0 {
 			pages = 1
 		}
-		return &Page{Scope: scope, Page: 1, PerPage: len(items), Total: len(items), Pages: pages, Items: items}, nil
+		return &Page{Scope: scope, Page: 1, PerPage: len(ops), Total: len(ops), Pages: pages, Items: ops}, nil
 	default:
 		return nil, envelope.ED(envelope.CodeBadRequest, "unknown scope", scope)
 	}
@@ -340,17 +351,6 @@ func (m *Manager) installedVersionMap(ctx context.Context) map[string]string {
 		out[it.Name] = it.Version
 	}
 	return out
-}
-
-// histItem 历史记录 → 统一条目形态（App 解析同一 items 数组）。
-func histItem(r history.Record) Item {
-	return Item{
-		Name:        r.Action, // 动作 id（App 映射文案）
-		Version:     r.Target, // 目标包名（可为空）
-		Description: r.Output,
-		FileSize:    r.DurationMS,
-		Installed:   r.OK,
-	}
 }
 
 // ---- 分页 / 错误 / 执行 ----

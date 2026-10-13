@@ -50,6 +50,16 @@ func hasArg(args []string, want string) bool {
 	return false
 }
 
+// itemsOf 取分页条目（scope=包列表时 Items 为 []Item）。
+func itemsOf(t *testing.T, pg *Page) []Item {
+	t.Helper()
+	items, ok := pg.Items.([]Item)
+	if !ok {
+		t.Fatalf("items type: %T", pg.Items)
+	}
+	return items
+}
+
 func TestListInstalledMarksUpgradable(t *testing.T) {
 	m, f := newTestManager(t, func(args []string) ([]byte, error) {
 		if hasArg(args, "--upgradable") {
@@ -61,24 +71,25 @@ func TestListInstalledMarksUpgradable(t *testing.T) {
 	if errE != nil {
 		t.Fatalf("list: %v", errE)
 	}
-	if pg.Total != 2 || len(pg.Items) != 2 || pg.Items[0].Name != "bash" || pg.Items[1].Name != "ttyd" {
+	items := itemsOf(t, pg)
+	if pg.Total != 2 || len(items) != 2 || items[0].Name != "bash" || items[1].Name != "ttyd" {
 		t.Fatalf("page: %+v", pg)
 	}
-	if pg.Items[0].Upgradable {
+	if items[0].Upgradable {
 		t.Fatalf("bash should not be upgradable")
 	}
-	if !pg.Items[0].Installed || !pg.Items[1].Installed {
-		t.Fatalf("installed scope items must be flagged installed: %+v", pg.Items)
+	if !items[0].Installed || !items[1].Installed {
+		t.Fatalf("installed scope items must be flagged installed: %+v", items)
 	}
-	if !pg.Items[1].Upgradable || pg.Items[1].TargetVersion != "1.7.8-r1" {
-		t.Fatalf("ttyd should be upgradable to 1.7.8-r1: %+v", pg.Items[1])
+	if !items[1].Upgradable || items[1].TargetVersion != "1.7.8-r1" {
+		t.Fatalf("ttyd should be upgradable to 1.7.8-r1: %+v", items[1])
 	}
 	// 首次调用须是 installed 查询（含 --installed/--from system）
 	if len(f.calls) < 1 || !hasArg(f.calls[0], "--installed") || !hasArg(f.calls[0], "system") {
 		t.Fatalf("installed args: %v", f.calls[0])
 	}
-	if pg.Items[1].InstalledSize != 620768 || pg.Items[1].FileSize != 408255 {
-		t.Fatalf("sizes: %+v", pg.Items[1])
+	if items[1].InstalledSize != 620768 || items[1].FileSize != 408255 {
+		t.Fatalf("sizes: %+v", items[1])
 	}
 }
 
@@ -93,8 +104,9 @@ func TestListUpgradableMergesInstalledVersion(t *testing.T) {
 	if errE != nil {
 		t.Fatalf("list: %v", errE)
 	}
-	if pg.Total != 1 || pg.Items[0].Version != "1.7.8-r1" || pg.Items[0].InstalledVersion != "1.7.7-r1" || !pg.Items[0].Upgradable {
-		t.Fatalf("upgradable item: %+v", pg.Items[0])
+	up := itemsOf(t, pg)
+	if pg.Total != 1 || up[0].Version != "1.7.8-r1" || up[0].InstalledVersion != "1.7.7-r1" || !up[0].Upgradable {
+		t.Fatalf("upgradable item: %+v", up[0])
 	}
 }
 
@@ -114,7 +126,7 @@ func TestListAvailableMergesInstalledFlag(t *testing.T) {
 		t.Fatalf("list: %v", errE)
 	}
 	byName := map[string]Item{}
-	for _, it := range pg.Items {
+	for _, it := range itemsOf(t, pg) {
 		byName[it.Name] = it
 	}
 	if !byName["ttyd"].Installed || byName["ttyd"].Upgradable {
@@ -171,15 +183,15 @@ func TestListPagination(t *testing.T) {
 	if errE != nil {
 		t.Fatalf("list: %v", errE)
 	}
-	if pg.Total != 60 || pg.Pages != 3 || pg.Page != 2 || len(pg.Items) != 25 {
+	if pg.Total != 60 || pg.Pages != 3 || pg.Page != 2 || len(itemsOf(t, pg)) != 25 {
 		t.Fatalf("page meta: %+v", pg)
 	}
-	if pg.Items[0].Name != "a25" {
-		t.Fatalf("page 2 first item: %+v", pg.Items[0])
+	if itemsOf(t, pg)[0].Name != "a25" {
+		t.Fatalf("page 2 first item: %+v", itemsOf(t, pg)[0])
 	}
 	// 越界页夹紧到末页
 	pg, _ = m.List(context.Background(), "installed", "", 99, 25)
-	if pg.Page != 3 || len(pg.Items) != 10 {
+	if pg.Page != 3 || len(itemsOf(t, pg)) != 10 {
 		t.Fatalf("clamp: %+v", pg)
 	}
 	// per_page 上限
@@ -283,12 +295,19 @@ func TestActionSuccessAndHistoryRing(t *testing.T) {
 	if errE != nil {
 		t.Fatalf("history: %v", errE)
 	}
-	if pg.Total != 30 || len(pg.Items) != 30 {
-		t.Fatalf("ring size: %+v", pg.Total)
+	if pg.Total != 30 || pg.Pages != 1 {
+		t.Fatalf("ring meta: total=%d pages=%d", pg.Total, pg.Pages)
 	}
-	// 最新在前（最旧=upgrade 在末位）
-	if pg.Items[0].Name != "packages.refresh" || pg.Items[29].Name != "packages.upgrade" {
-		t.Fatalf("order: first=%s last=%s", pg.Items[0].Name, pg.Items[29].Name)
+	ops, okc := pg.Items.([]Op)
+	if !okc || len(ops) != 30 {
+		t.Fatalf("history items type/len: %T %d", pg.Items, len(ops))
+	}
+	// 最新在前（最旧=upgrade 在末位）；字段显式（action/target/ok/output/duration_ms/ts）
+	if ops[0].Action != "packages.refresh" || ops[29].Action != "packages.upgrade" || ops[29].Target != "ttyd" {
+		t.Fatalf("order: first=%s last=%s/%s", ops[0].Action, ops[29].Action, ops[29].Target)
+	}
+	if !ops[29].OK || ops[29].TS == 0 || !strings.Contains(ops[29].Output, "Upgrading ttyd") {
+		t.Fatalf("record fields: %+v", ops[29])
 	}
 }
 
