@@ -1,0 +1,49 @@
+== 0. 环境（HTTPS 443 / 证书 / mDNS 文件） ==
+PASS  info 可达（HTTPS 443）
+      router: ImmortalWrt
+== 0b. 根口令前提（坑位 #28：未设口令时 rpcd 接受任意密码，认证断言无意义） ==
+PASS  根口令已设置（password_set=true）
+PASS  umdns 服务文件存在且含 _quartz-app._tcp
+PASS  umdns 进程运行中
+PASS  TXT fp 与 sha256(DER 证书) 一致
+      pin=43437e8fa8a01fca9b09934fa3b65aed3593ef953097751df798ae7ed34ded72
+== 1. ACL 权限边界（未授权对象必须被 rpcd 拒绝） ==
+PASS  默认 sid 调 file.read → Access denied
+PASS  默认 sid 调 uci.get → Access denied
+PASS  默认 sid 对 quartz-app-api 有 ACL 授权
+PASS  残面：主实例 80 亦可调（设计已声明，§6.4）
+== 2. 认证（login / status / 篡改 / devices） ==
+PASS  错误密码 → invalid_credentials
+PASS  正确密码 → 双令牌 + device_id
+PASS  router 身份随 login 返回
+PASS  status → 快照 v=1（与 daemon 同数据模型）
+PASS  篡改 access → token_invalid
+PASS  devices 列表含 current
+== 3. 旋转 / 复用检测 / 吊销 / 登出 ==
+PASS  refresh 旋转换发（新旧均不同）
+PASS  旧 refresh 复用 → device_revoked（复用检测）
+PASS  吊销后 access 立即失效（device_revoked）
+PASS  B 吊销 C → ok
+PASS  C 被吊销后 status → device_revoked
+PASS  logout → ok
+PASS  登出后 access → token_invalid
+== 4. 限速（全局限定 5 次 → 锁定 + 退避） ==
+PASS  连续失败 → rate_limited（附 retry_after）
+PASS  清限速状态后恢复登录（总键可复位）
+== 5. 数据面降级（daemon 停机 → data_unavailable） ==
+PASS  daemon 停机 → data_unavailable
+PASS  daemon 恢复 → status 正常
+== 6. 控制面（白名单 / 执行 / 拒否 / 依赖缺失） ==
+PASS  service.restart dnsmasq → ok
+PASS  dnsmasq 重启后存活（控制后可视化由 2s 快照承接）
+PASS  白名单外（dropbear）→ forbidden_action
+PASS  注入参数 → forbidden_action
+PASS  docker 未装 → action_failed（依赖缺失如实报错）
+== 7. system.reboot（末组：触发 → 重启 → 状态持久化复验） ==
+PASS  system.reboot → ok
+      等待重启（~90s）...
+PASS  重启后 443 服务恢复
+PASS  重启后设备注册表/令牌持久（access 仍有效）
+PASS  重启后证书 pin 不变（DER 持久）
+
+== 汇总: PASS=35 FAIL=0 ==
