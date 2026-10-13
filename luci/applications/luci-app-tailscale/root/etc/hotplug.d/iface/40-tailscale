@@ -1,0 +1,6 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# WAN 等接口 up 后重放配置（幂等；helper 内部有锁，重复触发无害）
+[ "$ACTION" = "ifup" ] || exit 0
+[ "$(uci -q get tailscale.settings.enabled)" = "1" ] || exit 0
+/usr/sbin/tailscale_helper apply >/dev/null 2>&1 &

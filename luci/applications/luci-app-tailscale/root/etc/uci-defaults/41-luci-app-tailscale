@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# 幂等：向基座维护的 /etc/config/tailscale 补本包选项（只在缺失时写入，不覆盖用户值）
+cfg=tailscale.settings
+uci -q get $cfg.enabled >/dev/null || uci set $cfg.enabled='0'
+uci -q get $cfg.accept_dns >/dev/null || uci set $cfg.accept_dns='1'
+[ -n "$(uci changes tailscale)" ] && uci commit tailscale
+/etc/init.d/tailscale-quartz enable >/dev/null 2>&1
+exit 0

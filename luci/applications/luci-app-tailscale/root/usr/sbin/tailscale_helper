@@ -1,0 +1,426 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# tailscale_helper — LuCI for Tailscale（QuartzWrt 适配版，WP-10）
+#
+# 架构（docs/DESIGN.md §2）：daemon 层由基座 tailscale 包提供（/etc/init.d/tailscale，
+# 本包不带同名文件——零文件重叠）；本脚本是**幂等配置器**，承接上游 luci-app-tailscale
+# v1.2.6 init 的全部功能（tailscale up 偏好、MagicDNS、网络接口、子网路由、防火墙 zone、
+# exit-node 桥接、enabled 语义）。
+#
+# 子命令：
+#   apply [--boot]  读取 uci → 确保 daemon → 应用偏好 → reconcile 胶水（可重复执行）
+#   cleanup         移除本工具添加的全部胶水（保留身份/state，不 unbind）
+#
+# 设计要点：
+#   - 幂等：全部写操作先比较后写（uci_set_if/uci_add_list_if），重复 apply 无副作用；
+#   - 幂等表：cleanup 依据本工具记录的状态（uci tailscale.settings 内的 _ts_* 隐藏项）回退；
+#   - 安全：值全部做字符集/CIDR 校验；不提供任意 flag 直通（上游 flags 选项已移除）。
+
+. /lib/functions.sh
+
+LOG_TAG=tailscale_helper
+TS=/usr/sbin/tailscale
+TS_SOCK=/var/run/tailscale/tailscaled.sock
+LOCK_FILE=/var/lock/tailscale_helper.lock
+
+log_err() { logger -p daemon.err -t "$LOG_TAG" "$*"; }
+log_info() { logger -t "$LOG_TAG" "$*"; }
+
+uci_set_if() {
+	# uci_set_if <key> <value>
+	[ "$(uci -q get "$1")" = "$2" ] || uci set "$1=$2"
+}
+
+uci_add_list_if() {
+	# uci_add_list_if <key> <value>
+	uci -q get "$1" | grep -qxF "$2" || uci add_list "$1=$2"
+}
+
+valid_cidr() {
+	echo "$1" | grep -qE '^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$' && return 0
+	echo "$1" | grep -qE '^[0-9a-fA-F:]+/[0-9]{1,3}$'
+}
+
+valid_token() {
+	echo "$1" | grep -qE '^[A-Za-z0-9._@:+-]{1,128}$'
+}
+
+valid_hostname() {
+	echo "$1" | grep -qE '^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$'
+}
+
+## ---------- 配置读取 ----------
+
+load_settings() {
+	config_load tailscale
+	config_get_bool enabled settings enabled 0
+	config_get port settings port 41641
+	config_get fw_mode settings fw_mode nftables
+	config_get_bool accept_routes settings accept_routes 0
+	config_get hostname settings hostname ''
+	config_get_bool accept_dns settings accept_dns 1
+	config_get_bool advertise_exit_node settings advertise_exit_node 0
+	config_get exit_node settings exit_node ''
+	config_get advertise_routes settings advertise_routes ''
+	config_get_bool disable_snat_subnet_routes settings disable_snat_subnet_routes 0
+	config_get subnet_routes settings subnet_routes ''
+	config_get access settings access ''
+	config_get login_server settings login_server ''
+	config_get authkey settings authkey ''
+	config_get_bool ssh_enable settings ssh 0
+	config_get_bool shields_up settings shields_up 0
+}
+
+backend_state() {
+	$TS status --json 2>/dev/null | grep -o '"BackendState": *"[A-Za-z]*"' | head -1 | awk -F'"' '{print $4}'
+}
+
+daemon_ready() {
+	pidof tailscaled >/dev/null 2>&1 && [ -S "$TS_SOCK" ]
+}
+
+ensure_daemon() {
+	local i
+	daemon_ready && return 0
+	/etc/init.d/tailscale start >/dev/null 2>&1
+	for i in $(seq 1 10); do
+		daemon_ready && return 0
+		sleep 1
+	done
+	log_err "tailscaled did not become ready"
+	return 1
+}
+
+wait_ip() {
+	local i ip4
+	for i in $(seq 1 10); do
+		ip4=$($TS ip -4 2>/dev/null | head -1)
+		[ -n "$ip4" ] && { echo "$ip4"; return 0; }
+		sleep 2
+	done
+	return 1
+}
+
+## ---------- 胶水：MagicDNS（dnsmasq 条目） ----------
+
+magicdns_reconcile() {
+	local suffix target i changed=0 stored
+	stored=$(uci -q get tailscale.settings._ts_dns_suffix)
+	if [ "$accept_dns" != "1" ]; then
+		magicdns_remove
+		return 0
+	fi
+	suffix=$($TS status --json 2>/dev/null | grep -o '"MagicDNSSuffix": *"[^"]*"' | head -1 | awk -F'"' '{print $4}')
+	[ -n "$suffix" ] || return 0
+	# 后缀变化：先清旧的
+	if [ -n "$stored" ] && [ "$stored" != "$suffix" ]; then
+		magicdns_remove "$stored"
+	fi
+	uci_set_if tailscale.settings._ts_dns_suffix "$suffix"
+	target="/$suffix/100.100.100.100"
+	for i in $(uci show dhcp | sed -n 's/^dhcp\.@dnsmasq\[\([0-9]\+\)\]=dnsmasq.*/\1/p'); do
+		uci -q get "dhcp.@dnsmasq[$i].address" | grep -qxF "$target" || {
+			uci_add_list_if "dhcp.@dnsmasq[$i].address" "$target"
+			changed=1
+		}
+	done
+	[ "$changed" = "1" ] && { uci commit dhcp; /etc/init.d/dnsmasq reload; }
+	return 0
+}
+
+magicdns_remove() {
+	local suffix="$1" target i changed=0
+	[ -n "$suffix" ] || suffix=$(uci -q get tailscale.settings._ts_dns_suffix)
+	[ -n "$suffix" ] || return 0
+	target="/$suffix/100.100.100.100"
+	for i in $(uci show dhcp | sed -n 's/^dhcp\.@dnsmasq\[\([0-9]\+\)\]=dnsmasq.*/\1/p'); do
+		uci -q get "dhcp.@dnsmasq[$i].address" | grep -qxF "$target" && {
+			uci del_list "dhcp.@dnsmasq[$i].address=$target"
+			changed=1
+		}
+	done
+	uci -q delete tailscale.settings._ts_dns_suffix
+	[ "$changed" = "1" ] && { uci commit dhcp; /etc/init.d/dnsmasq reload; }
+	return 0
+}
+
+## ---------- 胶水：network 接口与子网路由 ----------
+
+network_reconcile() {
+	local ip4 ip6 ifaces n ts0 changed=0
+	ip4=$(wait_ip) || return 1
+	ip6=$($TS ip -6 2>/dev/null | head -1)
+	ifaces=$(ip -o link show | awk -F': ' '$2 ~ /^tailscale/ {print $2}')
+	n=$(echo "$ifaces" | grep -c .)
+	[ -n "$ifaces" ] || return 1
+
+	if [ "$n" -gt 1 ]; then
+		# 多接口（少见）：上游同款桥接方案
+		uci_set_if network.ts_lan.type bridge
+		uci_set_if network.ts_lan.name ts-lan
+		uci_set_if network.tailscale.proto none
+		uci_set_if network.tailscale.device ts-lan
+		for ts0 in $ifaces; do
+			uci_add_list_if network.ts_lan.ports "$ts0"
+		done
+	else
+		ts0=$ifaces
+		uci_set_if network.tailscale.proto static
+		uci_set_if network.tailscale.ipaddr "$ip4"
+		[ -n "$ip6" ] && uci_add_list_if network.tailscale.ip6addr "$ip6"
+		uci_set_if network.tailscale.netmask 255.0.0.0
+		uci_set_if network.tailscale.device "$ts0"
+	fi
+
+	# 子网路由：整组 reconcile（先清我方命名段再按当前配置重建——避免上游只增不减残留）
+	for ts0 in $(uci show network | sed -n 's/^network\.\(ts_subnet[0-9]\+\)=.*/\1/p'); do
+		uci -q delete "network.$ts0"
+		changed=1
+	done
+	local i=1 route
+	for route in $subnet_routes; do
+		valid_cidr "$route" || { log_err "invalid subnet route: $route"; continue; }
+		uci set "network.ts_subnet$i"=route
+		uci set "network.ts_subnet$i.interface"=tailscale
+		uci set "network.ts_subnet$i.target"="$route"
+		uci set "network.ts_subnet$i.gateway"="$ip4"
+		i=$((i + 1))
+		changed=1
+	done
+
+	if [ -n "$(uci changes network)" ]; then
+		uci commit network
+		/etc/init.d/network reload
+	fi
+	return 0
+}
+
+network_remove() {
+	local s
+	for s in $(uci show network | sed -n 's/^network\.\(ts_subnet[0-9]\+\)=.*/\1/p'); do
+		uci -q delete "network.$s"
+	done
+	uci -q delete network.tailscale
+	uci -q delete network.ts_lan
+	[ -n "$(uci changes network)" ] && { uci commit network; /etc/init.d/network reload; }
+	return 0
+}
+
+## ---------- 胶水：防火墙（zone / forwarding / exit-node 桥接） ----------
+
+reconcile_fwd() {
+	# reconcile_fwd <段名> <src> <dest> <是否需要>
+	if [ "$4" = "1" ]; then
+		[ -n "$(uci -q get firewall.$1)" ] || uci set firewall.$1=forwarding
+		uci_set_if "firewall.$1.src" "$2"
+		uci_set_if "firewall.$1.dest" "$3"
+	else
+		[ -n "$(uci -q get firewall.$1)" ] && uci -q delete firewall.$1
+	fi
+	return 0
+}
+
+firewall_zone_reconcile() {
+	local changed=0 want
+
+	# zone（有任一 access 项即建）
+	want=0
+	for a in $access; do want=1; break; done
+	if [ "$want" = "1" ]; then
+		[ -n "$(uci -q get firewall.tszone)" ] || {
+			uci set firewall.tszone=zone
+			changed=1
+		}
+		uci_set_if firewall.tszone.name tailscale
+		uci_set_if firewall.tszone.network tailscale
+		uci_set_if firewall.tszone.input ACCEPT
+		uci_set_if firewall.tszone.output ACCEPT
+		uci_set_if firewall.tszone.forward ACCEPT
+		uci_set_if firewall.tszone.masq 1
+		uci_set_if firewall.tszone.mtu_fix 1
+	else
+		[ -n "$(uci -q get firewall.tszone)" ] && { uci -q delete firewall.tszone; changed=1; }
+	fi
+
+	# forwarding：期望集合 vs 我方命名段
+	case " $access " in *" ts_ac_lan "*) reconcile_fwd ts_ac_lan tailscale lan 1;; *) reconcile_fwd ts_ac_lan tailscale lan 0;; esac
+	case " $access " in *" ts_ac_wan "*) reconcile_fwd ts_ac_wan tailscale wan 1;; *) reconcile_fwd ts_ac_wan tailscale wan 0;; esac
+	case " $access " in *" lan_ac_ts "*) reconcile_fwd lan_ac_ts lan tailscale 1;; *) reconcile_fwd lan_ac_ts lan tailscale 0;; esac
+	case " $access " in *" wan_ac_ts "*) reconcile_fwd wan_ac_ts wan tailscale 1;; *) reconcile_fwd wan_ac_ts wan tailscale 0;; esac
+
+	# exit-node 桥接：默认 forward REJECT + 关闭 lan→wan 转发（记录段名以便回退）
+	if [ -n "$exit_node" ]; then
+		uci_set_if firewall.@defaults[0].forward REJECT
+		local idx key stored
+		stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
+		[ -n "$stored" ] || {
+			for idx in $(uci show firewall | sed -n 's/^firewall\.@forwarding\[\([0-9]\+\)\]\.src=.lan.*/\1/p'); do
+				[ "$(uci -q get "firewall.@forwarding[$idx].dest")" = "wan" ] || continue
+				key="@forwarding[$idx]"
+				uci set "firewall.$key.enabled"=0
+				uci_set_if tailscale.settings._ts_lanwan_fwd "$key"
+				break
+			done
+		}
+	else
+		local stored
+		stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
+		if [ -n "$stored" ]; then
+			uci -q delete "firewall.$stored.enabled"
+			uci -q delete tailscale.settings._ts_lanwan_fwd
+			uci commit tailscale
+		fi
+	fi
+
+	if [ -n "$(uci changes firewall)" ]; then
+		uci commit firewall
+		/etc/init.d/firewall reload
+	fi
+	return 0
+}
+
+firewall_remove() {
+	local s stored
+	for s in tszone ts_ac_lan ts_ac_wan lan_ac_ts wan_ac_ts; do
+		uci -q delete "firewall.$s"
+	done
+	stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
+	if [ -n "$stored" ]; then
+		uci -q delete "firewall.$stored.enabled"
+		uci -q delete tailscale.settings._ts_lanwan_fwd
+	fi
+	[ -n "$(uci changes firewall)" ] && { uci commit firewall; /etc/init.d/firewall reload; }
+	uci commit tailscale 2>/dev/null
+	return 0
+}
+
+## ---------- 主流程 ----------
+
+build_set_args() {
+	SET_ARGS=""
+	[ "$accept_routes" = "1" ] && SET_ARGS="$SET_ARGS --accept-routes=true" || SET_ARGS="$SET_ARGS --accept-routes=false"
+	[ -n "$hostname" ] && valid_hostname "$hostname" && SET_ARGS="$SET_ARGS --hostname=$hostname"
+	if [ "$accept_dns" = "1" ]; then
+		SET_ARGS="$SET_ARGS --accept-dns=true"
+	else
+		SET_ARGS="$SET_ARGS --accept-dns=false"
+	fi
+	[ "$advertise_exit_node" = "1" ] && SET_ARGS="$SET_ARGS --advertise-exit-node=true" || SET_ARGS="$SET_ARGS --advertise-exit-node=false"
+	if [ -z "$exit_node" ]; then
+		SET_ARGS="$SET_ARGS --exit-node="
+	elif valid_token "$exit_node"; then
+		SET_ARGS="$SET_ARGS --exit-node=$exit_node --exit-node-allow-lan-access=true"
+	else
+		log_err "invalid exit_node ignored: $exit_node"
+	fi
+	if [ "$disable_snat_subnet_routes" = "1" ]; then
+		SET_ARGS="$SET_ARGS --snat-subnet-routes=false"
+	fi
+	[ "$ssh_enable" = "1" ] && SET_ARGS="$SET_ARGS --ssh=true"
+	[ "$shields_up" = "1" ] && SET_ARGS="$SET_ARGS --shields-up=true"
+
+	local routes="" r
+	for r in $advertise_routes; do
+		if valid_cidr "$r"; then
+			routes="$routes,$r"
+		else
+			log_err "invalid advertise route ignored: $r"
+		fi
+	done
+	# 始终显式传递（空=清除已宣告路由）
+	SET_ARGS="$SET_ARGS --advertise-routes=${routes#,}"
+	return 0
+}
+
+apply_main() {
+	local boot="$1" state
+	load_settings
+
+	if [ "$enabled" != "1" ]; then
+		# 未启用：清胶水并确保 daemon 不跑（基座 init 开机无条件拉起 → 此处收口）
+		firewall_remove
+		network_remove
+		magicdns_remove
+		/etc/init.d/tailscale stop >/dev/null 2>&1
+		[ -n "$(uci changes tailscale)" ] && uci commit tailscale
+		log_info "disabled: daemon stopped, glue removed"
+		return 0
+	fi
+
+	ensure_daemon || return 1
+	state=$(backend_state)
+	build_set_args
+
+	case "$state" in
+		Running)
+			# 每次都应用（set 幂等；用户把某项改回默认值也必须落下去）
+			# shellcheck disable=SC2086
+			$TS set $SET_ARGS >/tmp/tailscale_helper.out 2>&1 || {
+				log_err "tailscale set failed: $(cat /tmp/tailscale_helper.out)"
+				return 1
+			}
+			;;
+		NeedsLogin)
+			if [ -n "$authkey" ]; then
+				valid_token "$authkey" || { log_err "invalid authkey format"; return 1; }
+				# shellcheck disable=SC2086
+				$TS up --authkey="$authkey" ${login_server:+--login-server="$login_server"} $SET_ARGS \
+					>/tmp/tailscale_helper.out 2>&1 || {
+					log_err "tailscale up failed: $(cat /tmp/tailscale_helper.out)"
+					return 1
+				}
+				state=$(backend_state)
+			else
+				# 交互登录：等待用户在 LuCI 页面完成（login 由视图触发）
+				log_info "waiting for interactive login"
+				[ "$boot" = "--boot" ] && return 0
+			fi
+			;;
+		*)
+			# Stopped/NoState 等：登录后由 hotplug/页面再次 apply
+			log_info "backend state: ${state:-unknown}"
+			[ "$boot" = "--boot" ] && return 0
+			;;
+	esac
+
+	if [ "$(backend_state)" = "Running" ]; then
+		magicdns_reconcile
+		network_reconcile
+		firewall_zone_reconcile
+	fi
+	[ -n "$(uci changes tailscale)" ] && uci commit tailscale
+	log_info "apply done (state=${state:-unknown})"
+	return 0
+}
+
+cleanup_main() {
+	load_settings
+	firewall_remove
+	network_remove
+	magicdns_remove
+	[ -n "$(uci changes tailscale)" ] && uci commit tailscale
+	log_info "cleanup done"
+	return 0
+}
+
+main() {
+	case "$1" in
+		apply)
+			exec 9>"$LOCK_FILE"
+			flock -w 30 9 || { log_err "lock busy"; exit 1; }
+			apply_main "$2"
+			;;
+		cleanup)
+			exec 9>"$LOCK_FILE"
+			flock -w 30 9 || { log_err "lock busy"; exit 1; }
+			cleanup_main
+			;;
+		*)
+			echo "usage: $0 apply [--boot] | cleanup" >&2
+			exit 1
+			;;
+	esac
+}
+
+main "$@"

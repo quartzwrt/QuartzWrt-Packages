@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# QuartzWrt: tailscale 启用语义与配置应用（WP-10）。
+# daemon 本身由基座 tailscale 包管理（/etc/init.d/tailscale，START=80 无条件拉起）；
+# 本钩子在之后运行：enabled=1 → helper apply（后台，含偏好与胶水 reconcile）；
+# enabled=0 → helper apply 会停 daemon 并清胶水（见 tailscale_helper）。
+START=95
+
+start() {
+	[ -x /usr/sbin/tailscale_helper ] || return 0
+	/usr/sbin/tailscale_helper apply --boot &
+}
+
+stop() {
+	: # 关闭语义由 LuCI 的 enabled 开关驱动（helper apply），此处不隐式清配置
+}

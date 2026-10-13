@@ -1,0 +1,8 @@
+{
+  "id": "tailscale",
+  "title": "Tailscale",
+  "running": { "type": "procd", "name": "tailscale" },
+  "extras": {
+    "ip": { "type": "exec", "path": "/usr/sbin/tailscale", "args": ["ip", "-4"], "regex": "([0-9.]+)" }
+  }
+}
