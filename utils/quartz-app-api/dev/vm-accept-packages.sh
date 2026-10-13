@@ -178,14 +178,15 @@ ck "卸载不存在包 → action_failed（附 apk 错误摘录）" \
 echo "== 4. 操作记录（history scope，结构化近 30 条） =="
 OUT=$(call quartz-app-api packages "{\"access_token\":\"$TOK\",\"scope\":\"history\"}")
 NH=$(echo "$OUT" | jget result 1 total)
-H0=$(echo "$OUT" | jget result 1 items 0 name)
-H0T=$(echo "$OUT" | jget result 1 items 0 version)
-H0OK=$(echo "$OUT" | jget result 1 items 0 installed)
-ck "history 有条目且最新在前（失败记录在最前）" \
-	$([ "${NH:-0}" -ge 3 ] && [ "$H0" = "packages.remove" ] && [ "$H0OK" = "False" ] && echo 0 || echo 1)
+H0=$(echo "$OUT" | jget result 1 items 0 action)
+H0T=$(echo "$OUT" | jget result 1 items 0 target)
+H0OK=$(echo "$OUT" | jget result 1 items 0 ok)
+H0TS=$(echo "$OUT" | jget result 1 items 0 ts)
+ck "history 有条目且最新在前（显式字段 action/target/ok/ts）" \
+	$([ "${NH:-0}" -ge 3 ] && [ "$H0" = "packages.remove" ] && [ "$H0OK" = "False" ] && [ "${H0TS:-0}" -gt 0 ] && echo 0 || echo 1)
 echo "      history total=$NH latest=${H0} target=${H0T} ok=${H0OK}"
 ck "history 含成功与失败两类（升级记录存在）" \
-	$(printf '%s' "$OUT" | grep -q '"packages.upgrade"' && printf '%s' "$OUT" | grep -q '"installed":false' && echo 0 || echo 1)
+	$(printf '%s' "$OUT" | grep -q '"action":"packages.upgrade"' && printf '%s' "$OUT" | grep -q '"ok":false' && echo 0 || echo 1)
 
 OUT=$(vsh 'ls -l /etc/quartz-app-api/history.json 2>/dev/null')
 ck "history.json 落盘（0600）" $(printf '%s' "$OUT" | grep -q -- '-rw-------' && echo 0 || echo 1)
