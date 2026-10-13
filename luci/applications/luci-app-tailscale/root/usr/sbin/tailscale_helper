@@ -155,8 +155,13 @@ network_reconcile() {
 	n=$(echo "$ifaces" | grep -c .)
 	[ -n "$ifaces" ] || return 1
 
+	# 注意：uci 对**不存在的节** set 选项会直接 Invalid argument（不自建节）——
+	# 必须先显式建命名节（实测，见 docs/DESIGN.md §6）。
+	[ -n "$(uci -q get network.tailscale)" ] || uci set network.tailscale=interface
+
 	if [ "$n" -gt 1 ]; then
 		# 多接口（少见）：上游同款桥接方案
+		[ -n "$(uci -q get network.ts_lan)" ] || uci set network.ts_lan=device
 		uci_set_if network.ts_lan.type bridge
 		uci_set_if network.ts_lan.name ts-lan
 		uci_set_if network.tailscale.proto none
@@ -209,6 +214,27 @@ network_remove() {
 
 ## ---------- 胶水：防火墙（zone / forwarding / exit-node 桥接） ----------
 
+restore_exit_node_glue() {
+	# 恢复 exit-node 桥接前的 firewall 状态（记录在 _ts_fwd_* / _ts_lanwan_fwd）
+	local stored prev
+	if [ -n "$(uci -q get tailscale.settings._ts_fwd_active)" ]; then
+		prev=$(uci -q get tailscale.settings._ts_fwd_prev)
+		if [ -n "$prev" ]; then
+			uci_set_if firewall.@defaults[0].forward "$prev"
+		else
+			uci -q delete firewall.@defaults[0].forward
+		fi
+		uci -q delete tailscale.settings._ts_fwd_prev
+		uci -q delete tailscale.settings._ts_fwd_active
+	fi
+	stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
+	if [ -n "$stored" ]; then
+		uci -q delete "firewall.$stored.enabled"
+		uci -q delete tailscale.settings._ts_lanwan_fwd
+	fi
+	return 0
+}
+
 reconcile_fwd() {
 	# reconcile_fwd <段名> <src> <dest> <是否需要>
 	if [ "$4" = "1" ]; then
@@ -249,8 +275,13 @@ firewall_zone_reconcile() {
 	case " $access " in *" lan_ac_ts "*) reconcile_fwd lan_ac_ts lan tailscale 1;; *) reconcile_fwd lan_ac_ts lan tailscale 0;; esac
 	case " $access " in *" wan_ac_ts "*) reconcile_fwd wan_ac_ts wan tailscale 1;; *) reconcile_fwd wan_ac_ts wan tailscale 0;; esac
 
-	# exit-node 桥接：默认 forward REJECT + 关闭 lan→wan 转发（记录段名以便回退）
+	# exit-node 桥接：默认 forward REJECT + 关闭 lan→wan 转发（记录原值以便回退）
 	if [ -n "$exit_node" ]; then
+		if [ -z "$(uci -q get tailscale.settings._ts_fwd_active)" ]; then
+			# 首次进入：记录 defaults.forward 原值（空=未设置，回退时删除该选项）
+			uci set "tailscale.settings._ts_fwd_prev=$(uci -q get firewall.@defaults[0].forward)"
+			uci set tailscale.settings._ts_fwd_active=1
+		fi
 		uci_set_if firewall.@defaults[0].forward REJECT
 		local idx key stored
 		stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
@@ -264,13 +295,7 @@ firewall_zone_reconcile() {
 			done
 		}
 	else
-		local stored
-		stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
-		if [ -n "$stored" ]; then
-			uci -q delete "firewall.$stored.enabled"
-			uci -q delete tailscale.settings._ts_lanwan_fwd
-			uci commit tailscale
-		fi
+		restore_exit_node_glue
 	fi
 
 	if [ -n "$(uci changes firewall)" ]; then
@@ -281,15 +306,11 @@ firewall_zone_reconcile() {
 }
 
 firewall_remove() {
-	local s stored
+	local s
 	for s in tszone ts_ac_lan ts_ac_wan lan_ac_ts wan_ac_ts; do
 		uci -q delete "firewall.$s"
 	done
-	stored=$(uci -q get tailscale.settings._ts_lanwan_fwd)
-	if [ -n "$stored" ]; then
-		uci -q delete "firewall.$stored.enabled"
-		uci -q delete tailscale.settings._ts_lanwan_fwd
-	fi
+	restore_exit_node_glue
 	[ -n "$(uci changes firewall)" ] && { uci commit firewall; /etc/init.d/firewall reload; }
 	uci commit tailscale 2>/dev/null
 	return 0

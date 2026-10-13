@@ -71,8 +71,15 @@
    （→ `/usr/libexec/logread-ubox`），只授文本路径的 acl.d 会被 403 "Access to command denied by ACL"
    ——与 rpcd `file.read` 的 realpath 二次校验（WORKPLAN 坑位 #25）同族；acl.d 需同时含解析后路径。
    （`tailscale status --json` 本身是真实路径，故未踩。）
+3. **uci 对不存在的节 set 选项 → `Invalid argument`（不会自建节）**：`network` 胶水改写自上游时
+   漏了 `uci set network.tailscale=interface` 建节动作，5 条 set 全部静默失败（仅 stderr 有
+   "uci: Invalid argument"，主流程照走）——VM Running 态实测抓到；修复=先建命名节再写选项。
+   （与坑位 #27 的 `uci add` 类型陷阱同族，均为"uci 静默失败"家族。）
+4. **exit-node 桥接回退改进**：上游仅在退出时清理 `.enabled`，`firewall.@defaults[0].forward=REJECT`
+   遗留不恢复；本包用隐藏状态记录原值并在退出/cleanup 时恢复（§3 表已含）。
 
 ## 7. 变更记录
 
 *v0.1 2026-10-13 —— 定案：架构切分（daemon 吃基座/功能归 helper）、安全收紧清单、验收路径；用户按推荐拍板（版本 1.3.0 血缘 / 保留 enabled / 保留 authkey 掩码 / 不预装 / WP-10 立项）。*
-*v0.1.1 2026-10-13 —— 实施与 VM 验收：见 §6 两项修复；验收结果（三页渲染/菜单/日志 17KB 真日志/接口真数据/enabled 语义/幂等/真实 auth URL/probe 联动）见 WORKPLAN WP-10 行；**胶水（防火墙/网络/MagicDNS reconcile）需 Running 态（真 tailnet 登录）**，留真机/账号配合阶段。*
+*v0.1.1 2026-10-13 —— 实施与 VM 验收：见 §6 两项修复；验收结果（三页渲染/菜单/日志 17KB 真日志/接口真数据/enabled 语义/幂等/真实 auth URL/probe 联动）见 WORKPLAN WP-10 行。*
+*v0.1.2 2026-10-13 —— **Running 态胶水验收（用户提供一次性 auth key）**：登录成功（节点 `quartzwrt-vm`，真 IP 100.118.170.8）；network/防火墙 zone+forwarding/MagicDNS dnsmasq 条目全部 reconcile 正确；cleanup↔apply 往返干净（daemon/登录保持）；probe 取到真实 tailnet IP（`services.tailscale.ip`）；子网路由分支实测（peer 宣告 10.0.0.0/24：创建 `network.ts_subnet1` + 真路由安装；**缩配置 reconcile 清除**——上游只增不减的缺陷点）；追加 §6 两项（uci 静默失败家族 #3；exit-node 回退改进 #4）。exit-node 桥接因 tailnet 内无 exit-node peer 未做端到端（回退逻辑已按 #4 实现）。authkey 用后即从 uci 清除。*
