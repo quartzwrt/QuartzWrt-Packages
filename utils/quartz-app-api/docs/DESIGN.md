@@ -1,6 +1,6 @@
 # quartz-app-api 设计规范
 
-**版本**: v1.0.1 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1 为实施期机制修正，见变更记录）
+**版本**: v1.0.3 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1/v1.0.2/v1.0.3 为实施与验收期修正/补记）
 **日期**: 2026-10-12
 **状态**: 定案并开工（W5.1 起实施，跟踪见 WORKPLAN §2/§3）
 **依据**: TDD §3.4（认证与 API 隔离）/ §3.2（元包）/ §5（模式 A/B）/ §8（App 推送待决）；WORKPLAN §3 WP-5；
@@ -393,3 +393,4 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v1.0 2026-10-12 —— **用户拍板「就先按这个方案来」：§9 十项决策按推荐案定案**（D1 rpcd exec 插件 + uhttpd 443 专用实例 / D2 JWT+refresh 旋转 / D3 专用实例 / D4 TOFU+DER pin / D5 umdns / D6 代理 daemon HTTP / D7 动作三组 / D8 参数 uci 化 / D9 推送不做 / D10 限速+审计）；状态转「定案并开工」，按 §10 W5.x 实施。*
 *v1.0.1 2026-10-12 —— 实施期机制修正：**限速键改为全局**（uhttpd `/ubus` 不向插件转发客户端 IP——源码核实仅注入 `ubus_rpc_session`，per-IP 不可实现；全局键对单管理员场景更强）；`login` 增加可选 `client_ip`（App 自报展示元数据）；§3.3/§4.1/§9-D10 同步。*
 *v1.0.2 2026-10-12 —— 实施期安全修正（VM 验收暴露，坑位 #28）：**登录要求根口令已设置**——rpcd 对 `/etc/config/rpcd` 的 `$p$root` 语义是"查 shadow 的 root 口令"，而 shadow 口令**为空时校验函数直接放行（任意密码通过）**；未设口令的机器被 WP-5 显式拒绝（避免为"任意密码"签发长效凭据）；`info` 增 `password_set` 字段供 App 事前提示；§3.1/§4.1 同步。另：uci-defaults 的 uhttpd 实例创建修正为 `uci set uhttpd.app=uhttpd`（`uci add uhttpd app` 第二参数是类型，生成匿名节——坑位 #27）。*
+*v1.0.3 2026-10-13 —— **W5.1–W5.5 完成**：全部代码 + 打包落地并通过 **VM 集成验收 35/35 全绿**（QEMU 新镜像；六组：环境/ACL 边界/认证/旋转吊销登出/限速/数据面降级/控制面/reboot 持久化；证据 `dev/accept-run-20261013-1341.log`，可复跑 `dev/vm-accept.sh`，两次重跑一致）。验收期另修复 logout 信封不对称（auth 层统一返回裸载荷、reply 层统一包裹；回归测试 `main_test.go`）。剩余：推送 + feed 锁定 bump（跨 WP，待用户指令）、R4S 真机复测（与 WP-3 合并）。*
