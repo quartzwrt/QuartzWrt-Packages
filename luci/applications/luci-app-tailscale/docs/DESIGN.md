@@ -63,6 +63,16 @@
 5. **authkey 链路**（可选，需用户提供一次性 key 或自建 headscale）：`up --authkey` 自动登录；
 6. 联动：快照 `services.tailscale` 出现（daemon 侧零改动）。
 
-## 6. 变更记录
+## 6. 实施期发现（VM 实测，已修）
+
+1. **busybox `flock` 不支持 `-w`**（usage: `flock [-sxun] FD`）——helper 初稿 `flock -w 30 9` 每次静默失败；
+   改**阻塞式 `flock 9`**（默认独占+阻塞，锁随进程退出自动释放）。
+2. **LuCI `fs.exec`（cgi-exec）的 ACL 判定基于 realpath**：`/sbin/logread` 是符号链接
+   （→ `/usr/libexec/logread-ubox`），只授文本路径的 acl.d 会被 403 "Access to command denied by ACL"
+   ——与 rpcd `file.read` 的 realpath 二次校验（WORKPLAN 坑位 #25）同族；acl.d 需同时含解析后路径。
+   （`tailscale status --json` 本身是真实路径，故未踩。）
+
+## 7. 变更记录
 
 *v0.1 2026-10-13 —— 定案：架构切分（daemon 吃基座/功能归 helper）、安全收紧清单、验收路径；用户按推荐拍板（版本 1.3.0 血缘 / 保留 enabled / 保留 authkey 掩码 / 不预装 / WP-10 立项）。*
+*v0.1.1 2026-10-13 —— 实施与 VM 验收：见 §6 两项修复；验收结果（三页渲染/菜单/日志 17KB 真日志/接口真数据/enabled 语义/幂等/真实 auth URL/probe 联动）见 WORKPLAN WP-10 行；**胶水（防火墙/网络/MagicDNS reconcile）需 Running 态（真 tailnet 登录）**，留真机/账号配合阶段。*

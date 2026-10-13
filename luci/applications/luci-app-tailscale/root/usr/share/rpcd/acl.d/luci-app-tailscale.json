@@ -3,22 +3,47 @@
 		"description": "Grant access to Tailscale configuration (QuartzWrt)",
 		"read": {
 			"file": {
-				"/sbin/ip -s -j ad": [ "exec" ],
-				"/sbin/logread -e tailscale": [ "exec" ],
-				"/usr/sbin/logread -e tailscale": [ "exec" ],
-				"/usr/sbin/tailscale status --json": [ "exec" ],
-				"/usr/sbin/tailscale login": [ "exec" ],
-				"/usr/sbin/tailscale logout": [ "exec" ],
-				"/usr/sbin/tailscale_helper apply": [ "exec" ],
-				"/usr/sbin/tailscale_helper cleanup": [ "exec" ]
+				"/sbin/ip -s -j ad": [
+					"exec"
+				],
+				"/sbin/logread -e tailscale": [
+					"exec"
+				],
+				"/usr/sbin/logread -e tailscale": [
+					"exec"
+				],
+				"/usr/sbin/tailscale status --json": [
+					"exec"
+				],
+				"/usr/sbin/tailscale login": [
+					"exec"
+				],
+				"/usr/sbin/tailscale logout": [
+					"exec"
+				],
+				"/usr/sbin/tailscale_helper apply": [
+					"exec"
+				],
+				"/usr/sbin/tailscale_helper cleanup": [
+					"exec"
+				],
+				"/usr/libexec/logread-ubox -e tailscale": [
+					"exec"
+				]
 			},
 			"ubus": {
-				"service": [ "list" ]
+				"service": [
+					"list"
+				]
 			},
-			"uci": [ "tailscale" ]
+			"uci": [
+				"tailscale"
+			]
 		},
 		"write": {
-			"uci": [ "tailscale" ]
+			"uci": [
+				"tailscale"
+			]
 		}
 	}
 }

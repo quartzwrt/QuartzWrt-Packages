@@ -408,12 +408,12 @@ main() {
 	case "$1" in
 		apply)
 			exec 9>"$LOCK_FILE"
-			flock -w 30 9 || { log_err "lock busy"; exit 1; }
+			flock 9 # busybox flock 无 -w：默认阻塞独占；锁随进程退出自动释放
 			apply_main "$2"
 			;;
 		cleanup)
 			exec 9>"$LOCK_FILE"
-			flock -w 30 9 || { log_err "lock busy"; exit 1; }
+			flock 9
 			cleanup_main
 			;;
 		*)
