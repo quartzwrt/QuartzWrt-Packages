@@ -11,7 +11,8 @@
 					"status",
 					"action",
 					"devices",
-					"revoke"
+					"revoke",
+					"packages"
 				]
 			}
 		}

@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/quartzwrt/quartz-app-api/internal/actions"
@@ -28,6 +29,7 @@ import (
 	"github.com/quartzwrt/quartz-app-api/internal/daemonfwd"
 	"github.com/quartzwrt/quartz-app-api/internal/envelope"
 	"github.com/quartzwrt/quartz-app-api/internal/hostinfo"
+	"github.com/quartzwrt/quartz-app-api/internal/pkgs"
 	"github.com/quartzwrt/quartz-app-api/internal/ratelimit"
 	"github.com/quartzwrt/quartz-app-api/internal/store"
 )
@@ -38,7 +40,7 @@ var (
 	release = "1"
 )
 
-// pluginTimeout 单次插件调用总预算（远低于 rpcd exec 默认 120s，DESIGN §4.4）。
+// pluginTimeout 单次插件调用默认预算（远低于 rpcd exec 默认 120s，DESIGN §4.4）。
 const pluginTimeout = 10 * time.Second
 
 func main() {
@@ -66,14 +68,15 @@ func main() {
 // methodList rpcd 注册用方法表（键=方法名，值=参数名→类型；类型仅作 ubus 签名展示）。
 func methodList() map[string]any {
 	return map[string]any{
-		"info":    map[string]any{},
-		"login":   map[string]any{"username": "string", "password": "string", "device_name": "string", "client_ip": "string"},
-		"refresh": map[string]any{"device_id": "string", "refresh_token": "string"},
-		"logout":  map[string]any{"device_id": "string", "refresh_token": "string"},
-		"status":  map[string]any{"access_token": "string"},
-		"action":  map[string]any{"access_token": "string", "action": "string", "args": map[string]any{}},
-		"devices": map[string]any{"access_token": "string"},
-		"revoke":  map[string]any{"access_token": "string", "device_id": "string"},
+		"info":     map[string]any{},
+		"login":    map[string]any{"username": "string", "password": "string", "device_name": "string", "client_ip": "string"},
+		"refresh":  map[string]any{"device_id": "string", "refresh_token": "string"},
+		"logout":   map[string]any{"device_id": "string", "refresh_token": "string"},
+		"status":   map[string]any{"access_token": "string"},
+		"action":   map[string]any{"access_token": "string", "action": "string", "args": map[string]any{}},
+		"devices":  map[string]any{"access_token": "string"},
+		"revoke":   map[string]any{"access_token": "string", "device_id": "string"},
+		"packages": map[string]any{"access_token": "string", "scope": "string", "query": "string", "page": "Integer", "per_page": "Integer"},
 	}
 }
 
@@ -106,6 +109,37 @@ func str(args map[string]any, key string) string {
 	return ""
 }
 
+// intOf 读整型参数（JSON 反序列化为 float64；缺省 0 交由层内默认值处理）。
+func intOf(args map[string]any, key string) int {
+	switch v := args[key].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		var n int
+		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+// budget 每方法超时预算（DESIGN §4.4 v1.1）。packages.* 动作由 pkgs 内部
+// 细分（refresh 45s / upgrade|remove 50s），外层各留 2s 余量；结果仍须落在
+// uhttpd app 实例 script_timeout=60s 的单次 /ubus 调用窗口内。
+func budget(method string, args map[string]any) time.Duration {
+	switch method {
+	case "packages":
+		return pkgs.QueryTimeout + 2*time.Second
+	case "action":
+		if strings.HasPrefix(str(args, "action"), "packages.") {
+			return pkgs.ActionTimeout + 2*time.Second
+		}
+	}
+	return pluginTimeout
+}
+
 // dispatch 方法分派（panic 兜底为 internal 信封；始终 exit 0）。
 func dispatch(method string, args map[string]any) (resp map[string]any) {
 	defer func() {
@@ -123,13 +157,16 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 	)
 	svc.Router = hostinfo.Info
 
-	ctx, cancel := context.WithTimeout(context.Background(), pluginTimeout)
+	// 每方法预算（DESIGN §4.4 v1.1）：默认 10s；packages 读 20s；packages.*
+	// 动作由 pkgs 包内部按操作细分（refresh 45s / upgrade|remove 50s），
+	// 外层再留余量。上限受 uhttpd app 实例 /ubus 单次调用 60s 约束（源码核实）。
+	ctx, cancel := context.WithTimeout(context.Background(), budget(method, args))
 	defer cancel()
 
 	switch method {
 	case "info":
 		info := hostinfo.Info()
-		info["features"] = []string{"status", "actions", "devices", "mdns"}
+		info["features"] = []string{"status", "actions", "devices", "mdns", "packages"}
 		info["auth"] = []string{"password"}
 		// 根口令是否已设（未设时 rpcd session.login 接受任意密码——
 		// DESIGN v1.0.2 / WORKPLAN 坑位 #28；App 应在配对前提示）
@@ -162,7 +199,7 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 		if _, e := svc.Authenticate(str(args, "access_token")); e != nil {
 			return envelope.Err(e)
 		}
-		exec := actions.New("", whitelist(cfg))
+		actionID := str(args, "action")
 		aargs := map[string]string{}
 		if m, ok := args["args"].(map[string]any); ok {
 			for k, v := range m {
@@ -171,11 +208,39 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 				}
 			}
 		}
-		res, ae := exec.Do(ctx, str(args, "action"), aargs)
+		// 软件包动作（WP-5 扩展；同一 action 方法 + 白名单前缀路由）。
+		if strings.HasPrefix(actionID, "packages.") {
+			mgr := pkgs.New(store.DefaultDir)
+			res, pe := mgr.Action(ctx, actionID, aargs["name"])
+			if pe != nil {
+				return envelope.Err(pe)
+			}
+			return envelope.OK(res)
+		}
+		exec := actions.New("", whitelist(cfg))
+		res, ae := exec.Do(ctx, actionID, aargs)
 		if ae != nil {
 			return envelope.Err(ae)
 		}
 		return envelope.OK(res)
+
+	case "packages":
+		if _, e := svc.Authenticate(str(args, "access_token")); e != nil {
+			return envelope.Err(e)
+		}
+		mgr := pkgs.New(store.DefaultDir)
+		pg, pe := mgr.List(ctx, str(args, "scope"), str(args, "query"), intOf(args, "page"), intOf(args, "per_page"))
+		if pe != nil {
+			return envelope.Err(pe)
+		}
+		return envelope.OK(map[string]any{
+			"scope":    pg.Scope,
+			"page":     pg.Page,
+			"per_page": pg.PerPage,
+			"total":    pg.Total,
+			"pages":    pg.Pages,
+			"items":    pg.Items,
+		})
 
 	case "devices":
 		dev, e := svc.Authenticate(str(args, "access_token"))

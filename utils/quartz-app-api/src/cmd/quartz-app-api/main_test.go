@@ -2,9 +2,11 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/quartzwrt/quartz-app-api/internal/config"
 	"github.com/quartzwrt/quartz-app-api/internal/envelope"
+	"github.com/quartzwrt/quartz-app-api/internal/pkgs"
 )
 
 // reply 必须把裸载荷统一包上信封——回归防护：曾因 auth.Logout 返回裸载荷、
@@ -33,13 +35,34 @@ func TestReplyWrapsPayload(t *testing.T) {
 
 func TestMethodListSurface(t *testing.T) {
 	m := methodList()
-	for _, want := range []string{"info", "login", "refresh", "logout", "status", "action", "devices", "revoke"} {
+	for _, want := range []string{"info", "login", "refresh", "logout", "status", "action", "devices", "revoke", "packages"} {
 		if _, has := m[want]; !has {
 			t.Fatalf("method list missing %s", want)
 		}
 	}
-	if len(m) != 8 {
+	if len(m) != 9 {
 		t.Fatalf("method surface changed: %d", len(m))
+	}
+}
+
+func TestBudgetPerMethod(t *testing.T) {
+	// 默认 10s；packages 读 20s+2s；packages.* 动作 50s+2s（DESIGN §4.4 v1.1）
+	if got := budget("status", nil); got != pluginTimeout {
+		t.Fatalf("status budget: %v", got)
+	}
+	if got := budget("packages", nil); got <= pluginTimeout {
+		t.Fatalf("packages budget should exceed default: %v", got)
+	}
+	act := map[string]any{"action": "packages.upgrade"}
+	if got := budget("action", act); got <= pkgs.QueryTimeout {
+		t.Fatalf("packages upgrade budget: %v", got)
+	}
+	// 所有预算必须落在 uhttpd app 实例单次 /ubus 调用 60s 窗口内
+	//（源码核实：uloop_timeout_set(script_timeout × 1000ms)）。
+	for _, got := range []time.Duration{budget("packages", nil), budget("action", act)} {
+		if got >= 60*time.Second {
+			t.Fatalf("budget must stay below uhttpd ubus window: %v", got)
+		}
 	}
 }
 

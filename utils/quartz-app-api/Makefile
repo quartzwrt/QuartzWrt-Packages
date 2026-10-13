@@ -1,7 +1,7 @@
 #
 # quartz-app-api — QuartzWrt 专属 App API（rpcd exec 插件，WP-5）
 #
-# 设计规范: docs/DESIGN.md v1.0.1（定案）
+# 设计规范: docs/DESIGN.md v1.1（定案）
 # 数据契约: luci-app-dashboard/docs/AGGREGATE-API.md（冻结 v1，本包为代理透传）
 #
 # 说明:
@@ -51,8 +51,9 @@ define Package/quartz-app-api/description
   QuartzWrt 专属 App API：rpcd exec 插件（ubus 对象 quartz-app-api），基于
   /ubus JSON-RPC（HTTPS 443）。认证 = JWT(短时) + refresh(旋转+吊销)；数据面 =
   代理 quartz-daemon 回环 HTTP 快照（status 方法，与 Dashboard 同源）；控制面 =
-  白名单动作（service/system/docker）；发现 = umdns（_quartz-app._tcp，pin=TLS
-  证书 sha256）。设计见 docs/DESIGN.md（v1.0.1 定案）。
+  白名单动作（service/system/docker/packages）；软件包管理面 = apk 查询/升级/
+  卸载 + 操作记录（packages 方法，v1.1）；发现 = umdns（_quartz-app._tcp，
+  pin=TLS 证书 sha256）。设计见 docs/DESIGN.md（v1.1 定案）。
 endef
 
 define Package/quartz-app-api/conffiles

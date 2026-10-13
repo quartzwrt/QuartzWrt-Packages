@@ -1,8 +1,9 @@
 # quartz-app-api 设计规范
 
-**版本**: v1.0.3 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1/v1.0.2/v1.0.3 为实施与验收期修正/补记）
-**日期**: 2026-10-12
-**状态**: 定案并开工（W5.1 起实施，跟踪见 WORKPLAN §2/§3）
+**版本**: v1.1 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1–v1.0.3 为实施与验收期修正/补记；
+**v1.1 = 软件包管理面扩展**，2026-10-13 用户确认登记、2026-10-14 实施并 VM 验收）
+**日期**: 2026-10-12（v1.1 增补 2026-10-14）
+**状态**: 定案并实施（W5.1–W5.5 + W5.7 软件包扩展完成，跟踪见 WORKPLAN §2/§3）
 **依据**: TDD §3.4（认证与 API 隔离）/ §3.2（元包）/ §5（模式 A/B）/ §8（App 推送待决）；WORKPLAN §3 WP-5；
 WP-4 `quartz-daemon/docs/DESIGN.md` §12（App 承诺与 seam）/ §12.4（控制面归属与动作路径表）；
 数据契约 `luci/applications/luci-app-dashboard/docs/AGGREGATE-API.md`（冻结 v1）
@@ -160,10 +161,11 @@ quartz-app-api（exec 插件，root；每调用一进程）
 ```
 /etc/quartz-app-api/            (0700 root)
 ├── secret                      32B 随机 HMAC 密钥（0600；不存在则首调用生成）
-└── state.json                  设备注册表（0600；原子写 .tmp+rename + flock）
-     {"devices":[{ "id":"a1b2…", "name":"iPhone 15", "created":1697…, "last_seen":…,
-                   "last_ip":"192.168.1.23", "refresh_sha256":"…", "refresh_exp":…,
-                   "rot_counter":3, "revoked":false }]}
+├── state.json                  设备注册表（0600；原子写 .tmp+rename + flock）
+│     {"devices":[{ "id":"a1b2…", "name":"iPhone 15", "created":1697…, "last_seen":…,
+│                   "last_ip":"192.168.1.23", "refresh_sha256":"…", "refresh_exp":…,
+│                   "rot_counter":3, "revoked":false }]}
+└── history.json                软件包操作记录（v1.1；0600；环形 30 条；§4.5）
 /var/run/quartz-app-api/        (0700；tmpfs)
 └── ratelimit.json              限速/锁定状态（丢之无害）
 ```
@@ -182,6 +184,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | `action` | access | `{access_token,action,args{}}` | `{ok,api,action,result{}}` | 动作白名单见 §5 |
 | `devices` | access | `{access_token}` | `{ok,api,devices:[{device_id,name,created,last_seen,current}]}` | 已配对设备清单 |
 | `revoke` | access | `{access_token,device_id}` | `{ok,api}` | 踢出指定设备（含自身=登出） |
+| `packages` | access | `{access_token,scope,query?,page?,per_page?}` | `{ok,api,scope,page,per_page,total,pages,items:[…]}` | 软件包管理面读（v1.1，§4.5）；`scope=installed\|upgradable\|available\|history` |
 
 ### 4.2 信封
 
@@ -214,7 +217,56 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | daemon 取数 | 1s | 回环、内存响应，正常 <10ms |
 | 凭据校验（嵌套 `ubus call session login`） | 3s | 仅 login 路径 |
 | 动作执行（init/ubus 调用） | 5s | reboot 返回即算成功 |
-| 插件总时长 | <10s | 远低于 rpcd exec 120s |
+| 插件默认总时长 | 10s | 远低于 rpcd exec 120s |
+| `packages` 读（v1.1） | 20s | `available '*'` 全量索引约 3.5MB JSON（10k 包） |
+| `packages.refresh`（v1.1） | 45s | `apk update`（含索引下载；R4S 级设备余量） |
+| `packages.upgrade` / `packages.remove`（v1.1） | 50s | 含安装包下载；单包实测 <1s（本地源） |
+
+**硬上限链（v1.1 核实）**：uhttpd `/ubus` 对每次调用的 dispatch 超时 =
+`script_timeout × 1000ms`（`ubus.c: uloop_timeout_set`），app 实例配置 60 →
+**单次 /ubus 调用（含插件全程）必须 <60s**；rpcd exec 默认 120s 不是瓶颈。
+故上表 packages 各预算均须留在 60s 窗口内（当前 45s/50s + 外层余量已留）。
+
+### 4.5 软件包管理面（v1.1；App「应用 tab · 软件包」子段与「操作记录」页数据面）
+
+**登记与消费**：WP-6 UI-DESIGN §5 登记项（2026-10-13 用户确认）——读方法 `packages`
+（分页）+ 动作 `packages.refresh/upgrade/remove`；安装浏览（可用源搜索安装）
+**v1 后置**（不在本次范围）。数据源 = 路由器 **apk 体系**（apk-tools 3.x，
+与 LuCI 软件包页同源命令 `apk query --format json`；VM 实测 3.0.5）。
+
+| scope | 命令（同源 LuCI `package-manager-call`） | 条目字段 |
+| :--- | :--- | :--- |
+| `installed` | `apk query --fields … --format json --installed --from system '*'` | `version`=已装；`upgradable`+`target_version`（有新版时） |
+| `upgradable` | `apk query --fields … --format json --upgradable '*'` | `version`=目标版本；`installed_version`=已装（供版本 diff） |
+| `available` | `apk query --fields … --format json --available '<模式>'` | `version`=仓库版；`installed`/`installed_version`/`upgradable` 合并自已装集 |
+| `history` | 本地 `history.json`（不存在于 apk） | 见下 |
+
+- **字段集**（`--fields`，不含 `contents` 等膨胀字段）：
+  `name,version,description,arch,license,origin,installed-size,file-size`；条目统一超集
+  `{name,version,installed_version?,target_version?,description,arch,license,origin,
+  installed_size,file_size,installed,upgradable}`。
+- **分页**：`page`（1 基，越界夹紧）`per_page`（默认 24，上限 100）；`total/pages` 随回；
+  结果按 `name` 升序（确定性）。
+- **搜索**：`query` = 包名**子串**（服务端包裹为 apk 模式 `*q*`，小写化）；字符集白名单
+  `[a-z0-9._+@-]`，**用户输入不直通 apk 模式**（防通配/注入）；空 q = 全量首个分页。
+- **动作**（通用 `action` 方法 + id 前缀路由 `packages.`，白名单式显式注册）：
+  `packages.refresh`=`apk update`；`packages.upgrade`（`args.name` 空=全部）=
+  `apk upgrade [name]`；`packages.remove`（`args.name` 必填）= `apk del <name>`
+  （**危险动作**——apk 对 world 包不做保护、App 侧确认层负责把关，与 LuCI 行为一致）；
+  包名字符集 `^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$`（绝不拼接 shell）。
+- **操作记录（`history`）**：`/etc/quartz-app-api/history.json`（0600，flock + 原子写，
+  环形 30 条，最新在前）——每次动作（成功/失败）记录
+  `{ts,action,target,ok,output(≤512B 尾部),duration_ms}`；失败附 apk ERROR 行摘录
+  （`classify`：优先 ERROR 行+缩进续行）。App「操作记录」页直出。
+- **输出/错误**：动作成功 `result:{stdout,duration_ms}`；失败 `action_failed`（detail=
+  摘录；超时明确标注 `timeout after Ns`）；读失败 `data_unavailable`（apk 不可用/索引
+  损坏）；负例（scope 未知/搜索词非法/包名非法）`bad_request`/`forbidden_action`。
+- **审计**：每次动作落 logd 短串（`packages action=… target=… ok|fail dur_ms=…`）。
+
+**测试源**（VM 验收用，`dev/testrepo/`）：本地 apk 仓夹具（`serve.py` 提供**同 URL 可切换
+stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"，避免 world 钉死约束：
+`apk add 文件/等值` 会写 `name>hash`/`name=ver` 钉死条目致升级被抑制——VM 实测教训）。
+
 
 ## 5. 控制面（动作白名单）
 
@@ -225,6 +277,9 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | `service.start` / `service.stop` / `service.restart` | `{name}` | `/etc/init.d/<name> <op>`；默认允许集：`openclash` `dockerd` `dnsmasq` `quartz-daemon` `tailscale` `zerotier`（uci 可调）；`network`/`dropbear` 等自断链路项默认**不**入集 | ✅ |
 | `system.reboot` | — | `ubus call system reboot` | ✅ |
 | `docker.container.start/stop/restart` | `{id}` | `docker container <op> <id>`（字符集校验；docker 未装 → `action_failed: docker unavailable`） | ✅（存在即用） |
+| `packages.refresh` | — | `apk update`（拉取仓库索引；§4.5） | ✅ v1.1 |
+| `packages.upgrade` | `{name?}` | `apk upgrade [name]`（name 空 = 全部升级） | ✅ v1.1 |
+| `packages.remove` | `{name}` | `apk del <name>`（**危险动作**；确认层在 App 侧） | ✅ v1.1 |
 | 核心/规则更新触发（TDD §4.4） | — | 归属 WP-7/WP-8 链路；**版本状态由 daemon `services` 报告**（已有），触发器后置 | ✗ 后置 |
 | bandix 限速 / DDNS 配置（模式 A/B） | — | 模式 A 直调 ubus / 模式 B 经 WP-8 Bridge；经本表「ubus 转发项」接入的机制 v1 预留、不实现 | ✗ 后置 |
 
@@ -335,7 +390,7 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 
 ## 8. 测试与验收（对齐 WORKPLAN：认证 / 吊销 / 权限边界）
 
-**单元测试（host `go test ./...`）**：JWT 签发/校验/偏斜/回拨；refresh 旋转与复用检测；注册表原子写 + flock；限速状态机；动作表校验（名称字符集/白名单/注入负例）；信封与错误码序列化。
+**单元测试（host `go test ./...`）**：JWT 签发/校验/偏斜/回拨；refresh 旋转与复用检测；注册表原子写 + flock；限速状态机；动作表校验（名称字符集/白名单/注入负例）；信封与错误码序列化；**软件包面（v1.1）**：scope 合并语义（installed×upgradable、available×installed 标记）、分页夹紧/上限、搜索词白名单与模式包裹、动作命令构造（refresh/upgrade/单包/remove）、动作拒否负例、失败/超时→历史记录、history 环形与并发串行化。
 
 **VM 集成验收**（QEMU + `test-in-vm.sh`，需为 443 增补宿主转发 `APP_PORT`，见 §10 同步项）：
 
@@ -345,6 +400,7 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 4. **数据面**：`status` 返回与 `127.0.0.1:8899`（及 Dashboard 渲染）同构；停 daemon → `data_unavailable`。
 5. **发现与传输**：`/etc/umdns/quartz-app.json` 生成 + fp 与 `sha256sum /etc/uhttpd.crt` 一致；`curl --insecure` 直连 443 /ubus 全链通；证书 pin 校验脚本（dev/）通过。
 6. **动作**：`service.restart openclash` 后 ≤2s 快照 `services.openclash.running` 变化；`system.reboot`（VM 内验证触发即返回）；越权 action → `forbidden_action`。
+7. **软件包管理面（v1.1，`dev/vm-accept-packages.sh`，26 项）**：读四 scope（installed 分页/上限夹紧/未知 scope 拒否；available 子串搜索与非法字符拒否；upgradable 版本 diff 三字段；history 环形+最新在前）；动作真执行（refresh 计时、**全部升级（stage 切换模拟上游发新版→实装版本真变化）**、单包升级、卸载、注入/缺参拒否、不存在包 `action_failed`）；history.json 落盘 0600；ACL 面（packages 授权 + file.read 对照拒）。测试源 `dev/testrepo/serve.py`（同 URL 可切换 stage）。
 
 证据落 `dev/`（脚本 + 输出），截图沿用 Dashboard 的 Playwright 仅当涉及 UI（本 WP 无 UI）。
 
@@ -374,6 +430,7 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 | W5.4 | 数据面 `status`（daemon 代理）+ 控制面动作表 | W5.2 |
 | W5.5 | 单测 + VM 集成验收（§8 六组）+ 证据归档 | W5.3、W5.4 |
 | W5.6 | README + 同步项（§11）+ WORKPLAN 回写 | W5.5 |
+| W5.7 | **软件包管理面扩展（v1.1）**：`packages` 读方法（四 scope 分页）+ 动作 `packages.refresh/upgrade/remove` + history.json（环形 30）+ 验收组 7（`dev/vm-accept-packages.sh`，26 项 PASS） | W5.6、用户确认（2026-10-13） |
 
 ## 11. 同步项与跨 WP 登记（拍板后执行）
 
@@ -394,3 +451,4 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v1.0.1 2026-10-12 —— 实施期机制修正：**限速键改为全局**（uhttpd `/ubus` 不向插件转发客户端 IP——源码核实仅注入 `ubus_rpc_session`，per-IP 不可实现；全局键对单管理员场景更强）；`login` 增加可选 `client_ip`（App 自报展示元数据）；§3.3/§4.1/§9-D10 同步。*
 *v1.0.2 2026-10-12 —— 实施期安全修正（VM 验收暴露，坑位 #28）：**登录要求根口令已设置**——rpcd 对 `/etc/config/rpcd` 的 `$p$root` 语义是"查 shadow 的 root 口令"，而 shadow 口令**为空时校验函数直接放行（任意密码通过）**；未设口令的机器被 WP-5 显式拒绝（避免为"任意密码"签发长效凭据）；`info` 增 `password_set` 字段供 App 事前提示；§3.1/§4.1 同步。另：uci-defaults 的 uhttpd 实例创建修正为 `uci set uhttpd.app=uhttpd`（`uci add uhttpd app` 第二参数是类型，生成匿名节——坑位 #27）。*
 *v1.0.3 2026-10-13 —— **W5.1–W5.5 完成**：全部代码 + 打包落地并通过 **VM 集成验收 35/35 全绿**（QEMU 新镜像；六组：环境/ACL 边界/认证/旋转吊销登出/限速/数据面降级/控制面/reboot 持久化；证据 `dev/accept-run-20261013-1341.log`，可复跑 `dev/vm-accept.sh`，两次重跑一致）。验收期另修复 logout 信封不对称（auth 层统一返回裸载荷、reply 层统一包裹；回归测试 `main_test.go`）。剩余：推送 + feed 锁定 bump（跨 WP，待用户指令）、R4S 真机复测（与 WP-3 合并）。*
+*v1.1 2026-10-14 —— **软件包管理面扩展（W5.7）实施并 VM 验收**（WP-6 UI-DESIGN §5 登记项的 WP-5 侧落地）：读方法 `packages`（`scope=installed|upgradable|available|history`，分页；数据源=apk 体系与 LuCI 软件包页同源命令 `apk query --format json`）+ 动作 `packages.refresh/upgrade/remove`（通用 action 白名单前缀路由）+ 结构化操作记录 `/etc/quartz-app-api/history.json`（环形 30，成功/失败+apk 错误摘录，供 App「操作记录」页）；acl.d 追加 `packages`；`info.features` 增 `packages`。新增 §4.5 与超时预算（§4.4：读 20s / refresh 45s / upgrade·remove 50s——**uhttpd /ubus 单次调用 60s 硬窗**源码核实）。**VM 验收 26/26 PASS**（`dev/vm-accept-packages.sh`，证据 `dev/accept-packages-run-*.log`），测试源 `dev/testrepo/`（serve.py 同 URL 可切换 stage 模拟上游发新版；VM 实测教训：`apk add 文件/等值` 写 world 钉死条目会抑制升级）。安装浏览（可用源搜索安装）v1 后置（不改本包方法面）。*
