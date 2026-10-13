@@ -32,9 +32,16 @@ uci_set_if() {
 	[ "$(uci -q get "$1")" = "$2" ] || uci set "$1=$2"
 }
 
+uci_list_has() {
+	# uci_list_has <key> <value>：列表成员判定。
+	# 注意：uci -q get 对多值列表输出为单行空格连接（VM 实测），直接 grep -qxF 整行匹配会失配；
+	# 先按空格拆行再整行匹配（我方配置值均不含空格）。
+	uci -q get "$1" | tr ' ' '\n' | grep -qxF "$2"
+}
+
 uci_add_list_if() {
 	# uci_add_list_if <key> <value>
-	uci -q get "$1" | grep -qxF "$2" || uci add_list "$1=$2"
+	uci_list_has "$1" "$2" || uci add_list "$1=$2"
 }
 
 valid_cidr() {
@@ -105,7 +112,7 @@ wait_ip() {
 ## ---------- 胶水：MagicDNS（dnsmasq 条目） ----------
 
 magicdns_reconcile() {
-	local suffix target i changed=0 stored
+	local suffix target rbtarget i changed=0 stored
 	stored=$(uci -q get tailscale.settings._ts_dns_suffix)
 	if [ "$accept_dns" != "1" ]; then
 		magicdns_remove
@@ -118,10 +125,23 @@ magicdns_reconcile() {
 		magicdns_remove "$stored"
 	fi
 	uci_set_if tailscale.settings._ts_dns_suffix "$suffix"
+	# server=（转发到 tailscale 解析器）；address= 是直接应答、客户端会拿到解析器地址本身（不可达）。
+	# rebind_domain：tailnet 应答属 CGNAT 段（100.64/10），基座 rebind_protection=1（stop-dns-rebind）
+	# 会静默丢弃转发所得的上游应答（VM 实测：仅 server= 时 LAN 端无应答），须豁免该后缀。
 	target="/$suffix/100.100.100.100"
+	rbtarget="/$suffix/"
 	for i in $(uci show dhcp | sed -n 's/^dhcp\.@dnsmasq\[\([0-9]\+\)\]=dnsmasq.*/\1/p'); do
-		uci -q get "dhcp.@dnsmasq[$i].address" | grep -qxF "$target" || {
-			uci_add_list_if "dhcp.@dnsmasq[$i].address" "$target"
+		# 旧版（≤1.3.0）写 address= 的残留条目：迁移清除
+		if uci_list_has "dhcp.@dnsmasq[$i].address" "$target"; then
+			uci del_list "dhcp.@dnsmasq[$i].address=$target"
+			changed=1
+		fi
+		uci_list_has "dhcp.@dnsmasq[$i].server" "$target" || {
+			uci_add_list_if "dhcp.@dnsmasq[$i].server" "$target"
+			changed=1
+		}
+		uci_list_has "dhcp.@dnsmasq[$i].rebind_domain" "$rbtarget" || {
+			uci_add_list_if "dhcp.@dnsmasq[$i].rebind_domain" "$rbtarget"
 			changed=1
 		}
 	done
@@ -130,13 +150,22 @@ magicdns_reconcile() {
 }
 
 magicdns_remove() {
-	local suffix="$1" target i changed=0
+	local suffix="$1" target rbtarget i opt changed=0
 	[ -n "$suffix" ] || suffix=$(uci -q get tailscale.settings._ts_dns_suffix)
 	[ -n "$suffix" ] || return 0
 	target="/$suffix/100.100.100.100"
+	rbtarget="/$suffix/"
+	# server=（现写法）+ address=（旧版残留）+ rebind_domain 豁免：全部清除，保证零残留
+	# （del_list 一次清除全部重复值）
 	for i in $(uci show dhcp | sed -n 's/^dhcp\.@dnsmasq\[\([0-9]\+\)\]=dnsmasq.*/\1/p'); do
-		uci -q get "dhcp.@dnsmasq[$i].address" | grep -qxF "$target" && {
-			uci del_list "dhcp.@dnsmasq[$i].address=$target"
+		for opt in server address; do
+			uci_list_has "dhcp.@dnsmasq[$i].$opt" "$target" && {
+				uci del_list "dhcp.@dnsmasq[$i].$opt=$target"
+				changed=1
+			}
+		done
+		uci_list_has "dhcp.@dnsmasq[$i].rebind_domain" "$rbtarget" && {
+			uci del_list "dhcp.@dnsmasq[$i].rebind_domain=$rbtarget"
 			changed=1
 		}
 	done

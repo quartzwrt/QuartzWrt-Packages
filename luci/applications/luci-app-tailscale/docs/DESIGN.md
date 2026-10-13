@@ -77,9 +77,24 @@
    （与坑位 #27 的 `uci add` 类型陷阱同族，均为"uci 静默失败"家族。）
 4. **exit-node 桥接回退改进**：上游仅在退出时清理 `.enabled`，`firewall.@defaults[0].forward=REJECT`
    遗留不恢复；本包用隐藏状态记录原值并在退出/cleanup 时恢复（§3 表已含）。
+5. **MagicDNS 胶水修正（#36，2026-10-14，三件套）**：原实现写 dnsmasq `address='/<suffix>/100.100.100.100'`
+   ——`address=` 语义是**直接应答**该 IP：LAN 客户端解析 `*.ts.net` 得到 100.100.100.100（解析器地址
+   本身、不可达；WP-6 实测发现）。修正（VM A/B 对照实测，28/28，证据
+   `dev/shots/vm/fix36-magicdns-e2e-20261014.log`，脚本 `dev/fix36-magicdns-test.sh`）：
+   - `server='/<suffix>/100.100.100.100'`（**转发**到 tailscale 解析器）；
+   - **`rebind_domain='/<suffix>/'` 豁免**：tailnet 应答属 CGNAT 段（100.64/10），基座 dnsmasq 默认
+     `rebind_protection=1`（`--stop-dns-rebind`）会**静默丢弃**转发所得应答（客户端收不到任何应答；
+     未开 log-queries 时连告警都不打）——仅加 `server=` 时 LAN 端解析失败；旧 `address=` 因是本机应答
+     不走上游、恰好掩盖此坑；
+   - 迁移/清理：reconcile 清除旧版 `address=` 残留；cleanup 对 `server=`/`address=`/`rebind_domain`
+     三形态全清（零残留不变量；`del_list` 一次清全部重复值）。
+   另修一处 uci 脚本陷阱：**`uci -q get` 对多值列表输出为单行空格连接**，原 `grep -qxF` 整行匹配在
+   多值时失配（会导致漏迁移/漏清理/重复添加）→ 新增 `uci_list_has()`（按空格拆行后整行匹配）统一
+   列表成员判定（网络胶水的 ip6addr/ports 同受益）。发行 `1.3.0-r2`（apk 同版本不可升级，须 bump）。
 
 ## 7. 变更记录
 
 *v0.1 2026-10-13 —— 定案：架构切分（daemon 吃基座/功能归 helper）、安全收紧清单、验收路径；用户按推荐拍板（版本 1.3.0 血缘 / 保留 enabled / 保留 authkey 掩码 / 不预装 / WP-10 立项）。*
 *v0.1.1 2026-10-13 —— 实施与 VM 验收：见 §6 两项修复；验收结果（三页渲染/菜单/日志 17KB 真日志/接口真数据/enabled 语义/幂等/真实 auth URL/probe 联动）见 WORKPLAN WP-10 行。*
 *v0.1.2 2026-10-13 —— **Running 态胶水验收（用户提供一次性 auth key）**：登录成功（节点 `quartzwrt-vm`，真 IP 100.118.170.8）；network/防火墙 zone+forwarding/MagicDNS dnsmasq 条目全部 reconcile 正确；cleanup↔apply 往返干净（daemon/登录保持）；probe 取到真实 tailnet IP（`services.tailscale.ip`）；子网路由分支实测（peer 宣告 10.0.0.0/24：创建 `network.ts_subnet1` + 真路由安装；**缩配置 reconcile 清除**——上游只增不减的缺陷点）；追加 §6 两项（uci 静默失败家族 #3；exit-node 回退改进 #4）。exit-node 桥接因 tailnet 内无 exit-node peer 未做端到端（回退逻辑已按 #4 实现）。authkey 用后即从 uci 清除。*
+*v0.1.3 2026-10-14 —— **#36 修复（address=→server= + rebind_domain 豁免 + uci_list_has）**：VM A/B/迁移/幂等/零残留全验证（28/28 PASS，证据 `dev/shots/vm/fix36-magicdns-e2e-20261014.log`）；`PKG_RELEASE=2`（同版本 apk 不可升级）。*

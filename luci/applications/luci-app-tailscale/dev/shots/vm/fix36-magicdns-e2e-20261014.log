@@ -1,0 +1,97 @@
+# #36 MagicDNS 胶水修正 — VM 端到端验证记录（2026-10-14）
+# 环境：测试 VM（ImmortalWrt 25.12 x86_64，dnsmasq 2.93），luci-app-tailscale 1.3.0-r2（helper md5=cf30ed9b...）
+# 方法：Quad100 由替身解析器独家持有（仿真 tailscaled），A/B 对照 + 迁移 + 幂等 + 零残留 + 现场复原；
+#       测试脚本见 dev/fix36-magicdns-test.sh（真实 tailnet 后缀/IP 已脱敏为 tailXXXX.ts.net / 100.64.123.45）。
+# 结果：PASS=28 FAIL=0（ALL PASS）。
+
+### #36 v5：address=→server=（+rebind_domain）验证 ###
+== 环境 ==
+Linux ImmortalWrt 6.12.112 #0 SMP Fri Oct  9 03:20:31 2026 x86_64 GNU/Linux
+luci-app-tailscale-1.3.0-r2 noarch {/home/nrxboat/quartzwrt/QuartzWrt-Packages/luci/applications/luci-app-tailscale} (GPL-3.0-only) [installed]
+luci-i18n-tailscale-zh-cn-26.286.45509~12dd130 noarch {/home/nrxboat/quartzwrt/QuartzWrt-Packages/luci/applications/luci-app-tailscale} (GPL-3.0-only) [installed]
+  [PASS] 安装的 helper 即修复版（md5=cf30ed9b018be86cb17c45b2e2fa54b3）
+  主 dnsmasq pid=17018
+
+== Phase 0：仿真 tailscaled 独家持有 Quad100（主 dnsmasq 临时排除 lo 消除竞态）==
+  [PASS] 配置已含 except-interface=lo
+  [PASS] Quad100:53 唯一属主=替身（pid=17463）
+  [PASS] 主 dnsmasq 存活
+  [PASS] 主 dnsmasq 正常服务 LAN
+直查替身：
+Server:		100.100.100.100
+Address:	100.100.100.100:53
+
+Name:	quartzwrt-vm.tailXXXX.ts.net
+Address: 100.64.123.45
+
+Name:	quartzwrt-vm.tailXXXX.ts.net
+Address: fd7a:115c:a1e0::1
+  [PASS] 直查替身得到 100.64.123.45（替身独家应答）
+
+== Phase 1（A/B 之 A）：旧写法 address= —— 直接应答、不转发（缺陷复现）==
+生成配置条目：
+16:address=/tailXXXX.ts.net/100.100.100.100
+LAN 客户端查询（VM→192.168.1.1）：
+Server:		192.168.1.1
+Address:	192.168.1.1:53
+
+Name:	quartzwrt-vm.tailXXXX.ts.net
+Address: 100.100.100.100
+  [PASS] A：旧写法得到 100.100.100.100（原缺陷复现）
+  [PASS] A：替身零命中（address= 从不转发；10→10）
+
+== Phase 2：升级迁移（修复版 magicdns_reconcile，源自在装文件）==
+  accept_dns=1
+  reconcile rc=0
+  _ts_dns_suffix=tailXXXX.ts.net
+  dhcp.@dnsmasq[0].server='/tailXXXX.ts.net/100.100.100.100'
+  dhcp.@dnsmasq[0].rebind_domain='/tailXXXX.ts.net/'
+  [PASS] 迁移：旧 address= 条目已清除
+  [PASS] 迁移：server= 条目已写入
+  [PASS] 迁移：rebind_domain 豁免已写入
+生成的 dnsmasq 配置：
+16:server=/tailXXXX.ts.net/100.100.100.100
+24:rebind-domain-ok=/tailXXXX.ts.net/
+  [PASS] 配置翻译为 server=
+  [PASS] 配置含 rebind-domain-ok 豁免
+LAN 客户端查询：
+Server:		192.168.1.1
+Address:	192.168.1.1:53
+
+Name:	quartzwrt-vm.tailXXXX.ts.net
+Address: 100.64.123.45
+
+Name:	quartzwrt-vm.tailXXXX.ts.net
+Address: fd7a:115c:a1e0::1
+  [PASS] B：修复后解析出真 tailnet IP 100.64.123.45（经转发+rebind 豁免）
+  [PASS] B：替身收到转发查询（10→14）
+
+== Phase 3：幂等（二跑零漂移）==
+  [PASS] 二跑 uci 零漂移
+
+== Phase 4：后缀变化 + 多值列表（旧后缀清、新条目不得重复）==
+  dhcp.@dnsmasq[0].server='/tailXXXX.ts.net/100.100.100.100'
+  dhcp.@dnsmasq[0].rebind_domain='/tailXXXX.ts.net/'
+  [PASS] 旧后缀条目被清（server+rebind_domain）
+  [PASS] 后缀键更新为新值
+  [PASS] server 条目恰好 1 份（多值列表下无重复添加）
+  [PASS] rebind_domain 条目恰好 1 份
+
+== Phase 5：cleanup 零残留（真实安装文件，离线路径）==
+-- 5a：address= 残留 + server=（含重复值）+ rebind_domain 并存 → cleanup
+  cleanup rc=0
+  [PASS] cleanup 后 server/address 零残留（重复值全清）
+  [PASS] cleanup 后 uci 零残留（含 rebind_domain）
+  [PASS] _ts_dns_suffix 已清
+  [PASS] 生成配置已无后缀条目
+-- 5b：仅旧版 address= 残留 → cleanup
+  [PASS] 旧版 address= 残留被清除（零残留）
+
+== Phase 6：收尾/复原 ==
+  [PASS] 主 dnsmasq 服务正常（收尾）
+  [PASS] 127.0.0.1:53 已恢复监听
+  Quad100 监听残留数：0
+  [PASS] 现场复原（dhcp 与测试前零差异）
+
+### 结果：PASS=28 FAIL=0 ###
+### ALL PASS ###

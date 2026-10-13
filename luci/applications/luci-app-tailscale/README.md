@@ -7,6 +7,7 @@ Tailscale 的 LuCI 管理界面，为 QuartzWrt 适配再开发。
   - daemon 由基座 `tailscale` 包（feeds/packages，活跃维护）提供；本包**不带** `/etc/init.d/tailscale` 与 `/etc/config/tailscale`，与基座**零文件重叠**；
   - `tailscale_helper`（幂等配置器）：`apply` 应用偏好（`tailscale set`）+ reconcile 胶水（MagicDNS dnsmasq 条目 / `network.tailscale` / 子网路由 / 防火墙 `tszone`+forwarding / exit-node 桥接）；`cleanup` 干净回退；
   - boot 钩子 `/etc/init.d/tailscale-quartz`（承接 enabled 语义与开机 apply）；WAN up 触发同样幂等 apply。
+  - MagicDNS 胶水：dnsmasq `server='/<tailnet 后缀>/100.100.100.100'`（转发到 tailscaled 解析器）**加** `rebind_domain='/<tailnet 后缀>/'` 豁免（tailnet 应答属 CGNAT 段，基座 `rebind_protection` 默认会静默拦截上游应答）；`cleanup` 连同旧版 `address=` 残留一并清除。
 - **相对上游的改动**：见 `docs/DESIGN.md` §3（含安全收紧：移除自由 `flags` 直通；`authkey` 大小写断链修复；`ip`/CLI 的 ACL 白名单最小化）。
 - **联动**：投放 `probes.d/tailscale.json` → `quartz-daemon` 快照/概念卡与 App 应用页自动出现 Tailscale 状态（零重编扩展机制）。
 
