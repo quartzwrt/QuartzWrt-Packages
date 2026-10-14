@@ -20,7 +20,8 @@ define Package/quartz-defaults
   PKGARCH:=all
   # 依赖清单随核心组件落地逐步追加（quartz 在前、thirdparty 在后）：
   #   +luci-theme-quartz +luci-app-dashboard +quartz-daemon +quartz-app-api（核心）
-  #   +openwrt-bandix +luci-app-bandix（thirdparty，模式 A）
+  #   +bandix +luci-app-bandix（thirdparty 受控 Fork 镜像；WP-7 D5 预装）
+  #   +quartz-runtime-resources（thirdparty；运行时资源清单 + 探针描述符，WP-7 D2）
   #   +quartz-ddns-bridge +luci-app-ddns（Bridge + thirdparty，模式 B）
   # 当前 DEPENDS 来源：luci-app-openclash 来自基座 luci feed
   # （thirdparty 不收录同名包，会被基座遮蔽，docs/TDD.md §3.1）。
@@ -32,7 +33,10 @@ define Package/quartz-defaults
     +luci-app-dashboard \
     +quartz-daemon \
     +quartz-app-api \
-    +luci-app-openclash
+    +luci-app-openclash \
+    +bandix \
+    +luci-app-bandix \
+    +quartz-runtime-resources
 endef
 
 define Package/quartz-defaults/description
