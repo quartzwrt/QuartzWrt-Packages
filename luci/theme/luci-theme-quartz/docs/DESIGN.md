@@ -248,8 +248,14 @@ luci/applications/luci-app-quartz-config/
 - ✅ **W2.6.6 复测轮修复（2026-10-12，用户 VM 实测反馈，`e0d681c`/`bc78dd3`）**：①第三方无分层全局 reset 压制主题 `@layer`（OpenClash 页面整页塌）→ 层外 `revert-layer` 兜底（§9 已记）；②「保存并应用/强制应用」被 `.cbi-dropdown{width:100%}` 撑成大蓝条 → 宽度改 `:not(.btn):not(.cbi-button)` 作用域（bootstrap 同款），应用条恢复右下紧凑排布；③密码控件组 `.control-group` 缺规则 → input 独占整行、显示/隐藏按钮掉行，补 inline-flex 同行合并边框 + 组宽 400px；④**下拉部件收起/展开显隐机制整组补齐**（`li{display:none}`+`li[display]{display:flex}` 收起只显当前项、`[empty]` 显占位、`[open] > ul.dropdown{display:block}` 竖排平铺、`.more` 仅 `[multiple][more/empty]`）——缺失时所有下拉收起态把全部选项铺开。双模 59 页证据全量重拍。
 - ✅ **W2.6.7 复测轮补充 2（2026-10-12 用户实测反馈，`5fc60ec`）**：①**桌面侧边栏收起**能力补齐（此前从未实现：汉堡仅 ≤900px 显示）——汉堡全宽度可见，桌面点击切换 `html.qz-nav-collapsed`（侧边栏左移 + 顶栏/内容列让位，.24s 与窄屏一致），localStorage 持久化 + 首绘前恢复 + 跨断点清理互斥态；②横幅 `.alert-message` 浮动按钮**逸出卡片**并挤窄 Dashboard 首卡（非 BFC 根 → 浮动进入共享 BFC，flex 卡避让收缩 1204→1063）→ 卡片 `display: flow-root` 自包含（WORKPLAN 坑位 #21）。证据双模 60 页重拍 + `dev/shots/sidebar-{collapsed,expanded}.png`。
 - ✅ **W2.6.8 工具类语义修复（2026-10-12，用户对照 argon 实测，`0c6f665`）**：`.left/.right` 由浮动改回 bootstrap 语义（text-align），修复概览页/实时图表页因 `td.left/td.right` 被 float 块化导致的行宽、分隔线、悬停底色与右对齐统计失效（§5 兼容层已记；坑位 #22）。
-- ⬜ W2.7 收尾（默认主题复核、验收）
-- ⬜ 单包编译验证（待 quartz feed bump 后随下一次构建执行）
+- ✅ **W2.7 收尾（2026-10-14，本对话，用户指令「清小尾巴」）**：**默认主题 + 机制逐项在锁定固件上复核通过**（x86_64 镜像 + QEMU VM 首启实测）：
+  ① 镜像工厂层：`/etc/config/luci` 为基座预置 `mediaurlbase=/luci-static/bootstrap`，镜像内 `/etc/uci-defaults/40-luci-theme-quartz`（755）待首启执行（debugfs 直读 rootfs 分区核实）；
+  ② 首启后（VM 在线态）：`luci.main.mediaurlbase=/luci-static/quartz`、`luci.themes.Quartz=/luci-static/quartz`、`/etc/uci-defaults` 已清空（脚本已消费）——**全新安装默认 quartz 主题成立**（升级保留用户选择的逻辑按 `PKG_UPGRADE` 判定，未动）；
+  ③ 模板机制：`/usr/share/ucode/luci/template/themes/quartz/{header,footer,sysauth}.ut` 就位（`themes/$(basename mediaurlbase)` 解析）；
+  ④ 静态资源：`/www/luci-static/quartz/` 五件（cascade.css/theme.js/logo.svg/noise-{dark,light}.png）与源码仓库 **sha256 逐字节一致**（未过 csstidy/JsMin，坑位 #15 规避生效）；
+  ⑤ 端到端：登录页 HTML 引用 `luci-static/quartz/{cascade.css,theme.js,logo.svg}` 且含 `data-qz-default`/`qz-*` 标记——主题确实渲染。
+  证据：本节命令行记录 + `dev/shots/vm-test-{dark,light}/`（此前 59 页×双模全量截图）。
+- ✅ **单包编译验证（随每次全量构建持续复核）**：`luci-theme-quartz` apk 每次固件构建产出并在 manifest 在列（x86_64 与 rockchip/armv8 双目标；镜像级三层验证见 WORKPLAN §7 日志 2026-10-12 条目）。
 
 ## 11. TDD 同步清单（待写入两处副本，需用户/架构确认）
 
@@ -261,10 +267,11 @@ luci/applications/luci-app-quartz-config/
 ## 12. 未决与验证项
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
-- **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。待真机/编译复核（W2.7）。
+- **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。**已在锁定固件上逐项复核通过（W2.7，2026-10-14）**：模板落点 `/usr/share/ucode/luci/template/themes/quartz/*.ut`、`luci.themes.Quartz` 注册、`data-qz-*` 首绘前生效均实测。
 - **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
 - **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
 ---
 
 *变更记录：2026-10-12 v1.0 —— 依据用户定案（参照 macOS Vibrancy / 系统字体 / 双模 / 噪点 + 自备壁纸 / preview 评审）成文。*
+*2026-10-14 v1.1 —— W2.7 收尾：默认主题与模板/注册/资源机制在锁定固件上逐项复核通过，WP-2 全量关闭（见 §10 实现状态）。*
