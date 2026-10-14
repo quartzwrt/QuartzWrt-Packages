@@ -335,6 +335,10 @@ python3 dev/vm-shot.py --tag data --locale zh-CN         # 正常态 + 中文
 # 验收后可 ssh 热更 /www/luci-static/... 快速复验（提交前以源码为准）
 ```
 
+> **⚠ src-link 验证的两条纪律（2026-10-14 实测，坑位 #49）**：
+> ①**先清旧包**——`luci.mk` 的版本戳来自 `git log -1 -- <包目录>`：改动未提交时戳不前进，src-link 全历史下新包的戳会**低于**上一轮（浅克隆 feed tip）的旧包，包解析取最高版本 → `bin/packages/<arch>/quartz/` 里的旧 apk **静默胜出**，镜像装旧文件而构建零报错。验证前 `rm -f bin/packages/<arch>/quartz/<包名>-*.apk`（同族全清）或先提交。
+> ②**镜像是最终判据**——`debugfs -R "dump <路径> /tmp/x"`（对 `ext4-rootfs.img.gz` 解出的 rootfs 镜像）逐字节比对源码；注意 `?v=` 缓存破坏是安装期 sed（`luci.mk`）改写的模板引用，模板与源码不逐字节一致属正常。
+
 **验证路径**：
 
 1. ✅ 设计预览（`dev/preview.html`；`dev/serve.sh` 起 8898）：双模 × 数据四态 × 锚点/深链示意已可评审，截图基线在 `dev/shots/`（窄屏截图受 Windows Edge 无头最小窗口宽度限制，CSS 视口 ≈477px 起；真机手机宽度留待固件内验收）；

@@ -1,0 +1,44 @@
+R1 反馈轮 固件级验收记录（2026-10-14）
+====================================
+
+一、VM 热更复验（探针 dev/vm-probe.py，锁定镜像 f9f7488 实例，ssh 热更文件 + po2lmo 产物）
+--------------------------------------------------------------------------------------
+tag        panel_alpha  sidebar/header bg            pageActionBtns      title
+before     0            rgba(242,242,247,0.72)       ["保存","重置"]      ImmortalWrt | 概览
+after50    0.5          rgba(242,242,247,0.36)       null                ImmortalWrt | 仪表盘
+after100   1            rgba(242,242,247,0.72)       null                ImmortalWrt | 仪表盘
+侧栏「概览」条目数：before 2 → after 1（基座 状态→概览 保留）；hero + 四卡渲染无回归。
+证据：run-{before,after50,after100}.json + <tag>-{dark,light}.png（本目录）。
+
+二、包级核验（apk 解包）
+------------------------
+luci-app-dashboard        : shell view 含 handleSaveApply/handleSave/handleReset = null
+luci-i18n-qdashboard-zh-cn: lmo 含「仪表盘」，旧「概览」计数 0
+luci-theme-quartz         : cascade.css 含 qz-chrome-base-alpha + calc；header.ut 含 panel_opacity / 100.0
+luci-app-quartz-config    : jsmin 后 config.js 含 "Interface opacity"
+luci-i18n-quartz-config-zh-cn: lmo 含「界面不透明度」，旧「内容面板不透明度」计数 0
+
+三、镜像级核验（debugfs 直读 immortalwrt-x86-64-generic-ext4-rootfs.img，全量构建 exit 0）
+--------------------------------------------------------------------------------------
+manifest（bin/targets/x86/64/immortalwrt-x86-64-generic.manifest）：
+  luci-app-dashboard             26.287.44098~8b7a2da
+  luci-i18n-qdashboard-zh-cn     26.287.44098~8b7a2da
+  luci-theme-quartz              26.287.44103~07fdb77
+  luci-app-quartz-config         26.287.44103~07fdb77
+  luci-i18n-quartz-config-zh-cn  26.287.44103~07fdb77
+
+sha256（镜像内 dump vs 源码 / po2lmo 产物）：
+  55025f35d381c0c150810d1a9a2d9309b1ba91f5f043a34290d7371b45c10886  dashboard.js      == 源码
+  430826618f0d0793f967328c3674ec5cbec5d00efbdbcbf149aa637cc70c5c3c  cascade.css       == 源码
+  c22e37c8c197a29bb138261b0ae8ce417c0d5bcbc5864bbfec0ab144c01936e0  qdashboard.zh-cn.lmo    == po2lmo 产物
+  ae88255fbea257b9f632d9b3694ce52e10b9e51a0141db64ed932eaf2f193e63  quartz-config.zh-cn.lmo == po2lmo 产物
+  header.ut：与源码仅差安装期 `?v=<PKG_VERSION>` 三行（luci.mk:288 的 sed，属正常）；
+             diff 其余为空，含 `const alpha = panel_opacity / 100.0;`
+  config.js（jsmin 后）：含 "Interface opacity" / "The whole interface turns translucent…"
+
+坑位 #49（本轮发现，已记 WORKPLAN §5 + DESIGN §8 验证纪律）：
+  首轮全量构建 exit 0 但镜像内 dashboard.js 为旧版（4523B vs 5015B）——
+  luci.mk 版本戳 = `git log -1 -- <包目录>`（未提交改动不前进），src-link 全历史下新包戳
+  （26.285.49221~c6a6693）低于残留旧 apk（26.287.40298~f9f7488，浅克隆 feed tip）→
+  包解析取最高版本 → 静默装旧包。规避：验证前 `rm -f bin/packages/x86_64/quartz/<包名>-*.apk`
+  或先提交；判别：debugfs dump 后与源码比字节。

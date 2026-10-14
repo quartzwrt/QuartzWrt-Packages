@@ -16,6 +16,7 @@ import argparse, json, os, subprocess, sys
 from playwright.sync_api import sync_playwright
 
 BASE = "http://127.0.0.1:8080"
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 PROBE = """() => {
     const cs = (sel) => {
@@ -60,7 +61,7 @@ PROBE = """() => {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--password", default="quartz")
-    ap.add_argument("--out", default="shots/vm-r1")
+    ap.add_argument("--out", default=os.path.join(HERE, "shots", "vm-r1"))
     ap.add_argument("--tag", required=True)
     ap.add_argument("--opacity", default=None, help="设置 /etc/config/quartz panel_opacity 后复测")
     ap.add_argument("--locale", default="zh-CN")
