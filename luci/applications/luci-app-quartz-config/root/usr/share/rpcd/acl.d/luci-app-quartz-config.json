@@ -1,11 +1,24 @@
 {
 	"luci-app-quartz-config": {
-		"description": "Grant access to QuartzWrt theme configuration",
+		"description": "Grant access to QuartzWrt theme configuration and wallpaper management",
 		"read": {
-			"uci": [ "quartz" ]
+			"uci": [ "quartz" ],
+			"ubus": {
+				"file": [ "stat" ]
+			},
+			"file": {
+				"/www/quartz-wallpaper/wallpaper.jpg": [ "read", "list" ]
+			}
 		},
 		"write": {
-			"uci": [ "quartz" ]
+			"uci": [ "quartz" ],
+			"cgi-io": [ "upload" ],
+			"ubus": {
+				"file": [ "remove" ]
+			},
+			"file": {
+				"/www/quartz-wallpaper/wallpaper.jpg": [ "write", "remove" ]
+			}
 		}
 	}
 }

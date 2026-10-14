@@ -1,8 +1,8 @@
 # luci-theme-quartz 设计规范
 
-**版本**: v1.0（评审稿）
-**日期**: 2026-10-12
-**状态**: 设计定案 + 初版实现已落地（骨架/模板/双模样式/预览页/截图），待评审；进度与剩余项见 §10
+**版本**: v1.2
+**日期**: 2026-10-12（v1.2：2026-10-14）
+**状态**: 设计定案 + 实现完成（W2.0–W2.9 全量关闭；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15）；进度与剩余项见 §10、§12
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -116,12 +116,14 @@
 Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景层是其二。
 
 - **默认**：极低对比度石英噪点纹理（可平铺，暗/浅两变体，各 <2KB）。既是"石英质感"的字面落地，又为模糊提供材质采样；不违反禁渐变规则（噪点非渐变）。
-- **用户自备壁纸**（用户定案，机制先行、上传 UI 后置至 Dashboard / App 二期）：
+- **用户自备壁纸**（用户定案；**上传 UI 见 §5.1，W2.9 已落地**）：
   - 实现：`theme.js` 用一次 `Image()` 探测 `/quartz-wallpaper/wallpaper.jpg`，命中则置 `html[data-qz-wallpaper]`；CSS 据此打开壁纸层（`body::before`）与 scrim 层（`body::after`）。无壁纸时探测即一次 404，可接受。
+  - 状态即文件：**存在即启用**，不占 uci 选项；上传/替换/移除都在配置页完成（§5.1）。
   - 踩坑记录：自定义属性中的相对 URL 按声明位置解析，壁纸与预览中的图片 URL 一律使用**绝对路径**。
-  - 投放目录 `/www/quartz-wallpaper/` **独立于主题包**，apk 包升级不会覆盖用户文件。
+  - 投放目录 `/www/quartz-wallpaper/` **独立于主题包**，apk 包升级不会覆盖用户文件；配置包投放 `/lib/upgrade/keep.d/quartz-wallpaper`，固件 sysupgrade 后同样保留。
   - scrim 层压在壁纸之上保证文字对比度；`prefers-reduced-transparency` 时壁纸与模糊整体退化为纯色。
-  - 建议约束（写入用户文档）：≤2MB、宽 ≥1920px、JPEG；上传 UI 落地时做客户端压缩与尺寸校验。
+  - 约束（上传 UI 落实，DESIGN 原建议项）：源文件 ≤25MB（解码前拒绝，解码炸弹护栏）、最长边收敛到 ≤1920px、统一转 JPEG（透明通道压平到 `#1c1c1e`）、逐档降质至 ≤2MB。落盘文件固定为 `wallpaper.jpg` 名字与 `.jpg` URL，格式由客户端转码保证。
+  - **缓存语义（已知边界）**：URL 固定，无版本号。上传方在本页即时生效（带 `?v=<md5>`）；其他已打开的设备在“旧图仍在启发式新鲜期内”可能短暂显示旧壁纸，强制刷新即恢复（配置页已提示）。如需彻底消除，改进方向是服务端把文件 mtime 注入模板（`header.ut` 用 ucode `stat()` 输出 `data-qz-wallpaper-ver`，见 §12）。
 
 ## 5. 双模机制（已对齐基座原生机制，源码核实）
 
@@ -147,8 +149,20 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 - **生效路径**：`header.ut` 每次渲染读出 uci，输出 `<style>:root{--qz-panel-alpha;--qz-blur}</style>` 与 `data-qz-translucent` / `data-qz-default` 属性；保存后下次页面加载生效，无需重启服务。
 - **性能**：面板毛玻璃仅在半透明时挂 `backdrop-filter`（见 §6）；不透明状态下零额外合成开销。
 - **预览**：`dev/preview.html` 右下角提供等价滑杆（面板透明度 / 模糊强度），可实时体验。
-- 配置页位于 LuCI「系统 → Quartz Theme」（menu.d `admin/system/quartz-config`），ACL 仅开放 `quartz` 配置读写。
+- 配置页位于 LuCI「系统 → Quartz Theme」（menu.d `admin/system/quartz-config`）。
 - `quartz-defaults` 元包同时依赖主题与配置包（随发行版默认携带，可在 LuCI 主题选择器切换）。
+
+**壁纸管理（W2.9）**——配置页第二块，**不占 uci 选项**（状态即文件，见 §4）：
+
+| 动作 | 机制 | 落地文件 |
+| :--- | :--- | :--- |
+| 上传/替换 | 浏览器内 canvas 收敛（≤1920px / JPEG / ≤2MB，源图 ≤25MB 护栏）→ `cgi-upload` multipart → 同请求 `filemode=644`（cgi-upload 默认 0600，uhttpd 拒发非全局可读文件） | `/www/quartz-wallpaper/wallpaper.jpg` |
+| 移除 | rpcd `file remove`（NotFound 视为已达成，幂等） | 同上（`.placeholder` 保证目录仍在） |
+| 状态/预览 | rpcd `file stat`（体积/更新时间）+ 图片自带尺寸，预览 URL 带 `?v=<mtime>` 缓存失效；上传后本页即时生效（改写 `:root` 的 `--qz-wallpaper-on` 与 `[data-qz-wallpaper]`），无需保存表单 | — |
+
+- **ACL 最小化**（`acl.d`）：只逐字授权 `/www/quartz-wallpaper/wallpaper.jpg` 这一个路径（read/list/write/remove）+ 所需 ubus 方法（`file` 的 `stat`/`remove`）与 `cgi-io upload`；目标路径是常量，用户输入不参与路径构造（同 footstrap 的安全姿势）。
+- **不随升级覆盖**：`root/www/quartz-wallpaper/.placeholder` 只为随包创建目录（用户文件与包文件同名与否都不会被 apk 删除）；`root/lib/upgrade/keep.d/quartz-wallpaper` → 固件 sysupgrade 后保留 `/www/quartz-wallpaper`（与 bandix/qmodem 同机制）。
+- **验收**：`dev/wallpaper-e2e.py`（Playwright + VM，15/15：初始态 / 上传收敛 1920x1080 / 落盘 JPEG 200+魔数 / 本页即时生效 / 跨页探测命中 / 替换 md5 变化 / 移除 404 与回落 / 无 JS 异常）；证据 `dev/shots/vm-wallpaper/`。
 
 ## 6. 性能护栏
 
@@ -201,11 +215,16 @@ luci/theme/luci-theme-quartz/
 ```text
 luci/applications/luci-app-quartz-config/
 ├── Makefile                     # LUCI_DEPENDS:=+luci-base +luci-theme-quartz
-├── htdocs/luci-static/resources/view/quartz/config.js   # 配置页（JS CBI）
+├── htdocs/luci-static/resources/view/quartz/config.js   # 配置页（JS CBI：外观 + 壁纸）
 ├── root/etc/config/quartz       # 默认配置（section 'theme'）
 ├── root/usr/share/luci/menu.d/luci-app-quartz-config.json
 ├── root/usr/share/rpcd/acl.d/luci-app-quartz-config.json
-└── po/zh_Hans/quartz-config.po  # 中文翻译
+├── root/www/quartz-wallpaper/.placeholder       # 随包创建壁纸投放目录（用户文件不随升级覆盖）
+├── root/lib/upgrade/keep.d/quartz-wallpaper     # sysupgrade 保留 /www/quartz-wallpaper
+├── po/zh_Hans/quartz-config.po  # 中文翻译
+└── dev/                         # 开发资源（不进安装包）
+    ├── wallpaper-e2e.py         # 壁纸端到端验收（Playwright + VM 预览台）
+    └── shots/vm-wallpaper/      # 验收证据（截图 + run-log.jsonl）
 ```
 
 ## 9. 与 WP-3 的接口约定
@@ -229,6 +248,7 @@ luci/applications/luci-app-quartz-config/
 | W2.6 | Logo 定稿入库（SVG 候选 → 用户挑选） | W2.3 |
 | W2.7 | 收尾：quartz-defaults 追加依赖（共享文件，追加式）、默认主题、验收 | W2.4–W2.6 |
 | W2.8 | 外观配置包 `luci-app-quartz-config`（面板透明度/模糊强度/默认外观） | W2.3 |
+| W2.9 | 壁纸管理面（配置包内上传/替换/移除；客户端收敛 + ACL 最小化 + sysupgrade 保留） | W2.3 / W2.8 |
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
@@ -256,22 +276,25 @@ luci/applications/luci-app-quartz-config/
   ⑤ 端到端：登录页 HTML 引用 `luci-static/quartz/{cascade.css,theme.js,logo.svg}` 且含 `data-qz-default`/`qz-*` 标记——主题确实渲染。
   证据：本节命令行记录 + `dev/shots/vm-test-{dark,light}/`（此前 59 页×双模全量截图）。
 - ✅ **单包编译验证（随每次全量构建持续复核）**：`luci-theme-quartz` apk 每次固件构建产出并在 manifest 在列（x86_64 与 rockchip/armv8 双目标；镜像级三层验证见 WORKPLAN §7 日志 2026-10-12 条目）。
+- ✅ **W2.9 壁纸管理面（2026-10-14，本对话，用户指令「WP-2 的壁纸功能没加上，在 config 软件包里加进去」）**：把 DESIGN §4「机制先行、上传 UI 后置」的欠账补进 `luci-app-quartz-config`——配置页新增壁纸区块（预览 + 体积/尺寸/更新时间 + 上传/替换/移除），客户端收敛（源图 ≤25MB 护栏、最长边 ≤1920px、转 JPEG 压平透明、逐档降质至 ≤2MB），上传走 `cgi-upload`（同请求 `filemode=644`）、移除走 rpcd `file remove`；ACL 只逐字授权单一路径 + 所需方法；投放目录随包创建、`/lib/upgrade/keep.d` 保 sysupgrade 后保留。**验收 15/15**（VM 预览台 Playwright：初始/上传/跨页探测/替换/移除 + 服务端 200/JPEG 魔数 + mode=644 + 无 JS 异常），证据 `dev/shots/vm-wallpaper/`，工具 `dev/wallpaper-e2e.py`。全程**零主题改动**（机制与探测路径原样复用）。
 
 ## 11. TDD 同步清单（待写入两处副本，需用户/架构确认）
 
 1. §8 待决事项「UI 隔离」✅ 已写回（2026-10-12）：移入已决策项并附实测依据指针。
 2. §3.3 / §8：新增「主题双模」决策条目与 DESIGN.md 指针。
-3. §4.4 运行时资源：壁纸投放目录（`/www/quartz-wallpaper/`，用户文件、不随包升级）纳入治理清单。
+3. §4.4 运行时资源：壁纸投放目录（`/www/quartz-wallpaper/`，用户文件、不随包升级；W2.9 起由配置包创建目录、`/lib/upgrade/keep.d/quartz-wallpaper` 保 sysupgrade 后保留、ACL 单路径授权）——**是否登记进 §4.4 清单待用户/架构确认**（当前定位为「用户数据」而非「运行时下载资源」）。
 4. 外观配置包（§5.1）：主题配置的 uci 归属（`/etc/config/quartz`，section `theme`）与 `luci-app-quartz-config` 包建议在 TDD 中登记。
 
 ## 12. 未决与验证项
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。**已在锁定固件上逐项复核通过（W2.7，2026-10-14）**：模板落点 `/usr/share/ucode/luci/template/themes/quartz/*.ut`、`luci.themes.Quartz` 注册、`data-qz-*` 首绘前生效均实测。
-- **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、壁纸上传 UI、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **已完成（原后置项）**：~~壁纸上传 UI~~ → W2.9（见 §5.1；壁纸上传/替换/移除已在配置包落地）。
 - **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
 ---
 
 *变更记录：2026-10-12 v1.0 —— 依据用户定案（参照 macOS Vibrancy / 系统字体 / 双模 / 噪点 + 自备壁纸 / preview 评审）成文。*
 *2026-10-14 v1.1 —— W2.7 收尾：默认主题与模板/注册/资源机制在锁定固件上逐项复核通过，WP-2 全量关闭（见 §10 实现状态）。*
+*2026-10-14 v1.2 —— W2.9 壁纸管理面：上传/替换/移除落地配置包（§5.1），§4 补约束与缓存语义，§12 勾销"壁纸上传 UI"后置项。*
