@@ -205,6 +205,13 @@ body {
 	background-size: 96px 96px;
 }
 
+/* 视口高度链的一端（W2.12）：有内容区的页面把 body 变成 flex 列，好让 #maincontent 拉开、
+ * 页脚落到窗口底。空白页（登录页）没有 #maincontent → 保持块级不动。 */
+body:has(#maincontent) {
+	display: flex;
+	flex-direction: column;
+}
+
 /* 用户自备壁纸层（theme.js 探测到 /quartz-wallpaper/wallpaper.jpg 后启用） */
 :root[data-qz-wallpaper] {
 	--qz-wallpaper-on: url('/quartz-wallpaper/wallpaper.jpg');
@@ -383,6 +390,30 @@ header {
 #maincontent {
 	margin-left: var(--qz-sidebar-w);
 	padding: calc(var(--qz-topbar-h) + 20px) 24px 24px;
+	/* 视口高度链的一环（W2.12）：内容区吃掉剩余高度 → 页脚被推到窗口底；
+	 * 同时作为 flex 列，让内部的 #view（有操作条的页面）也能长到满高。
+	 * 直接子项只有横幅与 #view（其余为 script/hidden，非可见 flex 项），
+	 * 横幅的 14px 下边距在旧块级布局里也是 14px（对侧无 margin）→ 观感不变。 */
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+
+/* 视口高度链（W2.12）：短页（内容 < 视口）时也要让「贴底操作条 + 页脚」钉在窗口底。
+ * 链：body（flex 列）→ #maincontent（flex:1）→ #view（仅**含操作条**的页面转 flex 列，
+ * flex:1）→ .cbi-page-actions（margin-top:auto → 吃掉余量后落到容器底，其 -24px 下边距
+ * 让它贴齐 #maincontent 的 padding-box 底 = 页脚上缘）。
+ * 长页无余量时 auto 归零，布局与旧版一致（操作条 sticky 滚动贴底的行为不变）。
+ * 用 :has(> …) 限定到有操作条的页面：只读视图/仪表盘/模板页完全不受影响
+ * （其 #view 保持块级，子元素 margin 折叠行为不变）。 */
+#view:has(> .cbi-page-actions) {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+
+#view > .cbi-page-actions {
+	margin-top: auto;
 }
 
 footer {

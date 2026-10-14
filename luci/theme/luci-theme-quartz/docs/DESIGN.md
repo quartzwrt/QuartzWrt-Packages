@@ -1,8 +1,8 @@
 # luci-theme-quartz 设计规范
 
-**版本**: v1.4
+**版本**: v1.5
 **日期**: 2026-10-12（v1.3：2026-10-14）
-**状态**: 设计定案 + 实现完成（W2.0–W2.10 全量关闭 + W2.11 页底 chrome）；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验、W2.11 页脚材质 VM 复验；进度与剩余项见 §10、§12
+**状态**: 设计定案 + 实现完成（W2.0–W2.12 全量关闭）；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验、W2.11 页脚材质 + W2.12 页底钉底 VM 复验（含 60 页全量回归）；进度与剩余项见 §10、§12
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -108,6 +108,7 @@
 | 通知（LuCI ui.js） | 深/浅面板 + 左侧 2px 状态色条（彩色仅作提示条，不作底） |
 | 徽标 / Badge | 8px 圆角矩形 + 状态色文字 |
 | 页脚（版本行） | **页底 chrome**：`--qz-chrome` + blur；与贴底操作条相邻时由操作条的上边框承担分隔、两者合并为一条 chrome 面（`:has(.cbi-page-actions)` 抑制自身描边），独处页底时自己画 1px 描边；`--qz-text-3` + 12px 保持"页脚注脚"层级 |
+| 布局（视口高度链，W2.12） | `body:has(#maincontent)` → `#maincontent` → `#view:has(> .cbi-page-actions)` 依次 flex 列 + `flex:1`，操作条 `margin-top: auto` 吃掉余量 → **「贴底操作条 + 页脚」在短页也钉在窗口底**；长页余量为 0、`auto` 归零，滚动贴底行为与旧版一致。限定在「有内容区/有操作条」的页面 → 登录页（空白页）与只读视图（仪表盘等无操作条）布局零变化 |
 | 登录页 | 品牌时刻：壁纸直出 + chrome 材质卡片浮层 + wordmark（SVG） |
 
 **版式密度**：参考稿是 hero 大标题、大间距的展示型页面；LuCI 是高密度管理界面。风格 DNA 全盘保留，版式按管理界面重设——正文基准 14px（text-sm），大标题体系仅登录页与 Dashboard hero 使用。
@@ -253,6 +254,7 @@ luci/applications/luci-app-quartz-config/
 | W2.9 | 壁纸管理面（配置包内上传/替换/移除；客户端收敛 + ACL 最小化 + sysupgrade 保留） | W2.3 / W2.8 |
 | W2.10 | ✅ R1 用户实测反馈（2026-10-14）：`panel_opacity` 语义扩为全界面（chrome 跟随面板，§2.1/§5.1）+ 修 ucode 整除致 `--qz-panel-alpha: 0`（`/100.0`）+ 配置页文案同步 | W2.8 / W2.9 |
 | W2.11 | ✅ R1 反馈补充（2026-10-14）：页脚改为页底 chrome（与贴底操作条同源材质、相邻时合并为一条 chrome 面，§3） | W2.4 |
+| W2.12 | ✅ R1 反馈补充 2（2026-10-14）：页底钉底——视口高度链（`body`→`#maincontent`→`#view:has(> .cbi-page-actions)`）让「操作条 + 页脚」在短页也贴窗口底（§3 布局行） | W2.4 / W2.11 |
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
@@ -280,6 +282,7 @@ luci/applications/luci-app-quartz-config/
   ⑤ 端到端：登录页 HTML 引用 `luci-static/quartz/{cascade.css,theme.js,logo.svg}` 且含 `data-qz-default`/`qz-*` 标记——主题确实渲染。
   证据：本节命令行记录 + `dev/shots/vm-test-{dark,light}/`（此前 59 页×双模全量截图）。
 - ✅ **W2.11 页脚页底 chrome（2026-10-14，R1 反馈补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）**：`footer` 由裸文本改为 `--qz-chrome` + `blur(var(--qz-blur))` 的页底 chrome 面，padding 调整为 `8px 24px 10px`；有页面操作条时 `body:has(.cbi-page-actions) footer{border-top:none}` 抑制描边、两者合并为一条 chrome 面（分隔线由操作条上边框承担），无操作条时保留 1px 描边；`@supports not (backdrop-filter)` 与 `prefers-reduced-transparency` 兜底列表同步纳入 `footer`（此时 chrome 退化为实心、去模糊）。**VM 复验**（用户壁纸 + 不透明度 50% 的实机态）：computed `background-color: rgba(28,28,30,.4)`/`rgba(242,242,247,.36)` + `blur(20px)`；有操作条页 `border-top-width: 0px`、无操作条页 `1px rgba(255,255,255,.08)`；页脚盒 [864,900] 紧接操作条 [806,864]（视口 900）连成一条带。证据 `dev/shots/footer-r1/`（长页×双模×壁纸/无壁纸 + 无操作条 + 短页）。
+- ✅ **W2.12 页底钉底（2026-10-14，R1 反馈补充 2，用户实测「版本栏和操作条在其他页面测试是没有贴底的」）**：把「页底 chrome 贴窗口底」从「长页成立、短页落在内容末尾」补成**全页成立**——视觉链 `body:has(#maincontent)`（flex 列）→ `#maincontent`（flex:1 + flex 列）→ `#view:has(> .cbi-page-actions)`（flex:1 + flex 列）→ `.cbi-page-actions { margin-top: auto }`（吃掉余量后落到容器底，其 −24px 下边距贴齐 `#maincontent` 的 padding-box 底 = 页脚上缘）。两处 `:has()` 限定把改动圈在「有内容区 / 有操作条」的页面：**登录页（空白页）`body` 仍是块级、只读视图与仪表盘 `#view` 仍是块级**（子元素 margin 折叠行为不变）。**VM 实测（before/after 同口径 8 页 + 登录页几何）**：短页（管理权/关于/重启/启动项）页脚由内容末尾（348/417/…）→ **视口底 900**；带操作条的短页（管理权）操作条由 [528,586] → **[806,864]，紧接页脚 [864,900]**；长页（Quartz 主题/防火墙/DHCP/概览）行为不变（滚动贴底、文档末尾落位）；横幅→内容间距 14px 保持不变；末卡→操作条间距 24px → 20px（flex 不再折叠 margin，末段自带的 20px 下边距直接生效，差值 4px 不可感）；登录页模态几何逐项一致（`body` display: block、模态 [570,132,360,475]）。证据 `dev/shots/sticky-bottom/`（短页有/无操作条、长页末尾、仪表盘 × 双模）。
 - ✅ **单包编译验证（随每次全量构建持续复核）**：`luci-theme-quartz` apk 每次固件构建产出并在 manifest 在列（x86_64 与 rockchip/armv8 双目标；镜像级三层验证见 WORKPLAN §7 日志 2026-10-12 条目）。
 - ✅ **W2.9 壁纸管理面（2026-10-14，本对话，用户指令「WP-2 的壁纸功能没加上，在 config 软件包里加进去」）**：把 DESIGN §4「机制先行、上传 UI 后置」的欠账补进 `luci-app-quartz-config`——配置页新增壁纸区块（预览 + 体积/尺寸/更新时间 + 上传/替换/移除），客户端收敛（源图 ≤25MB 护栏、最长边 ≤1920px、转 JPEG 压平透明、逐档降质至 ≤2MB），上传走 `cgi-upload`（同请求 `filemode=644`）、移除走 rpcd `file remove`；ACL 只逐字授权单一路径 + 所需方法；投放目录随包创建、`/lib/upgrade/keep.d` 保 sysupgrade 后保留。**验收 15/15**（VM 预览台 Playwright：初始/上传/跨页探测/替换/移除 + 服务端 200/JPEG 魔数 + mode=644 + 无 JS 异常），证据 `dev/shots/vm-wallpaper/`，工具 `dev/wallpaper-e2e.py`。全程**零主题改动**（机制与探测路径原样复用）。
 
@@ -294,7 +297,7 @@ luci/applications/luci-app-quartz-config/
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。**已在锁定固件上逐项复核通过（W2.7，2026-10-14）**：模板落点 `/usr/share/ucode/luci/template/themes/quartz/*.ut`、`luci.themes.Quartz` 注册、`data-qz-*` 首绘前生效均实测。
-- **可选增强（后置）**：**短页粘底布局**（内容 < 视口时页底 chrome 目前落在内容末尾、其下留页面背景；要挪到视口底需 `body` flex 粘底布局，会牵动登录页与 Dashboard，故列为候选而非本轮实施）、强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **可选增强（后置）**：~~短页粘底布局~~ → W2.12 已实现（视口高度链 + 两处 `:has()` 限定，登录页/只读视图零影响；见 §3 布局行）、强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
 - **已完成（原后置项）**：~~壁纸上传 UI~~ → W2.9（见 §5.1；壁纸上传/替换/移除已在配置包落地）。
 - **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
@@ -305,3 +308,4 @@ luci/applications/luci-app-quartz-config/
 *2026-10-14 v1.2 —— W2.9 壁纸管理面：上传/替换/移除落地配置包（§5.1），§4 补约束与缓存语义，§12 勾销"壁纸上传 UI"后置项。*
 *2026-10-14 v1.3 —— W2.10 R1 用户实测反馈轮（三条现象中的两条属主题）：①**`panel_opacity` 语义扩为全界面**——`--qz-chrome` 改为 `rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)))`（§2.1 token 表 / §5.1），侧边栏/顶栏/页面操作条/登录卡随面板同步变透，`α=1` 时与旧值逐字节等价；②**修 `header.ut` ucode 整除**——`panel_opacity / 100` 两侧皆 int 时为整除，`50/100 → 0` 使 `--qz-panel-alpha: 0`（面板全透明），改 `/ 100.0`（坑位 #48）；③配置页选项文案随语义更新（"内容面板不透明度"→"界面不透明度"，zh 同步）。VM 热更复验：50% → 面板 .5 / chrome .36，100% → 面板 1 / chrome .72（默认观感零变化）。*
 *2026-10-14 v1.4 —— W2.11（R1 反馈轮补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）：**页脚改为页底 chrome**——`--qz-chrome` + `blur()`，版本行不再直接压在壁纸/噪点上（`--qz-text-3` 在杂背景上可读性不足），且与贴底操作条连成一条 chrome 面；有操作条时用 `body:has(.cbi-page-actions) footer { border-top: none }` 抑制页脚描边（分隔线由操作条上边框承担），无操作条（只读视图/仪表盘）时保留 1px 描边；`@supports`/`prefers-reduced-transparency` 兜底列表同步纳入 `footer`。padding `0 24px 24px` → `8px 24px 10px`（成条后文字垂直居中）。§2.1/§3 同步。*
+*2026-10-14 v1.5 —— W2.12（R1 反馈补充 2，用户实测「版本栏和操作条在其他页面测试是没有贴底的」）：**页底钉底**——视口高度链 `body:has(#maincontent)` → `#maincontent`（flex 列 + flex:1）→ `#view:has(> .cbi-page-actions)`（flex 列 + flex:1）→ `.cbi-page-actions{margin-top:auto}`；短页（内容 < 视口）时「操作条 + 页脚」钉在窗口底，长页余量 0 行为不变；两处 `:has()` 把改动限定在有内容区/有操作条的页面（登录页与只读视图不受影响）。§3 增布局行、§12 勾销短页粘底候选。*
