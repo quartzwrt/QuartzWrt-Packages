@@ -75,6 +75,9 @@ define Package/quartz-defaults/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) ./files/usr/sbin/quartz-ota-update $(1)/usr/sbin/quartz-ota-update
 	# D10 阶段 1：自有 feed 接入（仅当配置了根 URL；留空则不落文件，防死链 #41）
+	# 同根生成 /etc/quartz-ota.url（quartz-ota-update 缺省读它；uci quartz.ota.url 可覆盖）
+	# 注意：本块是 `\` 续行的 shell 命令，**不得在中间插入 `#` 注释行**——shell 会把
+	# 注释后的续行命令整段吞掉（if 未闭合 → install 规则挂起；实测踩中）
 	if [ -n "$(CONFIG_QUARTZ_FEED_BASE_URL)" ]; then \
 		$(INSTALL_DIR) $(1)/etc/apk/repositories.d; \
 		{ echo "# QuartzWrt 自有 feed（D10 阶段 1；由 quartz-defaults 生成）"; \
@@ -82,7 +85,6 @@ define Package/quartz-defaults/install
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/thirdparty/packages.adb"; \
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/targets/$(BOARD)/$(SUBTARGET)/packages/packages.adb"; \
 		} > $(1)/etc/apk/repositories.d/quartz-feed.list; \
-		# OTA 源同根：quartz-ota-update 缺省读本文件（uci quartz.ota.url 可覆盖）
 		echo "$(CONFIG_QUARTZ_FEED_BASE_URL)" > $(1)/etc/quartz-ota.url; \
 	fi
 endef
