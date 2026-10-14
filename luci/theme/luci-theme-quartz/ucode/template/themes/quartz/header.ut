@@ -25,7 +25,9 @@
 	const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
 	panel_opacity = clamp(panel_opacity, 50, 100);
 	blur = clamp(blur, 0, 40);
-	const alpha = panel_opacity / 100;
+	/* 除数必须写成 100.0：ucode 的 / 在两侧都是整数时做整除，50/100 会得到 0
+	 * （--qz-panel-alpha: 0 → 面板全透明；2026-10-14 实测修复） */
+	const alpha = panel_opacity / 100.0;
 
 	http.prepare_content('text/html; charset=UTF-8');
 -%}

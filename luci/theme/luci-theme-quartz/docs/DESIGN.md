@@ -1,8 +1,8 @@
 # luci-theme-quartz 设计规范
 
-**版本**: v1.2
-**日期**: 2026-10-12（v1.2：2026-10-14）
-**状态**: 设计定案 + 实现完成（W2.0–W2.9 全量关闭；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15）；进度与剩余项见 §10、§12
+**版本**: v1.3
+**日期**: 2026-10-12（v1.3：2026-10-14）
+**状态**: 设计定案 + 实现完成（W2.0–W2.10 全量关闭；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验）；进度与剩余项见 §10、§12
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -40,7 +40,7 @@
 | `--qz-bg-panel` | `rgba(44,44,46,α)` | `rgba(255,255,255,α)` | 内容面板、卡片、字段集（α = `--qz-panel-alpha`，默认 1） |
 | `--qz-bg-raised` | `#3a3a3c` | `#ffffff` + 描边 | 按钮等抬升元素（保持不透明） |
 | `--qz-bg-well` | `rgba(28,28,30,α)` | `rgba(242,242,247,α)` | 输入框、代码块等"下沉"面 |
-| `--qz-chrome` | `rgba(28,28,30,.80)` | `rgba(242,242,247,.72)` | 侧边栏 / 顶栏 / 模态遮罩，叠加 `blur(20px)` |
+| `--qz-chrome` | `rgba(28,28,30,α×.80)` | `rgba(242,242,247,α×.72)` | 侧边栏 / 顶栏 / 页面操作条 / 模态遮罩，叠加 `blur(20px)`；**透明度与内容面板同源**（`.72`/`.80` 是 `α=1` 时的基准值，配置调低时整界面同步变透，chrome 恒比面板更透） |
 | `--qz-scrim` | `rgba(28,28,30,.45)` | `rgba(242,242,247,.55)` | 壁纸与内容之间的压暗/提亮层（保证对比度） |
 
 暗色三级灰直接取自参考稿。浅色不反相：macOS 亮色下"抬升"是白、面板也是白（靠描边区分），"下沉"面用灰（systemGray6 系）。
@@ -142,11 +142,12 @@ Vibrancy 需要"可模糊之物"：内容从 chrome 下滚过是其一，背景�
 
 | 选项（`/etc/config/quartz`，section `theme`） | 范围 | 默认 | 作用 |
 | :--- | :--- | :--- | :--- |
-| `panel_opacity` | 50–100 (%) | 100 | 内容面板/输入井不透明度；<100% 时自动启用面板毛玻璃（`html[data-qz-translucent]`） |
+| `panel_opacity` | 50–100 (%) | 100 | **全界面不透明度**：内容面板/输入井 + chrome（侧边栏/顶栏/页面操作条/登录卡，见 §2.1 chrome 行）；<100% 时自动启用面板毛玻璃（`html[data-qz-translucent]`） |
 | `blur` | 0–40 (px) | 20 | `--qz-blur`：侧边栏、顶栏与半透明面板的背景模糊量 |
 | `default_mode` | auto / dark / light | auto | 首次访问者的默认外观（浏览器内手动选择优先） |
 
-- **生效路径**：`header.ut` 每次渲染读出 uci，输出 `<style>:root{--qz-panel-alpha;--qz-blur}</style>` 与 `data-qz-translucent` / `data-qz-default` 属性；保存后下次页面加载生效，无需重启服务。
+- **生效路径**：`header.ut` 每次渲染读出 uci，输出 `<style>:root{--qz-panel-alpha;--qz-blur}</style>` 与 `data-qz-translucent` / `data-qz-default` 属性；保存后下次页面加载生效，无需重启服务。**ucode 整除陷阱**：`panel_opacity / 100` 在 ucode 里是**整数除法**（两侧都是 int 时），`50/100 → 0`——`--qz-panel-alpha: 0` 会让面板全透明，必须写成 `/ 100.0`（2026-10-14 用户实测反馈修复，见 §12）。
+- **chrome 与面板同源（2026-10-14）**：`--qz-chrome = rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)))`——设计基准 `.72`/`.80` 即 `α=1` 时的取值，配置调低时侧边栏/顶栏/操作条/登录卡同步变透（chrome 恒比面板更透，材质层级不变）；`α=1` 时与旧值逐字节等价，默认观感零变化。
 - **性能**：面板毛玻璃仅在半透明时挂 `backdrop-filter`（见 §6）；不透明状态下零额外合成开销。
 - **预览**：`dev/preview.html` 右下角提供等价滑杆（面板透明度 / 模糊强度），可实时体验。
 - 配置页位于 LuCI「系统 → Quartz Theme」（menu.d `admin/system/quartz-config`）。
@@ -249,6 +250,7 @@ luci/applications/luci-app-quartz-config/
 | W2.7 | 收尾：quartz-defaults 追加依赖（共享文件，追加式）、默认主题、验收 | W2.4–W2.6 |
 | W2.8 | 外观配置包 `luci-app-quartz-config`（面板透明度/模糊强度/默认外观） | W2.3 |
 | W2.9 | 壁纸管理面（配置包内上传/替换/移除；客户端收敛 + ACL 最小化 + sysupgrade 保留） | W2.3 / W2.8 |
+| W2.10 | ✅ R1 用户实测反馈（2026-10-14）：`panel_opacity` 语义扩为全界面（chrome 跟随面板，§2.1/§5.1）+ 修 ucode 整除致 `--qz-panel-alpha: 0`（`/100.0`）+ 配置页文案同步 | W2.8 / W2.9 |
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
@@ -298,3 +300,4 @@ luci/applications/luci-app-quartz-config/
 *变更记录：2026-10-12 v1.0 —— 依据用户定案（参照 macOS Vibrancy / 系统字体 / 双模 / 噪点 + 自备壁纸 / preview 评审）成文。*
 *2026-10-14 v1.1 —— W2.7 收尾：默认主题与模板/注册/资源机制在锁定固件上逐项复核通过，WP-2 全量关闭（见 §10 实现状态）。*
 *2026-10-14 v1.2 —— W2.9 壁纸管理面：上传/替换/移除落地配置包（§5.1），§4 补约束与缓存语义，§12 勾销"壁纸上传 UI"后置项。*
+*2026-10-14 v1.3 —— W2.10 R1 用户实测反馈轮（三条现象中的两条属主题）：①**`panel_opacity` 语义扩为全界面**——`--qz-chrome` 改为 `rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)))`（§2.1 token 表 / §5.1），侧边栏/顶栏/页面操作条/登录卡随面板同步变透，`α=1` 时与旧值逐字节等价；②**修 `header.ut` ucode 整除**——`panel_opacity / 100` 两侧皆 int 时为整除，`50/100 → 0` 使 `--qz-panel-alpha: 0`（面板全透明），改 `/ 100.0`（坑位 #48）；③配置页选项文案随语义更新（"内容面板不透明度"→"界面不透明度"，zh 同步）。VM 热更复验：50% → 面板 .5 / chrome .36，100% → 面板 1 / chrome .72（默认观感零变化）。*

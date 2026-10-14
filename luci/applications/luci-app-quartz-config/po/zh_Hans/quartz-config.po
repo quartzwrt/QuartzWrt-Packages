@@ -13,14 +13,14 @@ msgstr "QuartzWrt LuCI 主题的外观选项，保存后在下次页面加载时
 msgid "Appearance"
 msgstr "外观"
 
-msgid "Content panels turn translucent when opacity is below 100%, and backdrop blur engages automatically."
-msgstr "不透明度低于 100% 时，内容面板转为半透明并自动启用毛玻璃。"
+msgid "The whole interface turns translucent when opacity is below 100%; content panels additionally get a backdrop blur."
+msgstr "不透明度低于 100% 时整个界面（含侧边栏与顶栏）转为半透明，内容面板同时自动启用毛玻璃。"
 
-msgid "Panel opacity"
-msgstr "内容面板不透明度"
+msgid "Interface opacity"
+msgstr "界面不透明度"
 
-msgid "Opacity of content sections and cards, in percent. Lower values let the wallpaper show through."
-msgstr "内容区段与卡片的透明度（百分比），数值越低壁纸透出越明显。"
+msgid "Opacity of content sections, the sidebar and the top bar, in percent. Lower values let the wallpaper show through."
+msgstr "内容区段、侧边栏与顶栏的透明度（百分比），数值越低壁纸透出越明显。"
 
 msgid "Blur strength"
 msgstr "模糊强度"

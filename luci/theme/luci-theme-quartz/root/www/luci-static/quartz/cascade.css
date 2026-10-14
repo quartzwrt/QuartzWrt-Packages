@@ -37,7 +37,13 @@
 	--qz-panel-alpha: 1;
 	--qz-bg-panel: rgba(var(--qz-bg-panel-rgb), var(--qz-panel-alpha));
 	--qz-bg-well: rgba(var(--qz-bg-well-rgb), var(--qz-panel-alpha));
-	--qz-chrome: rgba(242, 242, 247, .72);
+	/* chrome（侧边栏 / 顶栏 / 页面操作条 / 登录卡）与内容面板同源：设计基准 .72/.80 是
+	 * panel_opacity=100 时的取值，配置调低时整界面同步变透（chrome 恒比内容面板更透，
+	 * 材质层级不变）。
+	 * --qz-panel-alpha 是无单位数，可直接参与 calc */
+	--qz-chrome-rgb: 242, 242, 247;
+	--qz-chrome-base-alpha: .72;
+	--qz-chrome: rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)));
 	--qz-chrome-solid: #f2f2f7;
 	--qz-scrim: rgba(242, 242, 247, .55);
 
@@ -127,7 +133,9 @@
 	--qz-bg-panel-rgb: 44, 44, 46;
 	--qz-bg-well-rgb: 28, 28, 30;
 	--qz-bg-raised: #3a3a3c;
-	--qz-chrome: rgba(28, 28, 30, .80);
+	/* chrome 透明度：同浅色，跟随 --qz-panel-alpha（设计基准 .80） */
+	--qz-chrome-rgb: 28, 28, 30;
+	--qz-chrome-base-alpha: .80;
 	--qz-chrome-solid: #1c1c1e;
 	--qz-scrim: rgba(28, 28, 30, .45);
 

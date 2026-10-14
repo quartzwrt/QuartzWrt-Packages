@@ -186,10 +186,10 @@ return view.extend({
 			_('Appearance options for the QuartzWrt LuCI theme. Changes take effect on the next page load.'));
 
 		const s = m.section(form.NamedSection, 'theme', 'theme', _('Appearance'),
-			_('Content panels turn translucent when opacity is below 100%, and backdrop blur engages automatically.'));
+			_('The whole interface turns translucent when opacity is below 100%; content panels additionally get a backdrop blur.'));
 
-		let o = s.option(form.Value, 'panel_opacity', _('Panel opacity'),
-			_('Opacity of content sections and cards, in percent. Lower values let the wallpaper show through.'));
+		let o = s.option(form.Value, 'panel_opacity', _('Interface opacity'),
+			_('Opacity of content sections, the sidebar and the top bar, in percent. Lower values let the wallpaper show through.'));
 		o.datatype = 'range(50,100)';
 		o.default = '100';
 		o.rmempty = false;
