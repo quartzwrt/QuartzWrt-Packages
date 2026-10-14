@@ -294,7 +294,7 @@ luci/applications/luci-app-quartz-config/
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。**已在锁定固件上逐项复核通过（W2.7，2026-10-14）**：模板落点 `/usr/share/ucode/luci/template/themes/quartz/*.ut`、`luci.themes.Quartz` 注册、`data-qz-*` 首绘前生效均实测。
-- **可选增强（后置）**：强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **可选增强（后置）**：**短页粘底布局**（内容 < 视口时页底 chrome 目前落在内容末尾、其下留页面背景；要挪到视口底需 `body` flex 粘底布局，会牵动登录页与 Dashboard，故列为候选而非本轮实施）、强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
 - **已完成（原后置项）**：~~壁纸上传 UI~~ → W2.9（见 §5.1；壁纸上传/替换/移除已在配置包落地）。
 - **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
