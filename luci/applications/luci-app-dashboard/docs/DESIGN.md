@@ -1,9 +1,9 @@
 # luci-app-dashboard 设计规范（讨论稿）
 
-**版本**: v1.2（**定案，W3.1–W3.6 已落地并在固件内验收**）
-**日期**: 2026-10-12
-**状态**: 六项决策用户拍板（§10）；契约冻结 [`AGGREGATE-API.md`](AGGREGATE-API.md)；**固件内验收通过**（QEMU 真启动，证据 `dev/shots/vm/`）。
-历史：v0.2 扩展模型与联动 → v0.3 设计预览页 → v0.4 布局配对 → v1.0 定案 → v1.1 W3.2–W3.4 → v1.2 固件集成验收（W3.5/W3.6）+ 打包坑位。
+**版本**: v1.3（**定案，W3.1–W3.8 已落地并在固件内验收**）
+**日期**: 2026-10-12（v1.3：2026-10-14）
+**状态**: 六项决策用户拍板（§10）；契约冻结 [`AGGREGATE-API.md`](AGGREGATE-API.md)；**固件内验收通过**（QEMU 真启动，证据 `dev/shots/vm/`）；**W3.8 R1 用户实测反馈轮**（只读页操作条抑制 + 中文命名去撞名，证据 `dev/shots/vm-r1/`）。
+历史：v0.2 扩展模型与联动 → v0.3 设计预览页 → v0.4 布局配对 → v1.0 定案 → v1.1 W3.2–W3.4 → v1.2 固件集成验收（W3.5/W3.6）+ 打包坑位 → v1.3 W3.8 R1 反馈轮。
 **依据**: TDD §3.3 / §8（`QuartzWrt-Builder/docs/TDD.md`，两副本同步）；WP-2 `luci-theme-quartz/docs/DESIGN.md`（token / 层序 / 容器约定）；
 **跨 WP**: §3 聚合契约冻结后为 **WP-4（`quartz-daemon`）的实现依据**；WP-3 开发不阻塞于 WP-4（mock 先行，见 §8）。
 
@@ -52,6 +52,9 @@ LuCI 25.12 的落地解析在 `dispatcher.uc`：路径解析到无 action 的节
     "action": { "type": "view", "path": "quartz/dashboard" },
     "depends": { "acl": [ "luci-app-dashboard-index" ] } } }
 ```
+
+- **中文名 = 仪表盘**（`po/zh_Hans/qdashboard.po`，2026-10-14 用户实测反馈定案）：**不得译作"概览"**——基座 `luci-mod-status` 的 `admin/status/overview` 已占用"概览"（base.po `msgid "Overview"`），撞名会让侧边栏同时出现两个"概览"（本页是落地页、基座页在 状态 分组下），用户无法从菜单区分；英文标题保持 `Dashboard`。
+- **只读页无操作条（2026-10-14）**：壳层视图置空 `handleSave` / `handleSaveApply` / `handleReset`——LuCI 对每个 JS 视图无条件调用 `addFooter()`，三个 `handle*` 非空（基类默认实现）即渲染"保存并应用 / 保存 / 复位"，对只读页无意义（§0 边界）。基座只读视图同款写法（`view/status/index.js` 等）。
 
 - ACL 组 `luci-app-dashboard-index`：只读 `ubus.file.read` 限定 `/var/run/quartz/status.json`（写法沿用基座 luci-mod-status 的路径级授权模式）＋所需只读 ubus（`system.board` 等）。
 - root 会话不受限；非 root 用户需被授予该组（标准 LuCI 行为）。
@@ -350,6 +353,7 @@ python3 dev/vm-shot.py --tag data --locale zh-CN         # 正常态 + 中文
 | W3.5 | ✅ 视觉打磨（2026-10-12）：预览/产物/固件三档截图基线齐全；固件内修正 KV 数值换行（主题 `.cbi-progressbar{min-width:170px}` 与卡片竞争宽度，卡片内覆盖为可收缩） | W3.4 |
 | W3.6 | ✅ 固件集成验收（2026-10-12）：本地全量构建 → `scripts/test-in-vm.sh` QEMU 真启动 → Playwright 登录验收（`dev/vm-shot.py`）——**登录落地页即 Dashboard**；快照经 rpcd `file.read`+ACL 读取渲染（hero+5 卡+8 行设备表）；三条深链存在性判定通过；i18n 中文生效；无数据时降级横幅正常。证据 `dev/shots/vm/`（run-{nodata,data}.json + 截图）。真数据联调待 WP-4 | W3.5 |
 | W3.7 | ✅ 扩展机制沉淀（2026-10-12）：`docs/EXTENDING.md` 成文（新增数据节/卡片/深链流程 + 卡片 DoD）；深链存在性检查由壳层 `host.hasPage()` 实现并在固件内验证 | W3.4 |
+| W3.8 | ✅ R1 用户实测反馈轮（2026-10-14）：①**只读页操作条抑制**——壳层置空 `handleSave`/`handleSaveApply`/`handleReset`（LuCI `addFooter()` 对每个视图无条件调用，基类默认实现非空→只读页长出"保存并应用/保存/复位"）；②**中文命名去撞名**——`Dashboard` 译名"概览"→"**仪表盘**"（"概览"归基座 `admin/status/overview`，同站点同名两入口不可区分）。证据 `dev/shots/vm-r1/`（`before/after50/after100` 双模 + `run-*.json`：`pageActionBtns` 由 `["保存","重置"]` → `null`、文档标题 `| 仪表盘`、侧栏"概览"计数 2→1） | W3.6 |
 
 W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 
@@ -391,3 +395,5 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v0.4 2026-10-12 —— 布局优化（用户评审反馈"卡片大小不同留白"）：确立**矮卡配矮卡**排布原则（Docker + 服务与核心同行；设备表改全宽 12 列承载，增"接口"列、前 8 台）；系统卡补"交换"行；宽屏设备表固定布局 + 列宽百分比；移动端单列顺序按 `order`（设备列表提前）；注册表示例同步（§5.3）。*
 *v1.0 2026-10-12 —— **定案**：用户拍板六项（记录见 §10）；聚合契约冻结为 [`AGGREGATE-API.md`](AGGREGATE-API.md)（§3 改为指针，避免两处漂移；`collect_ms` 提升为顶层字段）；`dev/mock/status.json` 与 `status.partial.json` 落地并与预览页同源（预览改为读取 mock 文件）；勘误 LuCI `Poll` 不做可见性判断（改由壳层实现，§2.3）；W3.0 ✅、W3.1 开工。*
 *v1.1 2026-10-12 —— **W3.2–W3.4 落地**：构建链（corepack/pnpm 固定、Vite lib IIFE、Tailwind v4 入口、`dev/build.sh` 体积门禁与 BUILD 回写；产物 app.js 28.6KB gzip / app.css 2.4KB gzip）、数据层（宿主适配器生产/预览两实现、四态降级、单卡错误边界）、卡片实现（注册表 + primitives + 五卡 + Hero）；预览页新增 `?app=1` 真实产物模式并出 `shots/app-*.png` 基线；踩坑记录：Vite lib 模式不替换 `process.env.NODE_ENV`（§4）；W3.5 🚧。*
+*v1.2 2026-10-12 —— W3.5/W3.6 固件集成验收（登录落地页即 Dashboard、真数据联调、四态降级、深链存在性、i18n）+ 打包三坑（i18n 撞名 `LUCI_BASENAME:=qdashboard` / 源码目录不得为 `src/` / CSS 走 `root/www/` 绕开 csstidy），W3.7 扩展手册成文。*
+*v1.3 2026-10-14 —— **W3.8 R1 用户实测反馈轮**（用户实测三条现象，两条归本包）：①只读页"保存并应用"操作条抑制（`handle*` 置空，§1.3）；②中文名"概览"→"仪表盘"（与基座 `status/overview` 撞名，§1.3）。第三条（主题 chrome 不跟随 `panel_opacity`）归 WP-2，见其 DESIGN v1.3 / 坑位 #48。VM 热更复验 + 包级核验（新 lmo 词条、壳层字节）证据 `dev/shots/vm-r1/`。*

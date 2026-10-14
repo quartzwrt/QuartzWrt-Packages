@@ -5,8 +5,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 # ===== 壳层（view/quartz/dashboard.js） =====
+# 命名：不得译作"概览"——基座 luci-mod-status 的 admin/status/overview 已占用"概览"
+# （base.po: msgid "Overview"），同名会让侧边栏出现两个"概览"（2026-10-14 用户实测反馈）
 msgid "Dashboard"
-msgstr "概览"
+msgstr "仪表盘"
 
 msgid "Dashboard bundle is missing"
 msgstr "Dashboard 产物缺失"

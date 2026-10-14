@@ -133,5 +133,13 @@ return view.extend({
 			E('h4', {}, title),
 			E('p', {}, msg)
 		]);
-	}
+	},
+
+	/* 只读页：抑制 LuCI 的页面操作条（保存并应用 / 保存 / 复位）。
+	 * luci.js 的 View.__init__ 对每个 JS 视图无条件调用 addFooter()，是否出现按钮取
+	 * 决于三个 handle* 是否非空，而基类默认实现非空——不置空就会在只读页长出保存条
+	 * （DESIGN.md §0 边界：v1 只展示、不写系统）。基座只读视图同款写法（status/index.js 等） */
+	handleSaveApply: null,
+	handleSave: null,
+	handleReset: null
 });
