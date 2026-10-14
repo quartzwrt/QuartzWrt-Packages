@@ -6,8 +6,9 @@
 #   root 密码 quartz（VM_PASS 可覆盖）
 #
 # 测试源（可切换 stage，模拟「上游发布新版本」的真实升级路径）：
-#   dev/testrepo/serve.py 由本脚本自动拉起（端口 9990；已在内网可达即可）。
-#   VM 经 QEMU 用户网络访问宿主：192.168.1.2:9990（LAN 侧）/ 10.0.2.2（WAN 侧）。
+#   dev/testrepo/serve.py 由本脚本自动拉起（端口 9990，只绑宿主 loopback）。
+#   VM 经 QEMU 用户网络访问宿主：192.168.1.2:9990（LAN 侧）/ 10.0.2.2（WAN 侧）；
+#   两者都映射到宿主 loopback，故无需绑 0.0.0.0（实测）。
 #
 # 用法: dev/vm-accept-packages.sh
 set -uo pipefail

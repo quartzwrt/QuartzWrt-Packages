@@ -7,14 +7,16 @@
   供验收脚本在「安装旧版 → 上游出新版 → 升级」链路上驱动状态。
 
 用法:
-    python3 dev/testrepo/serve.py [--port 9990] [--bind 0.0.0.0]
+    python3 dev/testrepo/serve.py [--port 9990] [--bind 127.0.0.1]
 
 目录约定（与仓库内 dev/testrepo/ 一致）：
     testrepo/qz-test.pem          测试签名公钥（VM 侧装到 /etc/apk/keys/）
     testrepo/stage1/…             quartz-pkgtest 1.0.0-r1（旧）
     testrepo/stage2/…             quartz-pkgtest 1.0.0-r1 + 1.0.1-r1（新）
 
-VM 侧仓库地址: http://<宿主IP>:9990/x86_64/packages.adb（QEMU 用户网络里宿主 = 192.168.1.2 / 10.0.2.2）。
+VM 侧仓库地址: http://<宿主IP>:9990/x86_64/packages.adb（QEMU 用户网络里宿主 =
+192.168.1.2 / 10.0.2.2，两者都走宿主 loopback——因此默认只绑 127.0.0.1 即可，
+不要为了让 VM 访问而绑 0.0.0.0 暴露到局域网）。
 """
 import argparse
 import http.server
@@ -60,7 +62,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=9990)
-    ap.add_argument("--bind", default="0.0.0.0")
+    ap.add_argument("--bind", default="127.0.0.1")
     args = ap.parse_args()
     srv = http.server.ThreadingHTTPServer((args.bind, args.port), Handler)
     sys.stderr.write(f"testrepo serving {BASE} on {args.bind}:{args.port} (stage={state['stage']})\n")
