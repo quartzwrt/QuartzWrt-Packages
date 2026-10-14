@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -82,6 +82,8 @@ define Package/quartz-defaults/install
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/thirdparty/packages.adb"; \
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/targets/$(BOARD)/$(SUBTARGET)/packages/packages.adb"; \
 		} > $(1)/etc/apk/repositories.d/quartz-feed.list; \
+		# OTA 源同根：quartz-ota-update 缺省读本文件（uci quartz.ota.url 可覆盖）
+		echo "$(CONFIG_QUARTZ_FEED_BASE_URL)" > $(1)/etc/quartz-ota.url; \
 	fi
 endef
 
