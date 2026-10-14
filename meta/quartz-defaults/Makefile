@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -39,6 +39,18 @@ define Package/quartz-defaults
     +quartz-runtime-resources
 endef
 
+# WP-9 签名与 OTA 接入（Builder/docs/SIGNING-OTA.md）：
+#   QUARTZ_FEED_BASE_URL —— QuartzWrt 自有 apk feed 根 URL（D10 阶段 1 开关）。
+#     留空（默认）= 不写 feed 行（安全默认：feed 未发布前不引入死链，坑位 #41 不复现）；
+#     发布后填 https://<托管根>（如 R2 域名）→ 安装 /etc/apk/repositories.d/quartz-feed.list，
+#     设备即从自有源取 quartz/thirdparty/目标包（索引签名由预置公钥 quartz.pem 校验）。
+#     阶段 2（全量自包含）另配 CONFIG_VERSION_REPO + CONFIG_FEED_{quartz,thirdparty}=y。
+define Package/quartz-defaults/config
+	config QUARTZ_FEED_BASE_URL
+		string "QuartzWrt apk feed base URL (empty = disabled)"
+		default ""
+endef
+
 define Package/quartz-defaults/description
   QuartzWrt 元数据包：统一声明发行版对 quartz 与 thirdparty 双 Feed 中
   软件包的依赖，并承载默认配置。
@@ -53,6 +65,24 @@ define Package/quartz-defaults/install
 	# 发行版标识：quartz-daemon 读取为 host.release（WP-4 DESIGN §9-D7；
 	# 缺失时 daemon 回退 /etc/openwrt_release 的 DISTRIB_DESCRIPTION）
 	$(INSTALL_DATA) ./files/quartz-release $(1)/etc/quartz-release
+	# WP-9：稳定签名公钥随固件预置（feed 索引签名信任根；apk 按内容 id 匹配，
+	# 文件名任意，与 base-files 自动投放的 public-key.pem 并存）
+	$(INSTALL_DIR) $(1)/etc/apk/keys
+	$(INSTALL_DATA) ./files/etc/apk/keys/quartz.pem $(1)/etc/apk/keys/quartz.pem
+	# WP-9：OTA 清单验签公钥（usign/Ed25519；设备端 usign 随基座自带）
+	$(INSTALL_DATA) ./files/etc/quartz-ota.pub $(1)/etc/quartz-ota.pub
+	# WP-9：OTA 通道原型（检查/执行固件升级；信任链 = 清单签名 → 镜像 sha256）
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_BIN) ./files/usr/sbin/quartz-ota-update $(1)/usr/sbin/quartz-ota-update
+	# D10 阶段 1：自有 feed 接入（仅当配置了根 URL；留空则不落文件，防死链 #41）
+	if [ -n "$(CONFIG_QUARTZ_FEED_BASE_URL)" ]; then \
+		$(INSTALL_DIR) $(1)/etc/apk/repositories.d; \
+		{ echo "# QuartzWrt 自有 feed（D10 阶段 1；由 quartz-defaults 生成）"; \
+		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/quartz/packages.adb"; \
+		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/thirdparty/packages.adb"; \
+		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/targets/$(BOARD)/$(SUBTARGET)/packages/packages.adb"; \
+		} > $(1)/etc/apk/repositories.d/quartz-feed.list; \
+	fi
 endef
 
 $(eval $(call BuildPackage,quartz-defaults))

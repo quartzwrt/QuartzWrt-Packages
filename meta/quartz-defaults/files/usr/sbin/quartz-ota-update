@@ -1,0 +1,141 @@
+#!/bin/sh
+# QuartzWrt OTA 通道原型（WP-9）——检查/执行固件升级
+#
+# 信任链：OTA 清单（usign/Ed25519 签名，公钥 /etc/quartz-ota.pub 随固件投放）
+#         → 清单内镜像 sha256 → sysupgrade 设备兼容性/平台校验。
+# 与 feed 签名的关系：apk feed 走 apk EC 密钥（索引签名，apk 自校验）；
+# 本脚本管**固件镜像**通道，用 usign——设备上没有 openssl CLI，usign 随基座自带。
+#
+# 用法:
+#   quartz-ota-update [--url URL] [--check|--apply] [--force] [--keep-config] [--image NAME]
+#
+#   默认 --check：比对版本并打印结论（退出码 0=已最新，10=有新版本，1=错误）
+#   --apply     ：下载镜像 → 校验 sha256 → sysupgrade（默认 -n 不保留配置；--keep-config 保留）
+#   --force     ：build id 相同时也执行（重装/回退场景）
+#
+# URL 来源（按序）：--url / uci quartz.ota.url / /etc/quartz-ota.url 文件内容。
+# 清单路径：<url>/ota/<DISTRIB_TARGET>.json（如 ota/x86/64.json，由 publish-feed.sh 生成）。
+#
+# 边界（原型）：不做增量/断点续传；不触发 App 通知；版本比较用 build id 相等性
+# （生产化见 Builder/docs/SIGNING-OTA.md §7）。
+
+set -e
+
+URL=""
+MODE="check"
+FORCE=0
+KEEP_CONFIG=0
+IMAGE_NAME=""
+PUBKEY=/etc/quartz-ota.pub
+LOCAL_ID_FILE=/etc/quartz-build-id
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--url) URL="$2"; shift 2 ;;
+		--check) MODE="check"; shift ;;
+		--apply) MODE="apply"; shift ;;
+		--force) FORCE=1; shift ;;
+		--keep-config) KEEP_CONFIG=1; shift ;;
+		--image) IMAGE_NAME="$2"; shift 2 ;;
+		-h|--help) usage ;;
+		*) echo "未知参数：$1（-h 看用法）" >&2; exit 2 ;;
+	esac
+done
+
+if [ -z "$URL" ]; then
+	URL="$(uci -q get quartz.ota.url 2>/dev/null || true)"
+fi
+if [ -z "$URL" ] && [ -f /etc/quartz-ota.url ]; then
+	URL="$(cat /etc/quartz-ota.url)"
+fi
+[ -n "$URL" ] || { echo "错误：未配置 OTA 源（--url / uci quartz.ota.url / /etc/quartz-ota.url）" >&2; exit 1; }
+URL="${URL%/}"
+
+command -v jsonfilter >/dev/null || { echo "错误：缺少 jsonfilter" >&2; exit 1; }
+command -v usign >/dev/null || { echo "错误：缺少 usign" >&2; exit 1; }
+[ -f "$PUBKEY" ] || { echo "错误：缺少 OTA 公钥 $PUBKEY" >&2; exit 1; }
+
+DISTRIB_TARGET="$(sed -n "s/^DISTRIB_TARGET='\(.*\)'$/\1/p" /etc/openwrt_release | head -1)"
+[ -n "$DISTRIB_TARGET" ] || { echo "错误：无法确定 DISTRIB_TARGET" >&2; exit 1; }
+MANIFEST_URL="$URL/ota/$DISTRIB_TARGET.json"
+
+TMPD="$(mktemp -d /tmp/quartz-ota.XXXXXX)"
+trap 'rm -rf "$TMPD"' EXIT
+M="$TMPD/manifest.json"
+
+echo "==> OTA 源：$MANIFEST_URL"
+wget -q -O "$M" "$MANIFEST_URL" || { echo "错误：清单下载失败" >&2; exit 1; }
+wget -q -O "$M.sig" "$MANIFEST_URL.sig" || { echo "错误：清单签名下载失败" >&2; exit 1; }
+
+# ① 清单验签（usign 公钥随固件投放）
+usign -q -V -m "$M" -p "$PUBKEY" || { echo "错误：OTA 清单签名校验失败（拒绝升级）" >&2; exit 1; }
+echo "    OK：清单签名有效"
+
+remote_id="$(jsonfilter -i "$M" -e '@.build_id' 2>/dev/null || true)"
+remote_rev="$(jsonfilter -i "$M" -e '@.revision' 2>/dev/null || true)"
+local_id="$(cat "$LOCAL_ID_FILE" 2>/dev/null || echo unknown)"
+echo "    本机 build id：$local_id"
+echo "    远端 build id：${remote_id:-?}（$remote_rev）"
+
+if [ "$remote_id" = "$local_id" ] && [ "$FORCE" != 1 ]; then
+	echo "==> 已是最新版本（--force 可强制重装）"
+	exit 0
+fi
+
+# ② 选镜像：EFI 系统优先 combined-efi，其余 combined；设备类目标回退 sysupgrade
+pick_image() {
+	for pat in "$@"; do
+		for name in $(jsonfilter -i "$M" -e '@.images[*].name'); do
+			case "$name" in
+				$pat) echo "$name"; return 0 ;;
+			esac
+		done
+	done
+	return 1
+}
+if [ -n "$IMAGE_NAME" ]; then
+	name="$IMAGE_NAME"
+else
+	if [ -d /sys/firmware/efi ]; then
+		name="$(pick_image '*-combined-efi.img.gz' '*-combined.img.gz' '*-sysupgrade.img.gz' '*-sysupgrade.bin')" || true
+	else
+		name="$(pick_image '*-combined.img.gz' '*-combined-efi.img.gz' '*-sysupgrade.img.gz' '*-sysupgrade.bin')" || true
+	fi
+fi
+[ -n "$name" ] || { echo "错误：清单中无匹配镜像" >&2; exit 1; }
+
+want_sha="$(jsonfilter -i "$M" -e "@.images[@.name='$name'].sha256")"
+img_url="$(jsonfilter -i "$M" -e "@.images[@.name='$name'].path")"
+[ -n "$want_sha" ] && [ -n "$img_url" ] || { echo "错误：清单缺 $name 的 sha256/path" >&2; exit 1; }
+
+echo "==> 可用镜像：$name（$(jsonfilter -i "$M" -e "@.images[@.name='$name'].size") 字节）"
+if [ "$MODE" = "check" ]; then
+	echo "==> 有新版本可用（--apply 执行升级）"
+	exit 10
+fi
+
+# ③ 下载 + sha256 校验（不匹配即拒绝）
+IMG="/tmp/quartz-ota.img.gz"
+echo "==> 下载 $URL/$img_url"
+wget -q -O "$IMG" "$URL/$img_url" || { echo "错误：镜像下载失败" >&2; exit 1; }
+got_sha="$(sha256sum "$IMG" | cut -d' ' -f1)"
+[ "$got_sha" = "$want_sha" ] || { echo "错误：镜像 sha256 不匹配（期望 $want_sha，实得 $got_sha）——拒绝刷写" >&2; rm -f "$IMG"; exit 1; }
+echo "    OK：sha256 校验通过"
+
+# ④ 平台/元数据预检（不写入）——sysupgrade -T
+echo "==> sysupgrade 预检（-T）"
+if [ "$KEEP_CONFIG" = 1 ]; then
+	sysupgrade -T "$IMG" || { echo "错误：镜像预检失败" >&2; exit 1; }
+else
+	sysupgrade -n -T "$IMG" || { echo "错误：镜像预检失败" >&2; exit 1; }
+fi
+
+# ⑤ 执行升级（写入后由 sysupgrade 重启）
+echo "==> 开始升级（sysupgrade $([ "$KEEP_CONFIG" = 1 ] && echo '' || echo '-n')）"
+if [ "$KEEP_CONFIG" = 1 ]; then
+	sysupgrade "$IMG"
+else
+	sysupgrade -n "$IMG"
+fi
