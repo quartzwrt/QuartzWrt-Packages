@@ -39,6 +39,18 @@ SERVED_PATH = "/quartz-wallpaper/wallpaper.jpg"
 
 RESULTS = []
 
+# 全页截图是"整份文档"的拼接图，而贴底操作条（.cbi-page-actions）是 position: sticky 的
+# 视口相对 chrome——直接 full_page 截会把它定格在"视口底部"位置（长图里看起来悬在页面中部，
+# 盖住中段内容）。截图前解除 sticky，操作条回到文档流内的真实位置（= 用户滚到页底时看到的
+# 位置）；视口截图不受影响、仍呈现真实贴底行为。
+FLAT_ACTIONS_CSS = ".cbi-page-actions{position:static !important}"
+
+
+def shot(page, path, full_page=True):
+    if full_page:
+        page.add_style_tag(content=FLAT_ACTIONS_CSS)
+    page.screenshot(path=path, full_page=full_page, animations="disabled")
+
 
 def check(name, ok, detail=""):
     RESULTS.append({"check": name, "ok": bool(ok), "detail": str(detail)[:400]})
@@ -144,7 +156,7 @@ def main():
         check("初始态：无壁纸（图片/移除按钮隐藏）",
               not st["img_visible"] and not st["remove_visible"], json.dumps(st, ensure_ascii=False)[:200])
         check("初始态：data-qz-wallpaper 未置位", not st["attr"])
-        page.screenshot(path=os.path.join(outdir, "01-initial-dark.png"), full_page=True, animations="disabled")
+        shot(page, os.path.join(outdir, "01-initial-dark.png"))
 
         # ---- 上传 ----
         status, body = http_get(args.base + SERVED_PATH)
@@ -153,7 +165,7 @@ def main():
         upload(page, img1, "1920x1080")
         st = probe(page)
         log.append({"step": "uploaded", **st})
-        page.screenshot(path=os.path.join(outdir, "02-uploaded-dark.png"), full_page=True, animations="disabled")
+        shot(page, os.path.join(outdir, "02-uploaded-dark.png"))
         check("上传：客户端收敛为 1920x1080（页面回显）", "1920x1080" in (st["status"] or ""), st["status"])
         check("上传：预览图可见且非空 src", st["img_visible"] and (st["img_src"] or "").startswith(SERVED_PATH),
               st["img_src"])
@@ -173,7 +185,7 @@ def main():
         other.wait_for_selector("#qz-sidebar", timeout=15000)
         other.wait_for_timeout(2500)
         attr_other = other.evaluate("() => document.documentElement.hasAttribute('data-qz-wallpaper')")
-        other.screenshot(path=os.path.join(outdir, "03-overview-probe-dark.png"), full_page=False, animations="disabled")
+        shot(other, os.path.join(outdir, "03-overview-probe-dark.png"), full_page=False)
         log.append({"step": "overview-probe", "attr": attr_other})
         check("跨页：概览页 theme.js 探测命中 data-qz-wallpaper", attr_other)
 
@@ -181,7 +193,7 @@ def main():
         upload(page, img2, "1920x640")
         st = probe(page)
         log.append({"step": "replaced", **st})
-        page.screenshot(path=os.path.join(outdir, "04-replaced-dark.png"), full_page=True, animations="disabled")
+        shot(page, os.path.join(outdir, "04-replaced-dark.png"))
         status, body2 = http_get(args.base + SERVED_PATH)
         md5_2 = hashlib.md5(body2).hexdigest()
         check("替换：收敛为 1920x640（页面回显）", "1920x640" in (st["status"] or ""), st["status"])
@@ -191,7 +203,7 @@ def main():
         # ---- 移除 ----
         page.click("#qz-wallpaper-remove")
         page.wait_for_selector(".modal .cbi-button-remove", timeout=10000)
-        page.screenshot(path=os.path.join(outdir, "05-confirm-remove-dark.png"), full_page=False, animations="disabled")
+        shot(page, os.path.join(outdir, "05-confirm-remove-dark.png"), full_page=False)
         page.click(".modal .cbi-button-remove")
         page.wait_for_selector("#qz-wallpaper-remove", state="hidden", timeout=20000)
         page.wait_for_timeout(1000)
@@ -202,7 +214,7 @@ def main():
         check("移除：本页回落（无 data-qz-wallpaper、图片隐藏、移除按钮回隐藏）",
               (not st["attr"]) and (not st["img_visible"]) and (not st["remove_visible"]),
               json.dumps(st, ensure_ascii=False)[:200])
-        page.screenshot(path=os.path.join(outdir, "06-removed-dark.png"), full_page=True, animations="disabled")
+        shot(page, os.path.join(outdir, "06-removed-dark.png"))
 
         check("全程无页面 JS 异常", not errors, "; ".join(errors[:3]))
 

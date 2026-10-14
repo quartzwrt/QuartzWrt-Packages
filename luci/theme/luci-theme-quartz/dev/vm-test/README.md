@@ -26,6 +26,7 @@ python3 shoot.py --mode dark                     # 全量暗色 → ../shots/vm-
 python3 shoot.py --mode light --password quartz  # 全量浅色 → ../shots/vm-test-light/
 python3 shoot.py --mode dark --only v18_system-quartz-theme   # 单页
 python3 shoot.py --mode dark --from v30_network-interfaces    # 断点续跑（run-log.jsonl 去重）
+python3 shoot.py --mode dark --flat-actions                   # 长图免"操作条中段悬停"假象（见下）
 ```
 
 ## 页面清单（pages.json）
@@ -41,8 +42,10 @@ python3 shoot.py --mode dark --from v30_network-interfaces    # 断点续跑（r
 ## 已知注意事项
 
 - **sticky 应用条**：主题的 `.cbi-page-actions` 是 `position: sticky`（贴底 chrome，设计如此）。
-  全页截图时它悬停在"视口底部"位置，会盖住中段一小条内容——截图假象，非渲染缺陷；
-  需要完整证据时以 DOM 行数（run-log 的 view 长度）交叉验证。
+  **全页截图会把它定格在"视口底部"位置**——长图里看起来"悬在页面中部"并盖住中段一小条内容，
+  是截图拼接的假象（真实浏览始终贴视口底，视口截图可证），非渲染缺陷。**要出干净长图加
+  `--flat-actions`**：截图前把该条置为 `position: static`，它回到文档流内的真实位置
+  （= 滚到页底时看到的位置）。需要完整证据时另以 DOM 行数（run-log 的 view 长度）交叉验证。
 - **实时图表白底**：负载/带宽图表为 LuCI 上游 `view/status/load.js` 内联 `background:#fff`，
   暗色下亦为白底（bootstrap 同）——上游行为，非主题缺陷。
 - **未登录状态**：登录页（v01）在独立无会话 context 中截图；若 VM 已设 root 密码，

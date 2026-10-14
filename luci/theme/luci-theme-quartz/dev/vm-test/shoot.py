@@ -11,6 +11,7 @@
   python3 shoot.py --mode light
   python3 shoot.py --mode dark --only v01_login
   python3 shoot.py --mode dark --from v30_network-interfaces
+  python3 shoot.py --mode dark --flat-actions     # 全页截图前解除贴底操作条 sticky（长图不再中段悬停）
 """
 import argparse, json, os, re, sys, time
 from playwright.sync_api import sync_playwright
@@ -56,7 +57,7 @@ def login(ctx, password=""):
             return pg, "LOGIN_FAILED: " + str(e2)[:120]
 
 
-def shoot(ctx, page, item, mode, outdir, settle_ms, ready_timeout):
+def shoot(ctx, page, item, mode, outdir, settle_ms, ready_timeout, flat_actions=False):
     name = item["id"]
     cons, fails, bad = [], [], []
     page.on("console", lambda m: cons.append(f"{m.type}: {m.text[:180]}") if m.type == "error" else None)
@@ -83,6 +84,12 @@ def shoot(ctx, page, item, mode, outdir, settle_ms, ready_timeout):
         rec["probe_err"] = str(e)[:80]
     png = os.path.join(outdir, name + ".png")
     try:
+        # --flat-actions：全页截图是"整份文档"的拼接图，而贴底操作条（position: sticky）
+        # 是视口相对的 chrome——直接截会把它定格在"视口底部"位置（长图里看起来悬在页面
+        # 中部）。截图前解除 sticky，操作条回到文档流内的真实位置（= 用户滚到页底时看到
+        # 的位置），长图因此不再有该假象（视口截图不受影响）。
+        if flat_actions:
+            page.add_style_tag(content=".cbi-page-actions{position:static !important}")
         page.screenshot(path=png, full_page=True, animations="disabled")
     except Exception as e:
         rec["error"] = "shot: " + str(e)[:100]
@@ -109,6 +116,8 @@ def main():
     ap.add_argument("--password", default="")
     ap.add_argument("--width", type=int, default=1500)
     ap.add_argument("--height", type=int, default=1000)
+    ap.add_argument("--flat-actions", action="store_true",
+                    help="全页截图前把贴底操作条置为 position: static（避免长图中段悬停假象）")
     args = ap.parse_args()
 
     pages = json.load(open(args.pages))
@@ -144,7 +153,7 @@ def main():
             pg0 = ctx0.new_page()
             pg0.goto(BASE + "/cgi-bin/luci/", wait_until="domcontentloaded", timeout=20000)
             pg0.evaluate(f"() => localStorage.setItem('qz-theme', '{args.mode}')")
-            rec = shoot(ctx0, pg0, item, args.mode, outdir, args.settle_ms, args.ready_timeout)
+            rec = shoot(ctx0, pg0, item, args.mode, outdir, args.settle_ms, args.ready_timeout, args.flat_actions)
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n"); fh.flush()
             print(f"{'STUCK ' if rec.get('stuck') else 'OK '}{item['id']} h={rec.get('h')} {rec.get('ms')}ms")
             ctx0.close()
@@ -161,7 +170,7 @@ def main():
                 print(f"[{i}/{len(rest)}] {item['id']} 已存在，跳过")
                 continue
             page = ctx.new_page()
-            rec = shoot(ctx, page, item, args.mode, outdir, args.settle_ms, args.ready_timeout)
+            rec = shoot(ctx, page, item, args.mode, outdir, args.settle_ms, args.ready_timeout, args.flat_actions)
             page.close()
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n"); fh.flush()
             flag = "STUCK " if rec.get("stuck") else ("ERR " if rec.get("error") else "OK ")

@@ -387,9 +387,23 @@ header {
 
 footer {
 	margin-left: var(--qz-sidebar-w);
-	padding: 0 24px 24px;
+	/* 页脚＝页底 chrome：与贴底操作条同源材质（半透明 + 模糊）——版本行不再直接压在
+	 * 壁纸/噪点上（可读性：--qz-text-3 在杂背景上不足），并与上方操作条连成一条
+	 * chrome 面（协调性）。有操作条时分隔线由它的上边框承担（见下方 :has 规则），
+	 * 只有单独处于页底时才自己画线。 */
+	padding: 8px 24px 10px;
 	color: var(--qz-text-3);
 	font-size: 12px;
+	background-color: var(--qz-chrome);
+	-webkit-backdrop-filter: blur(var(--qz-blur));
+	backdrop-filter: blur(var(--qz-blur));
+	border-top: 1px solid var(--qz-border);
+}
+
+/* 页面操作条在场（自带 1px 上边框）→ 页脚与它合并为同一条 chrome 面，不画缝。
+ * :has() 不被支持时退化为「始终画线」——仅多一道 .08 发丝缝，不损功能。 */
+body:has(.cbi-page-actions) footer {
+	border-top: none;
 }
 
 footer a {
@@ -1807,7 +1821,7 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 		display: none;
 	}
 
-	#qz-sidebar, header, .cbi-page-actions, .modal.login, #modal_overlay {
+	#qz-sidebar, header, footer, .cbi-page-actions, .modal.login, #modal_overlay {
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;
 	}
@@ -1819,7 +1833,7 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 		--qz-chrome: var(--qz-chrome-solid);
 	}
 
-	#qz-sidebar, header, .cbi-page-actions, .modal.login {
+	#qz-sidebar, header, footer, .cbi-page-actions, .modal.login {
 		-webkit-backdrop-filter: none;
 		backdrop-filter: none;
 	}

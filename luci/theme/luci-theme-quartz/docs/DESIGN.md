@@ -1,8 +1,8 @@
 # luci-theme-quartz 设计规范
 
-**版本**: v1.3
+**版本**: v1.4
 **日期**: 2026-10-12（v1.3：2026-10-14）
-**状态**: 设计定案 + 实现完成（W2.0–W2.10 全量关闭；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验）；进度与剩余项见 §10、§12
+**状态**: 设计定案 + 实现完成（W2.0–W2.10 全量关闭 + W2.11 页底 chrome）；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验、W2.11 页脚材质 VM 复验；进度与剩余项见 §10、§12
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -40,7 +40,7 @@
 | `--qz-bg-panel` | `rgba(44,44,46,α)` | `rgba(255,255,255,α)` | 内容面板、卡片、字段集（α = `--qz-panel-alpha`，默认 1） |
 | `--qz-bg-raised` | `#3a3a3c` | `#ffffff` + 描边 | 按钮等抬升元素（保持不透明） |
 | `--qz-bg-well` | `rgba(28,28,30,α)` | `rgba(242,242,247,α)` | 输入框、代码块等"下沉"面 |
-| `--qz-chrome` | `rgba(28,28,30,α×.80)` | `rgba(242,242,247,α×.72)` | 侧边栏 / 顶栏 / 页面操作条 / 模态遮罩，叠加 `blur(20px)`；**透明度与内容面板同源**（`.72`/`.80` 是 `α=1` 时的基准值，配置调低时整界面同步变透，chrome 恒比面板更透） |
+| `--qz-chrome` | `rgba(28,28,30,α×.80)` | `rgba(242,242,247,α×.72)` | 侧边栏 / 顶栏 / 页面操作条 / 页脚（版本行） / 模态遮罩，叠加 `blur(20px)`；**透明度与内容面板同源**（`.72`/`.80` 是 `α=1` 时的基准值，配置调低时整界面同步变透，chrome 恒比面板更透） |
 | `--qz-scrim` | `rgba(28,28,30,.45)` | `rgba(242,242,247,.55)` | 壁纸与内容之间的压暗/提亮层（保证对比度） |
 
 暗色三级灰直接取自参考稿。浅色不反相：macOS 亮色下"抬升"是白、面板也是白（靠描边区分），"下沉"面用灰（systemGray6 系）。
@@ -107,6 +107,7 @@
 | 模态（cbi-modal） | 遮罩 = scrim + blur；面板 = `--qz-bg-panel` + `--qz-radius` + 2px 阴影（阴影唯一使用点） |
 | 通知（LuCI ui.js） | 深/浅面板 + 左侧 2px 状态色条（彩色仅作提示条，不作底） |
 | 徽标 / Badge | 8px 圆角矩形 + 状态色文字 |
+| 页脚（版本行） | **页底 chrome**：`--qz-chrome` + blur；与贴底操作条相邻时由操作条的上边框承担分隔、两者合并为一条 chrome 面（`:has(.cbi-page-actions)` 抑制自身描边），独处页底时自己画 1px 描边；`--qz-text-3` + 12px 保持"页脚注脚"层级 |
 | 登录页 | 品牌时刻：壁纸直出 + chrome 材质卡片浮层 + wordmark（SVG） |
 
 **版式密度**：参考稿是 hero 大标题、大间距的展示型页面；LuCI 是高密度管理界面。风格 DNA 全盘保留，版式按管理界面重设——正文基准 14px（text-sm），大标题体系仅登录页与 Dashboard hero 使用。
@@ -251,6 +252,7 @@ luci/applications/luci-app-quartz-config/
 | W2.8 | 外观配置包 `luci-app-quartz-config`（面板透明度/模糊强度/默认外观） | W2.3 |
 | W2.9 | 壁纸管理面（配置包内上传/替换/移除；客户端收敛 + ACL 最小化 + sysupgrade 保留） | W2.3 / W2.8 |
 | W2.10 | ✅ R1 用户实测反馈（2026-10-14）：`panel_opacity` 语义扩为全界面（chrome 跟随面板，§2.1/§5.1）+ 修 ucode 整除致 `--qz-panel-alpha: 0`（`/100.0`）+ 配置页文案同步 | W2.8 / W2.9 |
+| W2.11 | ✅ R1 反馈补充（2026-10-14）：页脚改为页底 chrome（与贴底操作条同源材质、相邻时合并为一条 chrome 面，§3） | W2.4 |
 
 **验收标准**：① 主题可编译进固件（单包编译 + CI 全量双保险）；② 原生 cbi 页面未被污染（preview 注入对比 + 真机/虚拟机过一遍 firewall 等复杂页）；③ 双模在 preview 页评审通过；④ 性能护栏达标（§6）。
 
@@ -277,6 +279,7 @@ luci/applications/luci-app-quartz-config/
   ④ 静态资源：`/www/luci-static/quartz/` 五件（cascade.css/theme.js/logo.svg/noise-{dark,light}.png）与源码仓库 **sha256 逐字节一致**（未过 csstidy/JsMin，坑位 #15 规避生效）；
   ⑤ 端到端：登录页 HTML 引用 `luci-static/quartz/{cascade.css,theme.js,logo.svg}` 且含 `data-qz-default`/`qz-*` 标记——主题确实渲染。
   证据：本节命令行记录 + `dev/shots/vm-test-{dark,light}/`（此前 59 页×双模全量截图）。
+- ✅ **W2.11 页脚页底 chrome（2026-10-14，R1 反馈补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）**：`footer` 由裸文本改为 `--qz-chrome` + `blur(var(--qz-blur))` 的页底 chrome 面，padding 调整为 `8px 24px 10px`；有页面操作条时 `body:has(.cbi-page-actions) footer{border-top:none}` 抑制描边、两者合并为一条 chrome 面（分隔线由操作条上边框承担），无操作条时保留 1px 描边；`@supports not (backdrop-filter)` 与 `prefers-reduced-transparency` 兜底列表同步纳入 `footer`（此时 chrome 退化为实心、去模糊）。**VM 复验**（用户壁纸 + 不透明度 50% 的实机态）：computed `background-color: rgba(28,28,30,.4)`/`rgba(242,242,247,.36)` + `blur(20px)`；有操作条页 `border-top-width: 0px`、无操作条页 `1px rgba(255,255,255,.08)`；页脚盒 [864,900] 紧接操作条 [806,864]（视口 900）连成一条带。证据 `dev/shots/footer-r1/`（长页×双模×壁纸/无壁纸 + 无操作条 + 短页）。
 - ✅ **单包编译验证（随每次全量构建持续复核）**：`luci-theme-quartz` apk 每次固件构建产出并在 manifest 在列（x86_64 与 rockchip/armv8 双目标；镜像级三层验证见 WORKPLAN §7 日志 2026-10-12 条目）。
 - ✅ **W2.9 壁纸管理面（2026-10-14，本对话，用户指令「WP-2 的壁纸功能没加上，在 config 软件包里加进去」）**：把 DESIGN §4「机制先行、上传 UI 后置」的欠账补进 `luci-app-quartz-config`——配置页新增壁纸区块（预览 + 体积/尺寸/更新时间 + 上传/替换/移除），客户端收敛（源图 ≤25MB 护栏、最长边 ≤1920px、转 JPEG 压平透明、逐档降质至 ≤2MB），上传走 `cgi-upload`（同请求 `filemode=644`）、移除走 rpcd `file remove`；ACL 只逐字授权单一路径 + 所需方法；投放目录随包创建、`/lib/upgrade/keep.d` 保 sysupgrade 后保留。**验收 15/15**（VM 预览台 Playwright：初始/上传/跨页探测/替换/移除 + 服务端 200/JPEG 魔数 + mode=644 + 无 JS 异常），证据 `dev/shots/vm-wallpaper/`，工具 `dev/wallpaper-e2e.py`。全程**零主题改动**（机制与探测路径原样复用）。
 
@@ -301,3 +304,4 @@ luci/applications/luci-app-quartz-config/
 *2026-10-14 v1.1 —— W2.7 收尾：默认主题与模板/注册/资源机制在锁定固件上逐项复核通过，WP-2 全量关闭（见 §10 实现状态）。*
 *2026-10-14 v1.2 —— W2.9 壁纸管理面：上传/替换/移除落地配置包（§5.1），§4 补约束与缓存语义，§12 勾销"壁纸上传 UI"后置项。*
 *2026-10-14 v1.3 —— W2.10 R1 用户实测反馈轮（三条现象中的两条属主题）：①**`panel_opacity` 语义扩为全界面**——`--qz-chrome` 改为 `rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)))`（§2.1 token 表 / §5.1），侧边栏/顶栏/页面操作条/登录卡随面板同步变透，`α=1` 时与旧值逐字节等价；②**修 `header.ut` ucode 整除**——`panel_opacity / 100` 两侧皆 int 时为整除，`50/100 → 0` 使 `--qz-panel-alpha: 0`（面板全透明），改 `/ 100.0`（坑位 #48）；③配置页选项文案随语义更新（"内容面板不透明度"→"界面不透明度"，zh 同步）。VM 热更复验：50% → 面板 .5 / chrome .36，100% → 面板 1 / chrome .72（默认观感零变化）。*
+*2026-10-14 v1.4 —— W2.11（R1 反馈轮补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）：**页脚改为页底 chrome**——`--qz-chrome` + `blur()`，版本行不再直接压在壁纸/噪点上（`--qz-text-3` 在杂背景上可读性不足），且与贴底操作条连成一条 chrome 面；有操作条时用 `body:has(.cbi-page-actions) footer { border-top: none }` 抑制页脚描边（分隔线由操作条上边框承担），无操作条（只读视图/仪表盘）时保留 1px 描边；`@supports`/`prefers-reduced-transparency` 兜底列表同步纳入 `footer`。padding `0 24px 24px` → `8px 24px 10px`（成条后文字垂直居中）。§2.1/§3 同步。*
