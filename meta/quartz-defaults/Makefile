@@ -8,7 +8,9 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=3
+PKG_RELEASE:=4
+# r4（2026-10-16）：files/quartz-release 改为兜底文案——实际版本串由 Builder 构建期写入
+# （覆盖本包文件，见 QuartzWrt-Builder scripts/build-local.sh 步骤 5d）。
 
 include $(INCLUDE_DIR)/package.mk
 

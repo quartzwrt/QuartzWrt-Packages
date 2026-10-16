@@ -1,3 +1,6 @@
-# QuartzWrt 发行版标识（由 quartz-defaults 安装；随版本升级更新）
-# quartz-daemon 读取 QUARTZ_DESCRIPTION 作为快照 host.release 字段。
-QUARTZ_DESCRIPTION='QuartzWrt 0.1.0 (ImmortalWrt 25.12)'
+# QuartzWrt 发行版标识（quartz-defaults 兜底值）。
+# quartz-daemon 读取 QUARTZ_DESCRIPTION 作为快照 host.release 字段（dashboard/App 显示）。
+# 注意：固件构建时由 Builder 的 TOPDIR/files 覆盖为实际构建标识
+# （QuartzWrt-Builder scripts/build-local.sh 步骤 5d：'QuartzWrt <构建标识> (ImmortalWrt <版本>)'）；
+# 本文件仅在未被覆盖的场景（如单独安装本包）作为兜底。
+QUARTZ_DESCRIPTION='QuartzWrt (ImmortalWrt 25.12)'

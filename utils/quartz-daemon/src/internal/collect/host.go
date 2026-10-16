@@ -22,7 +22,8 @@ func (c *Collector) hostFast(modelFallback string) snapshot.Host {
 	return h
 }
 
-// readRelease 发行版标识：优先 /etc/quartz-release（quartz-defaults 提供，
+// readRelease 发行版标识：优先 /etc/quartz-release（quartz-defaults 兜底值，
+// 构建期由 Builder 覆盖为实际构建标识——QuartzWrt-Builder scripts/build-local.sh 5d，
 // DESIGN §9-D7），缺失时用 /etc/openwrt_release 的 DISTRIB_DESCRIPTION。
 func readRelease() string {
 	if v := readKVFile("/etc/quartz-release", "QUARTZ_DESCRIPTION"); v != "" {
