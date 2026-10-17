@@ -152,6 +152,61 @@ ck "注入参数 → forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden
 OUT=$(call "$SID0" quartz-app-api action "{\"access_token\":\"$TOK_E\",\"action\":\"docker.container.restart\",\"args\":{\"id\":\"abc123\"}}")
 ck "docker 未装 → action_failed（依赖缺失如实报错）" $(printf '%s' "$OUT" | grep -q 'action_failed' && echo 0 || echo 1)
 
+echo "== 6b. bandix 写面转发项（WP-8 P2；DESIGN §5.1） =="
+ACTION() { # ACTION <token> <action-id> <args-json>
+	call "$SID0" quartz-app-api action "{\"access_token\":\"$1\",\"action\":\"$2\",\"args\":$3}"
+}
+OUT=$(ACTION "$TOK_E" bandix.limits '{}')
+ck "bandix.limits 读条目 → ok（含 whitelist 聚合）" $(printf '%s' "$OUT" | grep -q '"ok":true' && printf '%s' "$OUT" | grep -q 'whitelist' && echo 0 || echo 1)
+
+OUT=$(ACTION "$TOK_E" bandix.limit_default_set '{"wan_rx_rate_limit":102400,"wan_tx_rate_limit":51200}')
+ck "limit_default_set 写 → ok（数值参数 JSON number 直收）" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.limits '{}')
+ck "写后回读一致（102400/51200）" $(printf '%s' "$OUT" | grep -q '102400' && printf '%s' "$OUT" | grep -q '51200' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.limit_default_set '{"wan_rx_rate_limit":0,"wan_tx_rate_limit":0}')
+ck "复位 0/0 → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+
+TEST_MAC="02:00:00:00:00:01"
+OUT=$(ACTION "$TOK_E" bandix.whitelist_add "{\"mac\":\"$TEST_MAC\"}")
+ck "whitelist_add → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.limits '{}')
+ck "白名单回读包含测试 MAC" $(printf '%s' "$OUT" | grep -qi "$TEST_MAC" && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.whitelist_delete "{\"mac\":\"$TEST_MAC\"}")
+ck "whitelist_delete → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.limits '{}')
+ck "白名单回读不含测试 MAC" $(printf '%s' "$OUT" | grep -qi "$TEST_MAC" && echo 1 || echo 0)
+
+# 主机名绑定：取设备表第一台真设备做往返（设置 → 设备表回读轮询 ≤20s → 清除）
+DEV_MAC=$($VM_SSH 'ubus call quartz.bandix status' | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["data"]["d"][0]["mac"] if d.get("data",{}).get("d") else "")' 2>/dev/null)
+if [ -n "$DEV_MAC" ]; then
+	OUT=$(ACTION "$TOK_E" bandix.hostname_set "{\"mac\":\"$DEV_MAC\",\"hostname\":\"qze2e\"}")
+	ck "hostname_set → ok（$DEV_MAC）" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+	hit=1
+	for i in $(seq 1 10); do
+		sleep 2
+		OUT=$($VM_SSH 'ubus call quartz.bandix status')
+		printf '%s' "$OUT" | grep -q '"qze2e"' && { hit=0; break; }
+	done
+	ck "设备表回读新主机名（轮询 ≤20s）" $hit
+	OUT=$(ACTION "$TOK_E" bandix.hostname_set "{\"mac\":\"$DEV_MAC\",\"hostname\":\"\"}")
+	ck "hostname_set 清绑定 → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+else
+	echo "SKIP  hostname 往返（设备表为空）"
+fi
+
+OUT=$(ACTION "$TOK_E" bandix.whitelist_delete '{"mac":"not-a-mac"}')
+ck "非法 MAC → bad_request（转发项校验）" $(printf '%s' "$OUT" | grep -q 'bad_request' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.installUpdate '{}')
+ck "未注册动作（installUpdate）→ forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden_action' && echo 0 || echo 1)
+OUT=$(ACTION "$TOK_E" bandix.hostname_set '{"mac":"02:00:00:00:00:01","hostname":"x","evil":1}')
+ck "未声明参数键 → forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden_action' && echo 0 || echo 1)
+
+OUT=$(ACTION "$TOK_E" service.restart '{"name":"bandix"}')
+ck "允许集：service.restart bandix → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
+sleep 3
+OUT=$($VM_SSH 'pgrep -x bandix >/dev/null && echo alive')
+ck "bandix 重启后存活" $(printf '%s' "$OUT" | grep -q alive && echo 0 || echo 1)
+
 if [ "$NO_REBOOT" -eq 0 ]; then
 	echo "== 7. system.reboot（末组：触发 → 重启 → 状态持久化复验） =="
 	OUT=$(call "$SID0" quartz-app-api action "{\"access_token\":\"$TOK_E\",\"action\":\"system.reboot\"}")

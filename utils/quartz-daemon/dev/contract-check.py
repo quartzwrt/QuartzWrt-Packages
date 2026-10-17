@@ -14,6 +14,7 @@ MAX_BYTES = 32 * 1024
 MAX_CLIENTS = 32
 MAX_SERIES = 60
 MAX_UNHEALTHY = 8
+MAX_BANDIX_TOP = 8
 
 errors: list[str] = []
 
@@ -177,6 +178,61 @@ def main() -> int:
                     continue
                 if not isinstance(v, dict) or not isinstance(v.get("running"), bool):
                     err(f"services.{k}: missing bool running")
+
+    # bandix（契约 §3.7 加法；可空）
+    bx = s.get("bandix")
+    if bx is not None:
+        if not isinstance(bx, dict):
+            err("bandix: not object/null")
+        elif not isinstance(bx.get("available"), bool):
+            err("bandix.available: not bool")
+        elif bx["available"]:
+            for k in ("devices", "online"):
+                if not is_int(bx.get(k)) or bx.get(k, -1) < 0:
+                    err(f"bandix.{k}: not non-negative int")
+            if is_int(bx.get("devices")) and is_int(bx.get("online")) and bx["online"] > bx["devices"]:
+                err(f"bandix.online {bx['online']} > devices {bx['devices']}")
+            w = bx.get("wan")
+            if w is not None:
+                if not isinstance(w, dict):
+                    err("bandix.wan: not object")
+                else:
+                    for k in ("rx_bps", "tx_bps"):
+                        if not is_int(w.get(k)) or w.get(k, -1) < 0:
+                            err(f"bandix.wan.{k}: not non-negative int")
+            top = bx.get("top")
+            if top is not None:
+                if not isinstance(top, list):
+                    err("bandix.top: not list")
+                elif len(top) > MAX_BANDIX_TOP:
+                    err(f"bandix.top: {len(top)} > {MAX_BANDIX_TOP}")
+                else:
+                    prev = None
+                    for i, it in enumerate(top):
+                        if not isinstance(it, dict):
+                            err(f"bandix.top[{i}]: not object")
+                            continue
+                        for k in ("mac", "host", "ip"):
+                            if not isinstance(it.get(k), str):
+                                err(f"bandix.top[{i}].{k}: not string")
+                        for k in ("rx_b", "tx_b"):
+                            if not is_int(it.get(k)) or it.get(k, -1) < 0:
+                                err(f"bandix.top[{i}].{k}: not non-negative int")
+                        pc = it.get("pct")
+                        if not is_num(pc) or not (0 <= pc <= 100):
+                            err(f"bandix.top[{i}].pct: not in 0..100 ({pc!r})")
+                        cur = (it.get("rx_b") or 0) + (it.get("tx_b") or 0)
+                        if prev is not None and cur > prev:
+                            err(f"bandix.top[{i}]: not sorted by cumulative bytes desc")
+                        prev = cur
+            cn = bx.get("conn")
+            if cn is not None:
+                if not isinstance(cn, dict) or not all(is_int(cn.get(k)) and cn.get(k, -1) >= 0 for k in ("total", "tcp", "udp")):
+                    err(f"bandix.conn: bad ({cn!r})")
+            dn = bx.get("dns")
+            if dn is not None:
+                if not isinstance(dn, dict) or not is_int(dn.get("queries")) or dn.get("queries", -1) < 0:
+                    err(f"bandix.dns: bad ({dn!r})")
 
     # errors
     er = s.get("errors")

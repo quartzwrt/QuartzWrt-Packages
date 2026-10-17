@@ -68,6 +68,9 @@ def main():
                     hostname: (document.querySelector('.qzd-hostname')||{}).textContent || null,
                     rates: Array.from(document.querySelectorAll('.qzd-rate .v')).map(e => e.textContent.trim()),
                     cardsText: Array.from(document.querySelectorAll('.qzd-card h4')).map(e => e.textContent.trim()),
+                    bandix: (() => { const c = document.getElementById('bandix');
+                        return c ? { text: c.innerText.replace(/\\s+/g, ' ').trim().slice(0, 300),
+                                     rows: c.querySelectorAll('.qzd-table tbody tr').length } : null; })(),
                     menuActive: (document.querySelector('#qz-nav .qz-nav-item.active a')||{}).textContent || null,
                     sidebarFirst: (document.querySelector('#qz-nav .qz-nav-item a')||{}).textContent || null,
                 })"""
