@@ -189,3 +189,6 @@ msgstr "采集"
 
 msgid "last"
 msgstr "上次"
+
+msgid "Details"
+msgstr "详情"

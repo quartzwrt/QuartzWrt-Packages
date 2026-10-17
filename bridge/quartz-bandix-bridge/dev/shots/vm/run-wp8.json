@@ -1,0 +1,52 @@
+{
+  "tag": "wp8",
+  "base": "http://127.0.0.1:8080",
+  "pages": {
+    "status": {
+      "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/network/bandix",
+      "title": "ImmortalWrt | 状态",
+      "text": "ImmortalWrt 仪表盘 状态 概览 路由 防火墙 系统日志 进程 实时信息 系统 系统 管理权 软件包 启动项 计划任务 挂载点 Quartz 主题 备份与更新 重启 服务 OpenClash 网络 接口 路由 DHCP DNS 网络诊断 防火墙 Bandix 退出 刷新 未设置密码！ 尚未设置密码。请设置管理员密码以保护此设备。 转到密码配置… 状态 连接 DNS 设置 Bandix 流量监控 0.12.12-r1 0.12.11-r1 ⚠ 限速功能仅对 WAN 流量生效。某些 LAN 内部流量可能因硬件交换加速未被监控。 在线设备: 2 / 2 LAN 流量? ↑ 26.77 KB/s (4.33 MB) ↓ 26.77 KB/s (4.33 MB) WAN 流量 ↑ 0 B/s (0 B) ↓ 0 B/s (0 B) 全部 ↑ 26.77 KB/s (4.33 MB) ↓ 26.77 KB/s (4.33 MB) 实时流量趋势 上传速率 下载速率 选择设备 所有设备 192.168.1.1 (192.168.1.1) [52:54:00:12:34:56] 192.168.1.2 (192.168.1.2) [52:55:c0:a8:01:02] 类型 全部 LAN 流量 WAN 流量 最近10分钟 设备列表 周期 全部 今天 本周 本月 本年 显示模式 简易模式 详",
+      "tables": 1,
+      "rows": 3
+    },
+    "connection": {
+      "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/network/bandix/connection",
+      "title": "ImmortalWrt | 连接",
+      "text": "ImmortalWrt 仪表盘 状态 概览 路由 防火墙 系统日志 进程 实时信息 系统 系统 管理权 软件包 启动项 计划任务 挂载点 Quartz 主题 备份与更新 重启 服务 OpenClash 网络 接口 路由 DHCP DNS 网络诊断 防火墙 Bandix 退出 未设置密码！ 尚未设置密码。请设置管理员密码以保护此设备。 转到密码配置… 状态 连接 DNS 设置 Bandix 连接监控 ⚠ 连接监控未启用 请在设置中启用连接监控功能 前往设置 保存并应用 ▾ 保存 重置 Powered by LuCI openwrt-25.12 branch (26.249.28459~d6167ea) / ImmortalWrt 25.12-SNAPSHOT (r0+38247-ce35a9e4ef)",
+      "tables": 0,
+      "rows": 0
+    },
+    "dns": {
+      "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/network/bandix/dns",
+      "title": "ImmortalWrt | DNS",
+      "text": "ImmortalWrt 仪表盘 状态 概览 路由 防火墙 系统日志 进程 实时信息 系统 系统 管理权 软件包 启动项 计划任务 挂载点 Quartz 主题 备份与更新 重启 服务 OpenClash 网络 接口 路由 DHCP DNS 网络诊断 防火墙 Bandix 退出 未设置密码！ 尚未设置密码。请设置管理员密码以保护此设备。 转到密码配置… 状态 连接 DNS 设置 Bandix DNS 监控 ⚠ DNS监控未启用 请在设置中启用DNS监控功能 前往设置 保存并应用 ▾ 保存 重置 Powered by LuCI openwrt-25.12 branch (26.249.28459~d6167ea) / ImmortalWrt 25.12-SNAPSHOT (r0+38247-ce35a9e4ef)",
+      "tables": 0,
+      "rows": 0
+    },
+    "settings": {
+      "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/network/bandix/settings",
+      "title": "ImmortalWrt | 设置",
+      "text": "ImmortalWrt 仪表盘 状态 概览 路由 防火墙 系统日志 进程 实时信息 系统 系统 管理权 软件包 启动项 计划任务 挂载点 Quartz 主题 备份与更新 重启 服务 OpenClash 网络 接口 路由 DHCP DNS 网络诊断 防火墙 Bandix 退出 未设置密码！ 尚未设置密码。请设置管理员密码以保护此设备。 转到密码配置… 状态 连接 DNS 设置 基本设置 配置 Bandix 服务的基本参数 端口 Bandix 服务监听的端口 监控网卡 br-lan 网桥: \"br-lan\" (lan) ▾ 选择要监控的LAN网络接口 日志级别 Trace Debug Info Warn Error 设置 Bandix 服务的日志级别 数据目录 如果更改了目录，请手动添加到备份目录 TC 后端 auto tcx netlink 选择 TC 挂载后端。建议默认使用 auto；在内核 >= 6.6 时优先使用 tcx；旧内核使用 netlink 更稳妥。 版本 luci-app-bandix: 0.12.12-r1 / bandix: 0.12.11-r1 检查更新 检查更新 删除流量数据 删除流量数据 重启服务 重启 Bandix 服务 意见反馈 意见反馈 流量监控设置 配置流量监控相关参数 启用流量监控 启用 Bandix 流量监控服务 网速单位 字节单位 (B/s, ",
+      "tables": 0,
+      "rows": 0
+    }
+  },
+  "console_errors": [
+    "error: Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "bad_responses": [
+    "403 http://127.0.0.1:8080/cgi-bin/luci/",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg"
+  ]
+}

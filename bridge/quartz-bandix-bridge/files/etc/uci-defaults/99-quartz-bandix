@@ -1,0 +1,22 @@
+#!/bin/sh
+# QuartzWrt 出厂默认：开启 bandix 流量监控（WP-8，bridge 包投放）
+#
+# 背景：bandix 三模块（traffic/connections/dns）uci 默认全 0，且 init 在三者全关时
+#       直接 return 1 不启动 —— 出厂状态服务根本不跑。本脚本只补这一个缺口。
+#
+# 只生效一次：标记位放在 uci 内（bandix.general.quartz_defaults），因为
+#   /etc/config/bandix 是 conffile、随 sysupgrade 保留 —— 否则固件升级后
+#   uci-defaults 回放会把用户手动关掉的开关又打开。
+#
+# 幂等：重复执行（升级重放）时标记位已在 → 直接退出，不动用户配置。
+
+[ "$(uci -q get bandix.general.quartz_defaults)" = "1" ] && exit 0
+
+uci set bandix.traffic.enabled='1'
+uci set bandix.general.quartz_defaults='1'
+uci commit bandix
+
+# init 符号链接由 base-files 的 default_postinst 自动建立；此处显式 enable 仅作幂等加固。
+/etc/init.d/bandix enable
+
+exit 0

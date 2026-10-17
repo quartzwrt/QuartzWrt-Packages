@@ -160,7 +160,9 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-table .dim { color: var(--qz-text-2); }
 
 /* ---- 服务卡 ---- */
-.qzd-svc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+/* 注：预览页样式**无层**（unlayered），按级联规则会盖过产物 app.css 的 @layer components
+   同名规则——改产物样式时需同步本页，否则预览与固件内不一致（WP-8 加 Bandix 行时踩到）。 */
+.qzd-svc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 26px; }
 @media (max-width: 699px) { .qzd-svc { grid-template-columns: 1fr; } }
 .qzd-svc .name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-bottom: 5px; }
 

@@ -124,9 +124,10 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-w-ago  { width: 20%; }
 
 /* ---- 服务卡 ---- */
-.qzd-svc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.qzd-svc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 26px; }
 .qzd-svc-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-bottom: 5px; }
 .qzd-svc-extra { margin-top: 6px; }
+.qzd-svc-link { margin-left: 8px; font-size: 12.5px; font-weight: 400; font-family: var(--qz-font-sans, inherit); }
 
 /* ---- 空态 / 骨架（静态无动画） ---- */
 .qzd-empty { padding: 14px 0 8px; color: var(--qz-text-3); font-size: 13px; }

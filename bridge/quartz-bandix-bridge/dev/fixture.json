@@ -1,0 +1,220 @@
+{
+  "list": {
+    "getStatus": {},
+    "getMetrics": {},
+    "getMetricsDay": {},
+    "getMetricsWeek": {},
+    "getMetricsMonth": {},
+    "getConnection": {},
+    "getConnectionFlows": {},
+    "setHostname": {},
+    "deleteDevice": {},
+    "getDnsQueries": {},
+    "getDnsStats": {},
+    "getScheduleLimits": {},
+    "setScheduleLimit": {},
+    "updateScheduleLimit": {},
+    "deleteScheduleLimit": {},
+    "clearData": {},
+    "restartService": {},
+    "getVersion": {},
+    "getSystemArch": {},
+    "checkUpdate": {},
+    "installUpdate": {},
+    "getTrafficUsageRanking": {},
+    "getTrafficUsageIncrements": {},
+    "getRateLimitWhitelist": {},
+    "setRateLimitWhitelistEnabled": {},
+    "addRateLimitWhitelist": {},
+    "deleteRateLimitWhitelist": {},
+    "setDefaultRateLimit": {},
+    "getTrafficQuotas": {},
+    "setTrafficQuota": {},
+    "deleteTrafficQuota": {}
+  },
+  "getStatus": {
+    "d": [
+      {
+        "mac": "aa:bb:cc:dd:ee:ff",
+        "ip4": "192.168.1.10",
+        "ip6": [],
+        "host": "laptop",
+        "conn": "wifi",
+        "uplink": "phy0-ap0",
+        "w_ch": 36,
+        "last": 1760000000000,
+        "t_rx_b": 1234,
+        "t_tx_b": 567,
+        "t_rx_r": 100,
+        "t_tx_r": 50,
+        "w_rx_b": 1000,
+        "w_tx_b": 500,
+        "w_rx_r": 90,
+        "w_tx_r": 40,
+        "w_rx_l": 0,
+        "w_tx_l": 0,
+        "l_rx_b": 234,
+        "l_tx_b": 67,
+        "l_rx_r": 10,
+        "l_tx_r": 10
+      }
+    ]
+  },
+  "getMetrics": {
+    "retention_seconds": 600,
+    "mac": "aa:bb:cc:dd:ee:ff",
+    "metrics": []
+  },
+  "getTrafficUsageRanking": {
+    "start": 1759990000000,
+    "end": 1760000000000,
+    "net": "all",
+    "cnt": 1,
+    "t_b": 1801,
+    "t_rx_b": 1234,
+    "t_tx_b": 567,
+    "r": [
+      {
+        "mac": "aa:bb:cc:dd:ee:ff",
+        "ip4": "192.168.1.10",
+        "host": "laptop",
+        "r": 1,
+        "pct": 100.0,
+        "t_b": 1801,
+        "rx_b": 1234,
+        "tx_b": 567
+      }
+    ]
+  },
+  "getTrafficUsageIncrements": {
+    "start": 1759990000000,
+    "end": 1760000000000,
+    "agg": "1h",
+    "net": "all",
+    "mac": "all",
+    "inc": [],
+    "t_rx_b": 1234,
+    "t_tx_b": 567,
+    "t_b": 1801
+  },
+  "getConnection": {
+    "status": "success",
+    "data": {
+      "cnt": 1,
+      "last": 1760000000000,
+      "g": {
+        "total": 12,
+        "tcp": 10,
+        "udp": 2,
+        "tcp_est": 5,
+        "tcp_tw": 3,
+        "tcp_cw": 1,
+        "last": 1760000000000
+      },
+      "d": [
+        {
+          "mac": "aa:bb:cc:dd:ee:ff",
+          "ip4": "192.168.1.10",
+          "host": "laptop",
+          "total": 12,
+          "tcp": 10,
+          "udp": 2,
+          "tcp_est": 5,
+          "tcp_tw": 3,
+          "tcp_cw": 1,
+          "last": 1760000000000
+        }
+      ]
+    }
+  },
+  "getDnsQueries": {
+    "status": "success",
+    "data": {
+      "cnt": 0,
+      "queries": []
+    }
+  },
+  "getDnsStats": {
+    "status": "success",
+    "data": {
+      "total_queries": 100,
+      "top_query_types": []
+    }
+  },
+  "getScheduleLimits": {
+    "status": "success",
+    "data": [
+      {
+        "id": "abc123",
+        "mac": "aa:bb:cc:dd:ee:ff",
+        "time_slot": {
+          "start": "08:00",
+          "end": "12:00",
+          "days": [
+            1,
+            2,
+            3
+          ]
+        },
+        "wan_rx_rate_limit": 1024,
+        "wan_tx_rate_limit": 512
+      }
+    ]
+  },
+  "getRateLimitWhitelist": {
+    "status": "success",
+    "data": {
+      "enabled": true,
+      "default_wan_rx_rate_limit": 0,
+      "default_wan_tx_rate_limit": 0,
+      "macs": []
+    }
+  },
+  "getTrafficQuotas": {
+    "status": "success",
+    "data": {
+      "quotas": []
+    }
+  },
+  "getVersion": {
+    "luci_app_version": "0.12.12",
+    "bandix_version": "0.12.11"
+  },
+  "setDefaultRateLimit": {
+    "status": "success",
+    "data": null
+  },
+  "setScheduleLimit": {
+    "status": "success"
+  },
+  "updateScheduleLimit": {
+    "status": "success"
+  },
+  "deleteScheduleLimit": {
+    "status": "success"
+  },
+  "addRateLimitWhitelist": {
+    "status": "success"
+  },
+  "deleteRateLimitWhitelist": {
+    "status": "success"
+  },
+  "setRateLimitWhitelistEnabled": {
+    "status": "success"
+  },
+  "setTrafficQuota": {
+    "status": "success",
+    "data": null
+  },
+  "deleteTrafficQuota": {
+    "status": "success"
+  },
+  "setHostname": {
+    "success": true,
+    "message": "Hostname binding set successfully"
+  },
+  "getConnectionFlows": {
+    "success": false,
+    "error": "Connection monitoring is not enabled"
+  }
+}

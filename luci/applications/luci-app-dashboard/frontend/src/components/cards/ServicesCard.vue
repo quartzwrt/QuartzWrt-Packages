@@ -1,5 +1,6 @@
 <script setup>
-/* 服务与核心卡：关键服务状态 + OpenClash 核心版本 + daemon 自诊断（契约 §3.6 + §2） */
+/* 服务与核心卡：关键服务状态 + OpenClash 核心版本 + Bandix 流量监控 + daemon 自诊断
+ * （契约 §3.6 + §2；Bandix 行 = WP-8 bridge 链路在展示层的体现，DESIGN §6.3-3） */
 import { computed } from 'vue';
 import { Dot, Badge, EmptyState } from '../primitives.js';
 
@@ -8,6 +9,13 @@ const t = (s) => (props.host.t ? props.host.t(s) : s);
 const svc = computed(() => props.payload.services);
 const meta = computed(() => props.payload);
 const hasAny = computed(() => !!svc.value || (meta.value && meta.value.interval != null));
+
+/* Bandix 详情页深链：存在性判定（装 luci-app-bandix 才有该菜单，DESIGN §6.3-1 不死链） */
+const bandixHref = computed(() => {
+	if (!props.host.hasPage || !props.host.hasPage('admin/network/bandix'))
+		return null;
+	return props.host.url ? props.host.url('admin/network/bandix') : null;
+});
 </script>
 
 <template>
@@ -33,6 +41,17 @@ const hasAny = computed(() => !!svc.value || (meta.value && meta.value.interval 
 			</div>
 			<div class="qzd-stat-v qz-mono">
 				{{ svc && svc.dockerd ? (svc.dockerd.running ? t('running') : t('stopped')) : t('Not installed') }}
+			</div>
+		</div>
+
+		<!-- Bandix 流量监控（WP-8 bridge 链路：探针 services.bandix 由 WP-7 投放） -->
+		<div>
+			<div class="qzd-svc-name">
+				<Dot :state="svc && svc.bandix ? (svc.bandix.running ? 'ok' : 'err') : ''" />Bandix
+			</div>
+			<div class="qzd-stat-v qz-mono">
+				{{ svc && svc.bandix ? (svc.bandix.core || t('running')) : t('Not installed') }}
+				<a v-if="bandixHref" class="qzd-svc-link" :href="bandixHref">{{ t('Details') }} <span class="qzd-arrow">&rarr;</span></a>
 			</div>
 		</div>
 

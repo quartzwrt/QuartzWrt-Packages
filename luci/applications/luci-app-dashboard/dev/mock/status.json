@@ -249,6 +249,10 @@
     },
     "dockerd": {
       "running": true
+    },
+    "bandix": {
+      "running": true,
+      "core": "0.12.11"
     }
   },
   "errors": []
