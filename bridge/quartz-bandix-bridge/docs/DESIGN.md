@@ -96,6 +96,11 @@
 - **flow offloading 干扰**：上游 README 要求关硬件卸载；基座默认 `flow_offloading=1`（软件）+ `fullcone=1`，对 TC/eBPF 统计的实际影响 → VM A/B 实测（沿用 WP-7 D4 结论项）；
 - 常驻开销：traffic 默认**内存态**（`traffic_enable_storage=0`，无磁盘增长）；`data_dir=/usr/share/bandix` 已随 `keep.d` 保留（sysupgrade 安全）；实测占用见 §9。
 
+**真机结论（2026-10-17，FNet3399/RK3399，6.12.112，10-16 构建；工具 `dev/rk3399-device-check.sh`，证据 `dev/accept-rk3399-20261017-194225.log`）**：
+- **eBPF 在 RK3399 内核可用**：`/sys/kernel/btf/vmlinux` **缺失**（无 BTF）但 eBPF 程序照常加载并经真流量计数（设备表 3 台、计数器随流量变动）——bandix 用**预编译 BPF 而非 CO-RE**，BTF 不是前置条件（TDD §6「BTF 支持」顾虑据此解除）；
+- **软件 flow offloading 不遮蔽统计（A/B 实测）**：受控 LAN 客户端（quartzboat 18:c0:4d:af:a2:23）下载 10 MB——`flow_offloading=1`（现状）设备表 `w_rx_b` += 9,549,585 B（≈91%）；`=0` += 9,761,430 B（≈93%）；两轮均在 2% 内吻合（差额为计数器读时抖动），**无需为用户关闭软件卸载**；**硬件卸载 `flow_offloading_hw` 未设（关闭）**——上游 README 的"关硬件卸载"要求在本部署默认满足；
+- **开销（RK3399，traffic-only）**：RSS 4.6 MB、CPU 0.1%（单核 30s 均值）——与 x86_64 同量级，D2「只开 traffic」的代价成立。
+
 ---
 
 ## 2. 架构与选型
@@ -336,8 +341,8 @@ uci commit bandix
 3. **一致性实测（本设计的关键验收）**：同一时刻 `quartz.bandix status` 的设备速率/字节与 LuCI bandix 状态页显示**相等**（抽样 ≥3 台）；反向：`limit.default.set` 生效后网页「限速」区同步显示；
 4. **安全负例**：非法入参全拒（MAC 注入/超范围/未知枚举/超长分页）；`installUpdate`、`clearData` 不在契约（`list` 可见性核对）；LuCI 会话调用 `quartz.bandix` 被拒（只有 root 侧可调）；
 5. **默认开启幂等**：二次启动不重复写 uci；手动关 traffic 后重启**不被重新打开**；模拟 sysupgrade（保留 `/etc/config/bandix`）后标记位生效、用户选择保持；
-6. **eBPF/BTF + flow offloading 交互**（与 WP-7 D4 合并）：x86_64 与 aarch64（FNet3399，如设备就绪）双目标；`flow_offloading` 开/关的统计差异记录成表（结论写回本文档 §1.7）；
-7. **开销记录**：VM 内 bandix 常驻内存/CPU（traffic-only 与 traffic+connections+dns 两档）记入设计文档，作为 D2 的复核依据。
+6. **eBPF/BTF + flow offloading 交互**（与 WP-7 D4 合并）：x86_64 与 aarch64 双目标；`flow_offloading` 开/关的统计差异记录成表（结论写回 §1.7）。**✅ 2026-10-17 双目标完成**：x86_64 见 WP-7 D4；aarch64/FNet3399 真机 A/B 见 §1.7（差 <2%，无需关软件卸载；硬件卸载默认关）；
+7. **开销记录**：bandix 常驻内存/CPU（traffic-only 与 traffic+connections+dns 两档）记入设计文档，作为 D2 的复核依据。**✅ 2026-10-17**：FNet3399 真机 traffic-only = RSS 4.6 MB / CPU 0.1%（30s 均值）；x86_64 VM 两档见 `utils/quartz-daemon/dev/accept-bandix-p2-*.metrics`。
 
 ---
 
@@ -376,12 +381,14 @@ uci commit bandix
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | `Packages/meta/quartz-defaults/Makefile` | 共享（追加式） | 追加 `+quartz-bandix-bridge` 一行 | ✅ 已落地（本地，待推送） |
 | 2 | `Packages/luci/applications/luci-app-dashboard/`（`ServicesCard.vue` + `app.css` + po + mock + 重建产物） | WP-3 | P1 Bandix 行（状态点 + 版本 + 存在性判定的详情深链）；服务网格 3→4 列（1120px 断点 2 列） | ✅ 已落地（本地，待推送） |
-| 3 | `Packages/utils/quartz-daemon/`（新节采集器 `bandix`） | WP-4 | **P2**：经 `quartz.bandix` 取数，慢刷 10s（§6.2） | ⬜ 待（另轮） |
-| 4 | `Packages/utils/quartz-app-api/` | WP-5 | 允许集加 `bandix`（`service.{start,stop,restart}`）；**L2/P2**：打开"ubus 转发项"机制 | ⬜ 待（WP-5 侧） |
+| 3 | `Packages/utils/quartz-daemon/`（新节 `bandix`） | WP-4 | **P2 已落地（2026-10-17）**：经 `quartz.bandix` 取数慢刷 10s；字段与网页同源（online/wan/top≤8/conn/dns）；契约 §3.7 + 单测 6 例 + VM 验收组（`dev/vm-accept-bandix-p2.sh`） | ✅ 已落地并推送 |
+| 4 | `Packages/utils/quartz-app-api/` | WP-5 | **已落地（2026-10-17）**：允许集加 `bandix`；「ubus 转发项」机制（DESIGN §5.1；bandix 写面 5 条目 + 唯一读条目 `bandix.limits`；无任意透传、logd 审计）；单测 10 例 + VM 验收 6b 组 | ✅ 已落地并推送 |
 | 5 | `Builder/scripts/check-manifest.sh` | WP-1 / WP-12 | **无需改动**——Gate B ② 现读 quartz-defaults DEPENDS 派生断言（§5.1 更正） | — |
 | 6 | `Builder/config/seed-generic.config` | WP-12 | **无需改**（通用目标不预装，如实说明 §5.1） | — |
 | 7 | `ThirdParty/net/luci-app-bandix`（fork） | WP-7 | v1 零改动（不可变上游）；后续适配走 fork `quartz` 分支 | — |
 | 8 | WORKPLAN §2（WP-8 状态）/ §4（本设计稿与跨 WP 行） | 本对话 | 设计稿落地时同步，实现/验收后补记 | ✅ 已回写（验收后补记） |
+| 9 | `QuartzWrt-App`（`features/registry.dart` + `features/bandix/*`） | WP-6 | **L2 已落地（2026-10-17）**：ServiceRowSpec 首个条目（列表富化行 + 详情「流量与限速」卡 + 默认限速/白名单/主机名三对话框）；**L3 已落地**：流量明细页 `/apps/bandix`（摘要 + Top≤8 + 动作入口）；App v0.4.0，测试 77 项 | ✅ 已落地并推送 |
+| 10 | `Builder/devices/erya_fnet-3399/`（仅交叉引用） | WP-11 | 真机核验证据引用（本包 dev/rk3399-device-check.sh + accept-rk3399-*.log）；**待办**：刷入 10-17+ 镜像后复验 bridge+P2 链路的真机路径 | 📎 引用登记 |
 
 ---
 
@@ -423,6 +430,8 @@ bridge/quartz-bandix-bridge/
 
 另记一条**观测特性**（非缺陷）：`hostname_set` 的生效在设备表上有**数秒到十几秒延迟**（绑定文件即时写入，设备表按自身刷新周期更新）——App 侧做"设置后回读"需容忍该延迟（验收脚本用 20s 轮询窗口）。
 
+**真机核验（FNet3399/RK3399，2026-10-17，P2 收尾轮）**：`dev/rk3399-device-check.sh`——①eBPF 真数据（无 BTF 亦可）；②flow offloading A/B（受控 LAN 客户端 10 MB 下载，两轮计数 ≥91%，差 <2%；测后恢复原值）；③开销 RSS 4.6 MB / CPU 0.1%。结果并入 §1.7 与 §9-6/9-7。**边界如实记录**：真机当时为 10-16 构建（**不含 bridge 包**），本包与 daemon `bandix` 节的真机联调待用户刷入 10-17+ 镜像后复验（VM 侧已全验）。
+
 **验收命令与证据**：
 
 ```sh
@@ -444,3 +453,4 @@ python3 dev/vm-shot.py --tag wp8       # bandix 四页视觉证据
 *v0.1 2026-10-17 —— 首稿（讨论稿）。事实核实基于本地锁定产物（core 0.12.11 / luci 0.12.12 镜像 + 锁定基座 rpcd 源码）；宿主无法复现 core 运行时（非 root 无 CAP_BPF），字段与枚举的最终形状列 VM 验收定稿；D1–D6 待用户拍板。*
 *v1.0.1 2026-10-17 —— **VM 验收 41/41**：修掉 3 个真缺陷（同步委托死锁→异步 defer；数值入参类型提示→data 对象；写面 data:null 误判→错误标记判据），补视觉证据与构建期环境坑（PATH 空格 → find -execdir），§9/§12 同步。*
 *v1.0 2026-10-17 —— **定案并开工**（用户「按推荐来吧」，D1–D6 全按推荐）。W8.2–W8.5 落地：契约实现（读 10 + 写 10，方法名下划线化）、uci-defaults 默认开启、quartz-defaults 追加、Dashboard P1 行与产物重建、宿主单测 64/64（含两个真实缺陷修复，见 §12）；§5.1 更正"需增 manifest 断言"的误判（Gate B ② 派生覆盖）；§9 增本地验证结论。*
+*v1.0.2 2026-10-17 —— **P2 收尾轮（用户「把没做的做了吧」）**：①真机核验（FNet3399/RK3399）——eBPF 无 BTF 亦可加载、软件 flow offloading 不遮蔽统计（A/B 差 <2%）、开销 4.6 MB/0.1%（§1.7/§9-6/9-7 定稿，工具与证据 `dev/rk3399-device-check.sh` + `dev/accept-rk3399-*.log`）；②跨 WP 收口登记见 §11（WP-4 daemon 节 / WP-3 卡 / WP-5 转发项与允许集 / WP-6 App L2+L3 全部落地）。*

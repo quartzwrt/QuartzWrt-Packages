@@ -1,0 +1,19 @@
+== bandix × FNet3399 真机核验（2026-10-17 19:42:26；host=192.168.1.1 client=18:c0:4d:af:a2:23 bytes=10485760） ==
+== ① 内核 / BTF / eBPF / 真数据 ==
+  kernel: 6.12.112
+  /sys/kernel/btf/vmlinux: absent（缺失不必然阻塞——bandix 预编译 BPF 非 CO-RE，以真数据为准）
+  bandix: bandix 0.12.11；服务: running
+  uci: traffic=1 connections=0 dns=0 iface=br-lan
+PASS  核心 HTTP API 可用且设备表非空（devices=3 → eBPF 加载并经真流量计数）
+== ② flow offloading A/B（受控 LAN 客户端下载 10485760B） ==
+  当前：flow_offloading=1 flow_offloading_hw=<unset> fullcone=1；nft flowtable 条数=1
+  [offloading=1（现状）] 下载: 10.0 MB @ 1590 KB/s
+  [offloading=1（现状）] 设备表增量: w_rx_b=+9549585, w_tx_b=+85814, l_rx_b=+30461, l_tx_b=+29124（合计 9.2 MB）
+  [offloading=0] 下载: 10.0 MB @ 1566 KB/s
+  [offloading=0] 设备表增量: w_rx_b=+9761430, w_tx_b=+98333, l_rx_b=+18718, l_tx_b=+18861（合计 9.4 MB）
+PASS  A/B 完成并已恢复原值（flow_offloading=1）
+== ③ 常驻开销（traffic-only，30s 计时） ==
+  bandix(pid=26434): RSS=4612KB→4612KB  CPU=0.1%（单核占比，30s 均值）
+  指标另存: /home/nrxboat/quartzwrt/QuartzWrt-Packages/bridge/quartz-bandix-bridge/dev/accept-rk3399-20261017-194225.metrics
+
+== 汇总: PASS=2 FAIL=0（证据: /home/nrxboat/quartzwrt/QuartzWrt-Packages/bridge/quartz-bandix-bridge/dev/accept-rk3399-20261017-194225.log） ==
