@@ -336,7 +336,7 @@ uci commit bandix
 
 **VM 验收（x86_64，2026-10-17，`dev/vm-accept.sh` → **41/41 PASS**）**：
 
-1. **构建**：单包编译通过；全量构建镜像内 `quartz-bandix-bridge` 在列（manifest 断言）；`ubus -v list` 见 `quartz.bandix`（10 读 + 8 写）；
+1. **构建**：单包编译通过；全量构建镜像内 `quartz-bandix-bridge` 在列（manifest 断言）；`ubus -v list` 见 `quartz.bandix`（10 读 + 10 写）；
 2. **默认开启 + 真数据（x86_64 VM）**：全新镜像首启 → `uci get bandix.traffic.enabled`=1、`/etc/init.d/bandix` running、`127.0.0.1:8686` 在听、`ubus call quartz.bandix status` 返回 ≥1 设备真数据、快照 `services.bandix={running:true,core:"0.12.11"}`；
 3. **一致性实测（本设计的关键验收）**：同一时刻 `quartz.bandix status` 的设备速率/字节与 LuCI bandix 状态页显示**相等**（抽样 ≥3 台）；反向：`limit.default.set` 生效后网页「限速」区同步显示；
 4. **安全负例**：非法入参全拒（MAC 注入/超范围/未知枚举/超长分页）；`installUpdate`、`clearData` 不在契约（`list` 可见性核对）；LuCI 会话调用 `quartz.bandix` 被拒（只有 root 侧可调）；
@@ -371,7 +371,7 @@ uci commit bandix
 3. **sysupgrade 后 uci-defaults 回放覆盖用户选择** → 标记位放 conffile 内（§5.2），验收 §9-5 覆盖；
 4. **eBPF/BTF/flow offloading 在目标内核的实际表现** → §9-6 验收项（RK3399 6.12 内核与 x86_64 双目标）；
 5. **常驻开销**（默认开启的代价）→ §9-7 实测记录；D2 可据此收窄；
-6. **单人维护成本** → 契约刻意做小（读 10 + 写 8）、实现集中在单文件、不追平上游 32 方法（§3.1）。
+6. **单人维护成本** → 契约刻意做小（读 10 + 写 10）、实现集中在单文件、不追平上游 32 方法（§3.1）。
 
 ---
 
