@@ -153,6 +153,8 @@ OUT=$(call "$SID0" quartz-app-api action "{\"access_token\":\"$TOK_E\",\"action\
 ck "docker 未装 → action_failed（依赖缺失如实报错）" $(printf '%s' "$OUT" | grep -q 'action_failed' && echo 0 || echo 1)
 
 echo "== 6b. bandix 写面转发项（WP-8 P2；DESIGN §5.1） =="
+# 前置：数据面必须在线（脚本自包含——先确保 bandix 运行）
+$VM_SSH 'pidof bandix >/dev/null || /etc/init.d/bandix start; sleep 2' >/dev/null 2>&1
 ACTION() { # ACTION <token> <action-id> <args-json>
 	call "$SID0" quartz-app-api action "{\"access_token\":\"$1\",\"action\":\"$2\",\"args\":$3}"
 }
@@ -204,7 +206,7 @@ ck "未声明参数键 → forbidden_action" $(printf '%s' "$OUT" | grep -q 'for
 OUT=$(ACTION "$TOK_E" service.restart '{"name":"bandix"}')
 ck "允许集：service.restart bandix → ok" $(printf '%s' "$OUT" | grep -q '"ok":true' && echo 0 || echo 1)
 sleep 3
-OUT=$($VM_SSH 'pgrep -x bandix >/dev/null && echo alive')
+OUT=$($VM_SSH 'pidof bandix >/dev/null && echo alive')
 ck "bandix 重启后存活" $(printf '%s' "$OUT" | grep -q alive && echo 0 || echo 1)
 
 if [ "$NO_REBOOT" -eq 0 ]; then

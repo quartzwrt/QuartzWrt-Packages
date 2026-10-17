@@ -156,7 +156,7 @@
   - `wan` = Σ `w_rx_r` / `w_tx_r`（设备侧 WAN 速率合计，与上游 "WAN Traffic" 卡同式）；
   - `top` = 按累计 `t_rx_b+t_tx_b` 降序 ≤8（契约上限），`pct` = 占全部设备累计流量比；
 - **可选摘要**：`connections` / `dns` 模块启用时（同一份 uci）各多一次 `quartz.bandix connections|dns_stats`；未启用不调用、调用失败字段省略（`null` 语义，不阻塞本节）；
-- **开销**：仅 traffic 时每慢刷周期 +1 次 ubus exec（+1 次 uci exec）；实测记录见 §8 验收 3。
+- **开销**：仅 traffic 时每慢刷周期 +1 次 ubus exec（+1 次 uci exec）。**VM 实测（x86_64，2026-10-17）**：traffic-only RSS 4.5MB / CPU 0.17%；traffic+connections+dns RSS 5.1MB / **CPU 3.27%**（connections 的 3s 全量 conntrack 读是 CPU 大头——D2「只开 traffic」由此获得数据支撑）；真机（RK3399）traffic-only 4.6MB / 0.1%。
 
 ### 3.8 `errors`
 

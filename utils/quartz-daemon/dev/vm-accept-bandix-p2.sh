@@ -151,8 +151,10 @@ fi
 
 echo "== B. Dashboard 流量明细卡（真数据渲染；经 W3 工具取证） =="
 if [ -f "$DASH_SHOT" ]; then
-	python3 "$DASH_SHOT" --tag p2 >/dev/null 2>&1
-	EVID="$PKGS_DIR/luci/applications/luci-app-dashboard/dev/shots/vm/run-p2.json"
+	# vm-shot.py 的 --out 默认是相对 CWD 的 shots/vm——显式给 dev/shots/vm（与既有证据同目录）
+	DASH_PKG="$(cd "$(dirname "$DASH_SHOT")/.." && pwd)"
+	(cd "$DASH_PKG" && python3 dev/vm-shot.py --tag p2 --out dev/shots/vm >/dev/null 2>&1)
+	EVID="$DASH_PKG/dev/shots/vm/run-p2.json"
 	python3 - "$EVID" << 'PYEOF'
 import json, sys
 try:
@@ -178,7 +180,8 @@ if [ "$NO_OVERHEAD" -eq 0 ]; then
 		[ -n "$pid" ] || { echo "  $label: bandix 未运行，跳过"; return 1; }
 		rss1=$(vm "awk '/VmRSS/{print \$2}' /proc/$pid/status")
 		ticks1=$(vm "awk '{print \$14+\$15}' /proc/$pid/stat")
-		hz=$(vm 'getconf CLK_TCK')
+		hz=$(vm 'getconf CLK_TCK 2>/dev/null || echo 100')
+		case "$hz" in ''|*[!0-9]*) hz=100 ;; esac
 		sleep 30
 		rss2=$(vm "awk '/VmRSS/{print \$2}' /proc/$pid/status")
 		ticks2=$(vm "awk '{print \$14+\$15}' /proc/$pid/stat")
