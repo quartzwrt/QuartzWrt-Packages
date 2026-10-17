@@ -1,0 +1,85 @@
+{
+  "tag": "p2locked",
+  "base": "http://127.0.0.1:8080",
+  "landing_url": "http://127.0.0.1:8080/cgi-bin/luci/",
+  "landing": {
+    "url": "http://127.0.0.1:8080/cgi-bin/luci/",
+    "title": "ImmortalWrt | Dashboard",
+    "cards": 5,
+    "hero": true,
+    "banner": null,
+    "emptyStates": 0,
+    "tableRows": 3,
+    "deepLinks": [
+      "/cgi-bin/luci/admin/status/realtime | Realtime traffic →",
+      "/cgi-bin/luci/admin/network/bandix | Bandix →",
+      "/cgi-bin/luci/admin/status/routes | View all →"
+    ],
+    "hostname": "ImmortalWrt",
+    "rates": [
+      "0.0 Mbps",
+      "0.0 Mbps",
+      "0.0 Mbps",
+      "0.0 Mbps"
+    ],
+    "cardsText": [
+      "System",
+      "NetworkRealtime traffic →",
+      "Services & cores",
+      "Traffic detailBandix →",
+      "ClientsView all →"
+    ],
+    "bandix": {
+      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Download 0.0 Mbps Upload 0.0 Mbps Device Download Upload Share 192.168.1.1 0 B 0 B 0.0% 192.168.1.2 0 B 0 B 0.0% Bandix per-device traffic (device-side totals; share of cumulative bytes)",
+      "rows": 2
+    },
+    "menuActive": "Dashboard",
+    "sidebarFirst": "Dashboard"
+  },
+  "dashboard": {
+    "url": "http://127.0.0.1:8080/cgi-bin/luci/admin/dashboard",
+    "title": "ImmortalWrt | Dashboard",
+    "cards": 5,
+    "hero": true,
+    "banner": null,
+    "emptyStates": 0,
+    "tableRows": 3,
+    "deepLinks": [
+      "/cgi-bin/luci/admin/status/realtime | Realtime traffic →",
+      "/cgi-bin/luci/admin/network/bandix | Bandix →",
+      "/cgi-bin/luci/admin/status/routes | View all →"
+    ],
+    "hostname": "ImmortalWrt",
+    "rates": [
+      "0.0 Mbps",
+      "0.0 Mbps",
+      "0.0 Mbps",
+      "0.0 Mbps"
+    ],
+    "cardsText": [
+      "System",
+      "NetworkRealtime traffic →",
+      "Services & cores",
+      "Traffic detailBandix →",
+      "ClientsView all →"
+    ],
+    "bandix": {
+      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Download 0.0 Mbps Upload 0.0 Mbps Device Download Upload Share 192.168.1.1 0 B 0 B 0.0% 192.168.1.2 0 B 0 B 0.0% Bandix per-device traffic (device-side totals; share of cumulative bytes)",
+      "rows": 2
+    },
+    "menuActive": "Dashboard",
+    "sidebarFirst": "Dashboard"
+  },
+  "console": [
+    "error: Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "http_4xx_5xx": [
+    "403 http://127.0.0.1:8080/cgi-bin/luci/",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg",
+    "404 http://127.0.0.1:8080/quartz-wallpaper/wallpaper.jpg"
+  ]
+}
