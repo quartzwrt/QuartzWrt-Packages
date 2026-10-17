@@ -37,9 +37,20 @@ App ──HTTPS 443──▶ uhttpd 'app' 实例 ──/ubus──▶ rpcd(ACL) 
 
 ### 动作（`action` 方法）
 
-`service.{start,stop,restart}`（白名单）/ `system.reboot` / `docker.container.*` /
+`service.{start,stop,restart}`（白名单，含 `bandix`）/ `system.reboot` / `docker.container.*` /
 **`packages.refresh`**（`apk update`）/ **`packages.upgrade`**（`{name?}`，空=全部）/
-**`packages.remove`**（`{name}`，危险动作，App 侧确认层）。
+**`packages.remove`**（`{name}`，危险动作，App 侧确认层）/
+**bandix 写面转发项**（DESIGN §5.1；**无任意透传**，条目逐条显式注册）：
+
+```
+bandix.limit_default_set  {wan_rx_rate_limit, wan_tx_rate_limit}   # Byte/s
+bandix.whitelist_add      {mac}          bandix.whitelist_delete  {mac}
+bandix.whitelist_enabled  {enabled}      # 0/1
+bandix.hostname_set       {mac, hostname}  # hostname 空串 = 清除绑定
+```
+
+bandix **读面**不经本 API 转发——App 读 `status` 快照的 `snapshot.bandix` 节
+（AGGREGATE-API §3.7，与 Dashboard 同字节）。
 
 ### 软件包读（`packages` 方法）
 

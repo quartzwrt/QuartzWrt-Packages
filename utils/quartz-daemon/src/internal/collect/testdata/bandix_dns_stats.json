@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "api": 1,
+  "data": {
+    "total_queries": 100,
+    "top_query_types": []
+  }
+}

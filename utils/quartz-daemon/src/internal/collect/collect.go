@@ -52,6 +52,7 @@ type slowCache struct {
 	clients     *snapshot.Clients
 	services    map[string]any
 	hasServices bool
+	bandix      *snapshot.Bandix
 	errs        map[string]string // 组件 → 当前错误（恢复即清除）
 	probeWarns  []string          // 非法探针描述文件告警
 }
@@ -78,6 +79,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	clients := c.slow.clients
 	services := c.slow.services
 	hasServices := c.slow.hasServices
+	bandix := c.slow.bandix
 	var errs []string
 	for _, e := range c.slow.errs {
 		errs = append(errs, e)
@@ -95,6 +97,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	s.Net = c.netFast(t0, proto)
 	s.Docker = docker
 	s.Clients = clients
+	s.Bandix = bandix
 	if hasServices {
 		s.Services = services
 	}
@@ -107,7 +110,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	return snapshot.Marshal(s)
 }
 
-// Slow 执行一轮慢采集：刷新 WAN 明细 / 服务 / Docker / 设备列表缓存。
+// Slow 执行一轮慢采集：刷新 WAN 明细 / 服务 / Docker / 设备列表 / bandix 缓存。
 func (c *Collector) Slow() {
 	wanIface := parseDefaultRoute(readFile("/proc/net/route"))
 
@@ -124,6 +127,7 @@ func (c *Collector) Slow() {
 
 	docker, dockerErr := collectDocker()
 	clients, clientsErr := collectClients(wanIface)
+	bandix, bandixErr := collectBandix(c.now())
 	proto := ubusWANProto(wanIface)
 
 	c.mu.Lock()
@@ -164,6 +168,13 @@ func (c *Collector) Slow() {
 	} else {
 		set("clients", "")
 		c.slow.clients = clients
+	}
+	if bandixErr != nil {
+		set("bandix", bandixErr.Error())
+		c.slow.bandix = nil
+	} else {
+		set("bandix", "")
+		c.slow.bandix = bandix
 	}
 
 	// 型号兜底：文件缺失且尚无缓存时低频尝试 ubus system.board

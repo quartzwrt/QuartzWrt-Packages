@@ -1,8 +1,9 @@
 # quartz-app-api 设计规范
 
-**版本**: v1.1 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1–v1.0.3 为实施与验收期修正/补记；
-**v1.1 = 软件包管理面扩展**，2026-10-13 用户确认登记、2026-10-14 实施并 VM 验收）
-**日期**: 2026-10-12（v1.1 增补 2026-10-14）
+**版本**: v1.2 —— **定案**（2026-10-12 用户拍板「按推荐案实施」；v1.0.1–v1.0.3 为实施与验收期修正/补记；
+**v1.1 = 软件包管理面扩展**，2026-10-13 用户确认登记、2026-10-14 实施并 VM 验收；
+**v1.2 = ubus 转发项机制 + bandix 服务面**，2026-10-17 实施——WP-8 bridge 衔接项〈D5〉落地）
+**日期**: 2026-10-12（v1.2 增补 2026-10-17）
 **状态**: 定案并实施（W5.1–W5.5 + W5.7 软件包扩展完成，跟踪见 WORKPLAN §2/§3）
 **依据**: TDD §3.4（认证与 API 隔离）/ §3.2（元包）/ §5（模式 A/B）/ §8（App 推送待决）；WORKPLAN §3 WP-5；
 WP-4 `quartz-daemon/docs/DESIGN.md` §12（App 承诺与 seam）/ §12.4（控制面归属与动作路径表）；
@@ -275,17 +276,36 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 
 | action | 参数 | 机制 | v1 |
 | :--- | :--- | :--- | :--- |
-| `service.start` / `service.stop` / `service.restart` | `{name}` | `/etc/init.d/<name> <op>`；默认允许集：`openclash` `dockerd` `dnsmasq` `quartz-daemon` `tailscale` `zerotier`（uci 可调）；`network`/`dropbear` 等自断链路项默认**不**入集 | ✅ |
+| `service.start` / `service.stop` / `service.restart` | `{name}` | `/etc/init.d/<name> <op>`；默认允许集：`openclash` `dockerd` `dnsmasq` `quartz-daemon` `tailscale` `zerotier` `bandix`（uci 可调）；`network`/`dropbear` 等自断链路项默认**不**入集 | ✅ |
 | `system.reboot` | — | `ubus call system reboot` | ✅ |
 | `docker.container.start/stop/restart` | `{id}` | `docker container <op> <id>`（字符集校验；docker 未装 → `action_failed: docker unavailable`） | ✅（存在即用） |
 | `packages.refresh` | — | `apk update`（拉取仓库索引；§4.5） | ✅ v1.1 |
 | `packages.upgrade` | `{name?}` | `apk upgrade [name]`（name 空 = 全部升级） | ✅ v1.1 |
 | `packages.remove` | `{name}` | `apk del <name>`（**危险动作**；确认层在 App 侧） | ✅ v1.1 |
+| `bandix.limit_default_set` | `{wan_rx_rate_limit,wan_tx_rate_limit}` | **ubus 转发项**（§5.1）→ `quartz.bandix limit_default_set`（Byte/s；数值收 `data` 对象） | ✅ 2026-10-17 |
+| `bandix.whitelist_add` / `bandix.whitelist_delete` | `{mac}` | …`quartz.bandix` 同名方法（纯字符串 → 扁平参数） | ✅ 2026-10-17 |
+| `bandix.whitelist_enabled` | `{enabled}` | …（0/1，`data` 对象） | ✅ 2026-10-17 |
+| `bandix.hostname_set` | `{mac,hostname}` | …（hostname 空串 = 清除绑定） | ✅ 2026-10-17 |
 | 核心/规则更新触发（TDD §4.4） | — | 归属 WP-7/WP-8 链路；**版本状态由 daemon `services` 报告**（已有），触发器后置 | ✗ 后置 |
-| bandix 限速 / DDNS 配置（模式 A/B） | — | 模式 A 直调 ubus / 模式 B 经 WP-8 Bridge；经本表「ubus 转发项」接入的机制 v1 预留、不实现 | ✗ 后置 |
+| DDNS 配置（模式 B） | — | 经同一「ubus 转发项」加行接入（机制已落地，本轮不加条目） | ⬜ 后置 |
 
 - **控制后可视化**：动作成功 → daemon 快照 ≤2s 反映新状态（WP-4 §12.4 承诺），App 无需专门回读。
 - **能力可见性同源**：App 依据 `status.snapshot.services`/`docker.available` 决定显示哪些控制入口（数据与动作判定共用一份事实）。
+
+### 5.1 「ubus 转发项」机制（v1.2 落地；WP-8 bridge 衔接项 D5）
+
+**定位**：把第三人插件 Bridge 契约（TDD §5 模式 B）的**写面动作**经 app-api 暴露给 App。**仍无任意透传**——与 §5 主线同一纪律：
+
+| 项 | 规则 |
+| :--- | :--- |
+| 条目 | **逐条显式注册**（`internal/ubusfwd` registry：id → 固定 object + method + 参数模式表）；未注册 id → `forbidden_action`，未声明参数键 → `forbidden_action`，缺必填/越界/字符集不符 → `bad_request` |
+| 参数形态（Wrap） | 条目声明：**含数值字段的方法参数收进 `data` 对象**（bridge 坑位 #61：rpcd ucode 策略要求声明且类型精确匹配，而 blobmsg 按数值宽度选 int32/int64 → 单一类型提示必拒一半调用；纯字符串方法保持扁平） |
+| 执行 | `ubus call <object> <method> <json>`（JSON 作为**单个 argv**，无 shell）；5s 超时；`ubus` 缺失/对象不在 → `data_unavailable`（"bridge unavailable"） |
+| 错误映射 | bridge 信封 `{ok,api,data\|error}`：`ok=false` 时 `bad_request`→`bad_request`、`data_unavailable`→`data_unavailable`（message 带上游原因）、其余→`action_failed`；成功 `data:null` **不算失败**（bridge 写面常态） |
+| 审计 | 每次转发落 logd 一行（`fwd action=… target=<obj>.<method> ok\|fail dur_ms=…`） |
+| 读面 | **不经本机制**——App 读 bandix 状态走 daemon 快照（AGGREGATE-API §3.7，与 Dashboard 同字节）；本机制只承载写动作 |
+| 扩展 | 新条目 = registry 一行 + 单测；新对象（如 ddns bridge）= 同样只加行（前缀路由由 `Handles` 判定），机制不变 |
+| 数值入参 | App 传 JSON number 亦可（dispatch 层整数值 → 十进制串，再交条目校验器）；小数丢弃 |
 
 ## 6. 传输与暴露面
 
@@ -453,3 +473,4 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v1.0.2 2026-10-12 —— 实施期安全修正（VM 验收暴露，坑位 #28）：**登录要求根口令已设置**——rpcd 对 `/etc/config/rpcd` 的 `$p$root` 语义是"查 shadow 的 root 口令"，而 shadow 口令**为空时校验函数直接放行（任意密码通过）**；未设口令的机器被 WP-5 显式拒绝（避免为"任意密码"签发长效凭据）；`info` 增 `password_set` 字段供 App 事前提示；§3.1/§4.1 同步。另：uci-defaults 的 uhttpd 实例创建修正为 `uci set uhttpd.app=uhttpd`（`uci add uhttpd app` 第二参数是类型，生成匿名节——坑位 #27）。*
 *v1.0.3 2026-10-13 —— **W5.1–W5.5 完成**：全部代码 + 打包落地并通过 **VM 集成验收 35/35 全绿**（QEMU 新镜像；六组：环境/ACL 边界/认证/旋转吊销登出/限速/数据面降级/控制面/reboot 持久化；证据 `dev/accept-run-20261013-1341.log`，可复跑 `dev/vm-accept.sh`，两次重跑一致）。验收期另修复 logout 信封不对称（auth 层统一返回裸载荷、reply 层统一包裹；回归测试 `main_test.go`）。剩余：推送 + feed 锁定 bump（跨 WP，待用户指令）、R4S 真机复测（与 WP-3 合并）。*
 *v1.1 2026-10-14 —— **软件包管理面扩展（W5.7）实施并 VM 验收**（WP-6 UI-DESIGN §5 登记项的 WP-5 侧落地）：读方法 `packages`（`scope=installed|upgradable|available|history`，分页；数据源=apk 体系与 LuCI 软件包页同源命令 `apk query --format json`）+ 动作 `packages.refresh/upgrade/remove`（通用 action 白名单前缀路由）+ 结构化操作记录 `/etc/quartz-app-api/history.json`（环形 30，成功/失败+apk 错误摘录，供 App「操作记录」页）；acl.d 追加 `packages`；`info.features` 增 `packages`。新增 §4.5 与超时预算（§4.4：读 20s / refresh 45s / upgrade·remove 50s——**uhttpd /ubus 单次调用 60s 硬窗**源码核实）。**VM 验收 26/26 PASS**（`dev/vm-accept-packages.sh`，证据 `dev/accept-packages-run-*.log`），测试源 `dev/testrepo/`（serve.py 同 URL 可切换 stage 模拟上游发新版；VM 实测教训：`apk add 文件/等值` 写 world 钉死条目会抑制升级）。安装浏览（可用源搜索安装）v1 后置（不改本包方法面）。*
+*v1.2 2026-10-17 —— **ubus 转发项机制落地（§5.1）+ bandix 服务面**（WP-8 衔接项 D5，用户「把没做的做了吧」）：①默认允许集加 `bandix`（`service.start/stop/restart`；一行 + 回归测试）；②新增 `internal/ubusfwd` 转发项机制——**无任意透传**：条目逐条显式注册（object+method+参数模式表），参数结构+字符集/数值域校验、JSON 单 argv 执行 `ubus call`、bridge 信封错误码映射（`data:null` 不算失败）、logd 审计；首批 5 条目 = bandix 写面（limit_default_set / whitelist_add / whitelist_delete / whitelist_enabled / hostname_set）；③`action` 方法参数接受 JSON number/bool（整数值转十进制串）；④`info.features` 增 `bandix`。读面不经本机制（App 读走 daemon 快照 §3.7）。单测 9 例（路由/校验/包装/错误映射/审计）。PKG_RELEASE 2。*

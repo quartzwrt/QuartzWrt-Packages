@@ -21,6 +21,8 @@ const (
 	MaxSeries = 60
 	// MaxUnhealthy docker.unhealthy 上限。
 	MaxUnhealthy = 8
+	// MaxBandixTop bandix.top 上限（契约 §3.7）。
+	MaxBandixTop = 8
 )
 
 // Snapshot 是快照顶层结构（契约 §2）。
@@ -35,6 +37,7 @@ type Snapshot struct {
 	Docker    *Docker        `json:"docker"`
 	Clients   *Clients       `json:"clients"`
 	Services  map[string]any `json:"services"`
+	Bandix    *Bandix        `json:"bandix,omitempty"`
 	Errors    []string       `json:"errors"`
 }
 
@@ -119,6 +122,47 @@ func SortClients(items []Client) {
 		}
 		return items[i].MAC < items[j].MAC
 	})
+}
+
+// Bandix 流量监控节（契约 §3.7；WP-8 bridge 链路慢刷 10s，经 ubus 契约
+// `quartz.bandix` 取数）。available=false = 未装/未开 traffic 模块 → 卡片隐藏；
+// 整节缺失（null）= 上游暂不可用（errors 记一条）。
+type Bandix struct {
+	Available bool        `json:"available"`
+	Devices   int         `json:"devices,omitempty"`
+	Online    int         `json:"online,omitempty"`
+	WAN       *BandixWAN  `json:"wan,omitempty"`
+	Top       []BandixTop `json:"top,omitempty"`
+	Conn      *BandixConn `json:"conn,omitempty"`
+	DNS       *BandixDNS  `json:"dns,omitempty"`
+}
+
+// BandixWAN 设备侧 WAN 速率合计（Byte/s；= Σ w_rx_r / w_tx_r，与网页同式）。
+type BandixWAN struct {
+	RxBps int64 `json:"rx_bps"`
+	TxBps int64 `json:"tx_bps"`
+}
+
+// BandixTop 流量 Top 设备（按累计 t_rx_b+t_tx_b 降序，pct = 占全部设备累计流量比）。
+type BandixTop struct {
+	MAC  string  `json:"mac"`
+	Host string  `json:"host"`
+	IP   string  `json:"ip"`
+	RxB  int64   `json:"rx_b"`
+	TxB  int64   `json:"tx_b"`
+	Pct  float64 `json:"pct"`
+}
+
+// BandixConn 连接摘要（契约 §3.7；connections 模块未启用/不可用时省略）。
+type BandixConn struct {
+	Total int `json:"total"`
+	TCP   int `json:"tcp"`
+	UDP   int `json:"udp"`
+}
+
+// BandixDNS DNS 摘要（契约 §3.7；dns 模块未启用/不可用时省略）。
+type BandixDNS struct {
+	Queries int64 `json:"queries"`
 }
 
 // Marshal 序列化并执行上限自守（契约 §6.3）。

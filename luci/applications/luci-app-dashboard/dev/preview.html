@@ -53,7 +53,8 @@
 	.qzd-sp-4, .qzd-sp-6, .qzd-sp-8, .qzd-sp-12 { grid-column: auto; }
 	/* 手机单列顺序 = 注册表 order（设备列表提到服务之前，人对"谁在上网"的关切更高） */
 	#clients  { order: 4; }
-	#services { order: 5; }
+	#bandix   { order: 5; }
+	#services { order: 6; }
 	/* 窄屏：设备表隐藏 MAC 与接口列（次要素不值列空间），防表格最小宽度撑破页面 */
 	.qzd-table th:nth-child(3), .qzd-table td:nth-child(3),
 	.qzd-table th:nth-child(4), .qzd-table td:nth-child(4) { display: none; }
@@ -124,6 +125,10 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-cap { font-size: 12px; color: var(--qz-text-3); margin-top: 8px; }
 .qzd-arrow { color: var(--qz-accent); }
 .qzd-errchip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--qz-warn); margin-top: 8px; }
+/* 行内汇总块（与产物 app.css 同名规则；预览页样式无层，见 §服务卡 注） */
+.qzd-summary { margin-left: auto; display: flex; gap: 26px; }
+.qzd-summary .k { font-size: 12px; color: var(--qz-text-2); margin-bottom: 3px; }
+.qzd-summary .v { font-family: var(--qz-font-mono); font-size: 14px; display: flex; align-items: center; gap: 7px; }
 
 /* ---- 网络卡 ---- */
 .qzd-wan { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
@@ -155,6 +160,10 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-table .w-mac  { width: 22%; }
 .qzd-table .w-if   { width: 14%; }
 .qzd-table .w-ago  { width: 20%; }
+/* 流量明细卡（bandix）：设备 / 下行 / 上行 / 占比 */
+.qzd-table .w-dev  { width: 40%; }
+.qzd-table .w-b    { width: 21%; }
+.qzd-table .w-p    { width: 18%; }
 .qzd-table tr:last-child td { border-bottom: 0; }
 .qzd-table .mono { font-family: var(--qz-font-mono); }
 .qzd-table .dim { color: var(--qz-text-2); }
@@ -407,6 +416,37 @@ function cardDocker(d) {
 		(un ? dot('warn') + ' ' + d.unhealthy.join('、') : '无') + '</span></div>';
 }
 
+function cardBandix(b) {
+	/* 契约 §3.7：available!==true（未装/未开 traffic/整节缺失）→ 整卡隐藏（与注册表谓词一致） */
+	if (!b || b.available !== true) return '';
+	var top = b.top || [];
+	if (!b.devices && !top.length && !(b.wan && (b.wan.rx_bps || b.wan.tx_bps)))
+		return emptyCard('流量明细', '暂无流量数据');
+	var connTxt = b.conn ? (b.conn.total + ' · TCP ' + b.conn.tcp + ' · UDP ' + b.conn.udp) : '<span class="qzd-muted">未启用</span>';
+	var dnsTxt = b.dns ? String(b.dns.queries) : '<span class="qzd-muted">未启用</span>';
+	var rows = top.map(function (it) {
+		return '<tr><td>' + (it.host || it.ip || it.mac) + '</td>' +
+			'<td class="mono">' + fmtBytes(it.rx_b) + '</td>' +
+			'<td class="mono">' + fmtBytes(it.tx_b) + '</td>' +
+			'<td class="mono dim">' + Number(it.pct).toFixed(1) + '%</td></tr>';
+	}).join('');
+	return '' +
+	'<div class="qzd-wan">' + dot('ok') + '<span>在线设备</span>' +
+		'<span class="qz-mono">' + (b.online || 0) + ' / ' + (b.devices || 0) + '</span>' +
+		'<div class="qzd-summary">' +
+			'<div><div class="k">连接</div><div class="v">' + connTxt + '</div></div>' +
+			'<div><div class="k">DNS 查询</div><div class="v">' + dnsTxt + '</div></div>' +
+		'</div></div>' +
+	'<div class="qzd-rate">' +
+		'<div><div class="k">下行</div><div class="v down">' + fmtRate((b.wan && b.wan.rx_bps) || 0) + '</div></div>' +
+		'<div><div class="k">上行</div><div class="v">' + fmtRate((b.wan && b.wan.tx_bps) || 0) + '</div></div>' +
+	'</div>' +
+	(top.length
+		? '<table class="qzd-table"><thead><tr><th class="w-dev">设备</th><th class="w-b">下行</th><th class="w-b">上行</th><th class="w-p">占比</th></tr></thead><tbody>' + rows + '</tbody></table>'
+		: '') +
+	'<div class="qzd-cap">bandix 设备流量明细（设备侧合计；占比 = 累计流量份额）</div>';
+}
+
 function cardClients(c, errors) {
 	if (!c) return emptyCard('在线设备', '采集器未返回设备数据');
 	if (!c.items.length)
@@ -441,12 +481,16 @@ function cardServices(svc, meta) {
 	var dk = svc.dockerd
 		? item('Docker', svc.dockerd.running ? 'ok' : 'err', svc.dockerd.running ? '运行中' : '已停止')
 		: '';
+	/* Bandix 行（WP-8 bridge 链路；未装显示"未安装"） */
+	var bx = svc.bandix
+		? item('Bandix', svc.bandix.running ? 'ok' : 'err', svc.bandix.core || '运行中', '', 'admin/network/bandix', '详情')
+		: '<div><div class="name">' + dot() + 'Bandix</div><div class="qzd-stat"><div class="v qzd-muted">未安装</div></div></div>';
 	/* quartz-daemon 自诊断来自契约顶层字段（AGGREGATE-API.md §2） */
 	var qd = (meta && meta.interval != null)
 		? item('quartz-daemon', 'ok', '采集 ' + meta.interval + 's' +
 			(meta.collect_ms != null ? ' · 上次 ' + meta.collect_ms + 'ms' : ''))
 		: '';
-	return '<div class="qzd-svc">' + oc + dk + qd + '</div>';
+	return '<div class="qzd-svc">' + oc + dk + bx + qd + '</div>';
 }
 
 function emptyCard(title, msg, errors) {
@@ -465,6 +509,7 @@ function render() {
 		{ id: 'network',  span: 8,  title: '网络吞吐',   link: ['admin/status/realtime', '实时流量'], html: cardNetwork(payload && payload.net, payload && payload.host) },
 		{ id: 'docker',   span: 4,  title: 'Docker',     link: ['admin/services/dockerman/containers', '容器'], html: cardDocker(payload && payload.docker) },
 		{ id: 'services', span: 8,  title: '服务与核心', html: cardServices(payload && payload.services, payload) },
+		{ id: 'bandix',   span: 12, title: '流量明细',   link: ['admin/network/bandix', 'Bandix'], html: cardBandix(payload && payload.bandix) },
 		{ id: 'clients',  span: 12, title: '在线设备',   link: ['admin/status/routes', '查看全部'], html: cardClients(payload && payload.clients, payload && payload.errors) }
 	].filter(function (s) { return s.html !== ''; });
 

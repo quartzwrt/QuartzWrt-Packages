@@ -18,8 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +34,7 @@ import (
 	"github.com/quartzwrt/quartz-app-api/internal/pkgs"
 	"github.com/quartzwrt/quartz-app-api/internal/ratelimit"
 	"github.com/quartzwrt/quartz-app-api/internal/store"
+	"github.com/quartzwrt/quartz-app-api/internal/ubusfwd"
 )
 
 // version/release 经 -ldflags -X 注入（Makefile GO_PKG_LDFLAGS_X；main 包符号名）。
@@ -166,7 +169,7 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 	switch method {
 	case "info":
 		info := hostinfo.Info()
-		info["features"] = []string{"status", "actions", "devices", "mdns", "packages"}
+		info["features"] = []string{"status", "actions", "devices", "mdns", "packages", "bandix"}
 		info["auth"] = []string{"password"}
 		// 根口令是否已设（未设时 rpcd session.login 接受任意密码——
 		// DESIGN v1.0.2 / WORKPLAN 坑位 #28；App 应在配对前提示）
@@ -203,8 +206,21 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 		aargs := map[string]string{}
 		if m, ok := args["args"].(map[string]any); ok {
 			for k, v := range m {
-				if s, ok := v.(string); ok {
-					aargs[k] = s
+				switch t := v.(type) {
+				case string:
+					aargs[k] = t
+				case float64:
+					// 数值参数（App 传 JSON number）：整数值转十进制串，
+					// 小数丢弃（各动作校验器只接受整数/字符集白名单）
+					if t == math.Trunc(t) && !math.IsInf(t, 0) {
+						aargs[k] = strconv.FormatInt(int64(t), 10)
+					}
+				case bool:
+					if t {
+						aargs[k] = "1"
+					} else {
+						aargs[k] = "0"
+					}
 				}
 			}
 		}
@@ -214,6 +230,14 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 			res, pe := mgr.Action(ctx, actionID, aargs["name"])
 			if pe != nil {
 				return envelope.Err(pe)
+			}
+			return envelope.OK(res)
+		}
+		// ubus 转发项（WP-5 §5 机制；条目显式注册，无任意透传）。
+		if ubusfwd.Handles(actionID) {
+			res, fe := ubusfwd.New().Execute(ctx, actionID, aargs)
+			if fe != nil {
+				return envelope.Err(fe)
 			}
 			return envelope.OK(res)
 		}

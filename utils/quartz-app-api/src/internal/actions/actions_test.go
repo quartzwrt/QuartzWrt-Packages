@@ -122,3 +122,13 @@ func TestDefaultWhitelistGuardsSelfLockout(t *testing.T) {
 		}
 	}
 }
+
+// bandix（WP-8 bridge 链路的服务面）在默认允许集内——App 重启入口回归防护。
+func TestDefaultWhitelistIncludesBandix(t *testing.T) {
+	for _, w := range DefaultWhitelist {
+		if w == "bandix" {
+			return
+		}
+	}
+	t.Fatal("bandix must be in default whitelist (WP-8 service.restart 入口)")
+}

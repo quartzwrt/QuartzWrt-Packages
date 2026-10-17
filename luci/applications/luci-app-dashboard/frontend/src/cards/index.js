@@ -9,6 +9,7 @@ import NetworkCard from '../components/cards/NetworkCard.vue';
 import DockerCard from '../components/cards/DockerCard.vue';
 import ServicesCard from '../components/cards/ServicesCard.vue';
 import ClientsCard from '../components/cards/ClientsCard.vue';
+import BandixCard from '../components/cards/BandixCard.vue';
 
 export default [
 	{ id: 'system', title: 'System', span: 4, component: SystemCard },
@@ -23,6 +24,12 @@ export default [
 		visible: (p) => !(p.docker && p.docker.available === false)
 	},
 	{ id: 'services', title: 'Services & cores', span: 8, component: ServicesCard },
+	{
+		id: 'bandix', title: 'Traffic detail', span: 12, component: BandixCard,
+		link: 'admin/network/bandix', linkLabel: 'Bandix',
+		/* 契约 §3.7：available!==true（未装/未开 traffic/整节缺失）→ 整卡隐藏 */
+		visible: (p) => !!(p.bandix && p.bandix.available === true)
+	},
 	{
 		id: 'clients', title: 'Clients', span: 12, component: ClientsCard,
 		link: 'admin/status/routes', linkLabel: 'View all'

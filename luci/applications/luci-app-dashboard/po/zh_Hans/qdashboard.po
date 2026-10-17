@@ -192,3 +192,43 @@ msgstr "上次"
 
 msgid "Details"
 msgstr "详情"
+
+# ===== 流量明细卡（bandix，契约 §3.7；P2） =====
+msgid "Traffic detail"
+msgstr "流量明细"
+
+msgid "Bandix"
+msgstr "Bandix"
+
+msgid "Online devices"
+msgstr "在线设备"
+
+msgid "Connections"
+msgstr "连接"
+
+msgid "DNS queries"
+msgstr "DNS 查询"
+
+msgid "Not enabled"
+msgstr "未启用"
+
+msgid "TCP"
+msgstr "TCP"
+
+msgid "UDP"
+msgstr "UDP"
+
+msgid "Device"
+msgstr "设备"
+
+msgid "Share"
+msgstr "占比"
+
+msgid "No traffic data yet"
+msgstr "暂无流量数据"
+
+msgid "Unavailable — collector did not return Bandix data"
+msgstr "不可用：采集器未返回 Bandix 数据"
+
+msgid "Bandix per-device traffic (device-side totals; share of cumulative bytes)"
+msgstr "bandix 设备流量明细（设备侧合计；占比 = 累计流量份额）"

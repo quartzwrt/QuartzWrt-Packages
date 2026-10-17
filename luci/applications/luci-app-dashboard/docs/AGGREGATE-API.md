@@ -32,6 +32,7 @@
 | `docker` | object | 是 | §3.4；整节 `null` = 不可用；`available=false` = 未安装（卡片隐藏） |
 | `clients` | object | 是 | §3.5 |
 | `services` | object | 是 | §3.6（**开放映射**，键 = 服务/包 id） |
+| `bandix` | object | 是 | §3.7（WP-8 bridge 链路，慢刷 10s）；整节缺失 = 上游不可用（errors 记一条）；`available=false` = 未装/未开（卡片隐藏） |
 | `errors` | array\<string\> | 否（可为空数组） | 采集失败项，机器可读短串，如 `"docker: socket unavailable"` |
 
 ## 3. 各节字段
@@ -85,7 +86,23 @@
 - 新增服务状态 = **新增键**，不改契约版本（§6.2 加法优先）。
 - 消费者义务：未知键/未知字段忽略；值为 `null` 视为不可用。
 
-### 3.7 `errors`
+### 3.7 `bandix`（可空；慢刷 10s；2026-10-17 加法，WP-8 bridge 链路）
+
+数据面经 Bridge 契约 `quartz.bandix`（daemon 不直连核心 8686）。字段语义与网页逐字段同源。
+
+| 字段 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `available` | bool | `false` = 未装 bridge/bandix 或未开 traffic 模块 → Dashboard 隐藏整卡（其余字段省略） |
+| `devices` / `online` | int | bandix 设备表总数 / 在线数（`last` 在 `bandix.traffic.offline_timeout` 内，判据同上游状态页） |
+| `wan` | object | `{ rx_bps, tx_bps }`：设备侧 WAN 速率合计（Byte/s，= Σ `w_rx_r`/`w_tx_r`，与上游 "WAN Traffic" 卡同式） |
+| `top` | array | **≤8 条**，按累计 `t_rx_b+t_tx_b` 降序；每条 `{ mac, host, ip, rx_b, tx_b, pct }`（`pct` = 占全部设备累计流量比，1 位小数） |
+| `conn` | object\|省略 | `{ total, tcp, udp }`；connections 模块未启用/上游不可用时省略 |
+| `dns` | object\|省略 | `{ queries }`；dns 模块未启用/上游不可用时省略 |
+
+- 整节缺失（`null`）= 上游暂不可用，`errors` 记 `"bandix: …"`；下轮自动重试。
+- 消费方义务：`available !== true` 或整节缺失 → 不渲染卡片。
+
+### 3.8 `errors`
 
 - 机器可读短串数组，建议格式 `"<组件>: <原因>"`。消费方以弱化提示展示，不做解析。
 
@@ -116,6 +133,17 @@
     "openclash": { "running": true, "core": "mihomo 1.19.2", "core_update": "1.19.4" },
     "dockerd":   { "running": true }
   },
+  "bandix": {
+    "available": true, "devices": 12, "online": 9,
+    "wan": { "rx_bps": 3481600, "tx_bps": 522240 },
+    "top": [
+      { "mac": "00:11:32:7d:55:60", "host": "NAS",    "ip": "192.168.1.10", "rx_b": 823456789, "tx_b": 123456789, "pct": 38.6 },
+      { "mac": "aa:bb:cc:dd:ee:ff", "host": "laptop", "ip": "192.168.1.20", "rx_b": 456789012, "tx_b": 78901234,  "pct": 21.9 },
+      { "mac": "11:22:33:44:55:66", "host": "phone",  "ip": "192.168.1.30", "rx_b": 234567890, "tx_b": 45678901,  "pct": 11.4 }
+    ],
+    "conn": { "total": 128, "tcp": 96, "udp": 32 },
+    "dns": { "queries": 45231 }
+  },
   "errors": []
 }
 ```
@@ -139,3 +167,4 @@
 ---
 
 *变更记录：2026-10-12 v1 冻结（用户拍板；自 `luci-app-dashboard/docs/DESIGN.md` §3 草案转正，`collect_ms` 提升为顶层字段）。*
+*2026-10-17 加法（不升版）：新增可选节 `bandix`（§3.7，WP-8 bridge 链路 P2——daemon 慢刷经 `quartz.bandix`；`available` 隐藏谓词 + `top ≤8`；`errors` 顺延为 §3.8）；§4 示例与 `dev/mock/` 同步。*

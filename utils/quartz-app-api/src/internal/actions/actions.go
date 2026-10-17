@@ -26,12 +26,13 @@ const Timeout = 5 * time.Second
 const MaxOutput = 4096
 
 // DefaultWhitelist 默认允许集（不带 network/dropbear 等自断链路项，DESIGN §5）。
-var DefaultWhitelist = []string{"openclash", "dockerd", "dnsmasq", "quartz-daemon", "tailscale", "zerotier"}
+// bandix = WP-8 bridge 链路的服务面（重启/启停走本表；写动作走 ubus 转发项，2026-10-17）。
+var DefaultWhitelist = []string{"openclash", "dockerd", "dnsmasq", "quartz-daemon", "tailscale", "zerotier", "bandix"}
 
 var (
-	initNameRe   = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
-	dockerIDRe   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
-	errNotAllow  = errors.New("not allowed")
+	initNameRe  = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
+	dockerIDRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
+	errNotAllow = errors.New("not allowed")
 )
 
 // Executor 动作执行器。
