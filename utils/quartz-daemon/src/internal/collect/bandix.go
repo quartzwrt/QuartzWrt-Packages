@@ -104,7 +104,18 @@ func collectBandix(now time.Time) (*snapshot.Bandix, error) {
 	if uci.dns {
 		dnsRaw, _ = ubusCall("quartz.bandix", "dns_stats")
 	}
-	return buildBandix(statusRaw, connRaw, dnsRaw, uci, now)
+	out, err := buildBandix(statusRaw, connRaw, dnsRaw, uci, now)
+	if err != nil {
+		return nil, err
+	}
+	// 上游把"核心不可达"伪造成空列表（luci.bandix get_device_status：curl 失败 →
+	// echo '{"d":[]}'，源码核实）——traffic 已开而设备表为空只可能是服务未运行/
+	// 核心未就绪（正常态至少路由器自身在列）→ 归入"不可用"（卡片隐藏），
+	// 与"未开 traffic"同款语义，避免展示误导性的 "0/0"。
+	if out.Available && out.Devices == 0 {
+		return &snapshot.Bandix{Available: false}, nil
+	}
+	return out, nil
 }
 
 // buildBandix 由上游应答构造本节（纯函数，单测直插）。

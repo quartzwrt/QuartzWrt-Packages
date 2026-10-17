@@ -1,0 +1,25 @@
+== quartz-daemon bandix P2 验收（2026-10-17 20:17:21） ==
+== A1. 快照含 bandix 节真数据（新镜像首启即默认开启 traffic） ==
+PASS  快照 bandix.available=true 且 devices>=1
+PASS  errors[] 无 bandix 条目
+== A2. 契约校验（含 §3.7 全字段/上限/排序） ==
+PASS  contract-check：快照符合 AGGREGATE-API v1（含 bandix）
+== A3. 与 ubus 同源一致性（设备数相等；online ±1；top 累计字节逐项相等） ==
+CONSISTENCY: FAIL top 52:54:00:12:34:56: cb=5660/5696 ubus=5660/5856
+FAIL  同源一致性（设备数/online/累计字节）
+== A4. 降级态：traffic 关闭 → available=false（≤20s 慢刷生效） ==
+PASS  traffic=0 → bandix.available=false
+PASS  traffic 恢复 → available=true（自动恢复）
+== A5. 降级态：服务停 → 整节缺失 + errors 记一条；恢复自动重试 ==
+FAIL  服务停 → bandix 整节缺失（20s 内未达成）
+FAIL  errors[] 出现 bandix 条目
+PASS  服务恢复 → 节自动重建
+== B. Dashboard 流量明细卡（真数据渲染；经 W3 工具取证） ==
+SKIP  dashboard vm-shot.py 不存在
+== C. 常驻开销两档（各计时 30s；RSS=/proc/<pid>/status） ==
+  traffic-only: bandix 未运行，跳过
+  traffic+connections+dns: bandix 未运行，跳过
+PASS  开销量取并已恢复默认（仅 traffic）
+  指标另存: /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-daemon/dev/accept-bandix-p2-20261017-201721.metrics
+
+== 汇总: PASS=7 FAIL=3（证据: /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-daemon/dev/accept-bandix-p2-20261017-201721.log） ==

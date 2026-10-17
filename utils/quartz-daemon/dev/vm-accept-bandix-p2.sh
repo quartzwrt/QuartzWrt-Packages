@@ -16,7 +16,7 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PKGS_DIR="$(cd "$HERE/../.." && pwd)"
+PKGS_DIR="$(cd "$HERE/../../.." && pwd)"
 VM_SSH="python3 $HERE/vm-ssh.py"
 DASH_SHOT="$PKGS_DIR/luci/applications/luci-app-dashboard/dev/vm-shot.py"
 SNAP_LOCAL="/tmp/quartz-bandix-p2-snap.json"
@@ -104,9 +104,13 @@ for it in (b.get("top") or []):
     if u is None:
         fail.append("top mac %s not in ubus devices" % it.get("mac"))
         continue
-    if it.get("rx_b") != (u.get("t_rx_b") or 0) or it.get("tx_b") != (u.get("t_tx_b") or 0):
-        fail.append("top %s: cb=%s/%s ubus=%s/%s" % (it.get("mac"), it.get("rx_b"), it.get("tx_b"),
-                                                     u.get("t_rx_b"), u.get("t_tx_b")))
+    # 累计计数器只增不减；两次读取间隔内仍在增长 → 允许 ≤2% 或 64KB 的正向差
+    for cb_key, ub_key in (("rx_b", "t_rx_b"), ("tx_b", "t_tx_b")):
+        cb_v = it.get(cb_key) or 0
+        ub_v = u.get(ub_key) or 0
+        tol = max(65536, int(cb_v * 0.02))
+        if ub_v < cb_v or ub_v - cb_v > tol:
+            fail.append("top %s %s: cb=%s ubus=%s (tol=%s)" % (it.get("mac"), cb_key, cb_v, ub_v, tol))
 print("CONSISTENCY:", "OK" if not fail else "FAIL " + "; ".join(fail))
 sys.exit(0 if not fail else 1)
 PYEOF
@@ -126,18 +130,18 @@ else
 	ck "traffic 恢复 → available=true（40s 内未达成）" 1
 fi
 
-echo "== A5. 降级态：服务停 → 整节缺失 + errors 记一条；恢复自动重试 =="
+echo "== A5. 降级态：服务停 → available=false（上游伪造空列表 → 视为不可用）；恢复自动重试 =="
 vm '/etc/init.d/bandix stop' >/dev/null
-if fetch_snap 20 "b is None"; then
-	ck "服务停 → bandix 整节缺失（null 语义）" 0
+if fetch_snap 20 "b is not None and b.get('available') is False"; then
+	ck "服务停 → bandix.available=false（与网页同事实：上游 get_device_status 伪造 {d:[]}）" 0
 else
-	ck "服务停 → bandix 整节缺失（20s 内未达成）" 1
+	ck "服务停 → bandix.available=false（20s 内未达成）" 1
 fi
 CK=$(python3 -c "
 import json
 s=json.load(open('$SNAP_LOCAL'))
-print(1 if any(e.startswith('bandix') for e in s.get('errors',[])) else 0)")
-ck "errors[] 出现 bandix 条目" $([ "$CK" = "1" ] && echo 0 || echo 1)
+print(1 if not any(e.startswith('bandix') for e in s.get('errors',[])) else 0)")
+ck "errors[] 无 bandix 条目（空列表非错误）" $([ "$CK" = "1" ] && echo 0 || echo 1)
 vm '/etc/init.d/bandix start' >/dev/null
 if fetch_snap 40 "b and b.get('available') is True"; then
 	ck "服务恢复 → 节自动重建" 0
@@ -170,7 +174,7 @@ if [ "$NO_OVERHEAD" -eq 0 ]; then
 	METRICS="${LOG%.log}.metrics"
 	measure() { # measure <label>
 		local label="$1" pid rss1 ticks1 rss2 ticks2 hz cpu
-		pid=$(vm 'pgrep -x bandix | head -1')
+		pid=$(vm 'pidof bandix | head -1')
 		[ -n "$pid" ] || { echo "  $label: bandix 未运行，跳过"; return 1; }
 		rss1=$(vm "awk '/VmRSS/{print \$2}' /proc/$pid/status")
 		ticks1=$(vm "awk '{print \$14+\$15}' /proc/$pid/stat")

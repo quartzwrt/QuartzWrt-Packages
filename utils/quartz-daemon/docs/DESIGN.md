@@ -150,6 +150,7 @@
   1. bridge 包文件 `/usr/share/rpcd/ucode/quartz-bandix-bridge.uc` 不存在 → `{available:false}`（未装，卡片隐藏）；
   2. `uci -q show bandix`（一次 exec 取全）判 `traffic.enabled != 1` → `{available:false}`（未开流量监控——与网页"设置"页同一事实）；
   3. `ubus call quartz.bandix status`（信封 `{ok,api,data}`）；`ok=false`/解析失败 → **整节 `null` + `errors["bandix: <上游原因>"]`**，下轮重试（与 docker "装了连不上"同款语义）；
+  4. **空列表识别（2026-10-17 VM 实测）**：上游把"核心不可达"伪造成空列表（`luci.bandix` 的 `get_device_status`：curl 失败 → `echo '{"d":[]}'`，源码核实）——traffic 已开而设备表为空只可能是服务未运行/核心未就绪（正常态至少路由器自身在列）→ 归入 `{available:false}`（卡片隐藏），与"未开 traffic"同款语义，避免展示误导性的 "0/0"；
 - **字段语义（与网页逐字段同源）**：
   - `online` = `last` 在 `bandix.traffic.offline_timeout`（uci；缺省 600s 兜底）内 —— 与上游状态页 `isDeviceOnline()` 同一条判据（含秒级时间戳兜底）；
   - `wan` = Σ `w_rx_r` / `w_tx_r`（设备侧 WAN 速率合计，与上游 "WAN Traffic" 卡同式）；

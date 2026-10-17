@@ -273,7 +273,7 @@ uci commit bandix
 
 ### 6.2 P2（建议随后一轮）：真正的「流量明细」卡
 
-- **数据面在 WP-4**（Tier 2 新节）：`bandix` 节（慢刷 **10s**，与既有慢刷节奏一致），经 **Bridge** 取数（`quartz.bandix` → 唯一集成面；daemon 不直连 8686，保持"插件细节只在 Bridge"的隔离）：
+- **数据面在 WP-4**（Tier 2 新节）：`bandix` 节（慢刷 **10s**，与既有慢刷节奏一致），经 **Bridge** 取数（`quartz.bandix` → 唯一集成面；daemon 不直连 8686，保持"插件细节只在 Bridge"的隔离）。注：上游把"核心不可达"伪造成空列表（`luci.bandix` `get_device_status` 源码核实），daemon 将**空设备表归入 `available:false`**（卡片隐藏）——语义已回写契约 §3.7；
 
 ```json
 "bandix": { "available": true, "devices": 12, "online": 9,

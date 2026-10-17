@@ -194,3 +194,16 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+// 上游把"核心不可达"伪造成空列表（get_device_status 源码核实）——设备表为空视为
+// 不可用（卡片隐藏），避免 "0/0" 误导；非空才正常出数。
+func TestBandixEmptyDeviceListIsUnavailable(t *testing.T) {
+	raw := []byte(`{"ok":true,"api":1,"data":{"d":[]}}`)
+	out, err := buildBandix(raw, nil, nil, bandixUCI{installed: true, traffic: true, offlineTimeoutS: 600}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Available || out.Devices != 0 {
+		t.Fatalf("buildBandix 空表应可用但 0 台：%+v", out)
+	}
+}

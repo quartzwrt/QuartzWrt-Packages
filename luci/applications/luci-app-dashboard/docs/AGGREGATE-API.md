@@ -92,7 +92,7 @@
 
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
-| `available` | bool | `false` = 未装 bridge/bandix 或未开 traffic 模块 → Dashboard 隐藏整卡（其余字段省略） |
+| `available` | bool | `false` = 未装 bridge/bandix、未开 traffic 模块、或上游返回空设备表（核心不可达被 `luci.bandix` 伪造成 `{d:[]}`——正常态至少路由器自身在列）→ Dashboard 隐藏整卡（其余字段省略） |
 | `devices` / `online` | int | bandix 设备表总数 / 在线数（`last` 在 `bandix.traffic.offline_timeout` 内，判据同上游状态页） |
 | `wan` | object | `{ rx_bps, tx_bps }`：设备侧 WAN 速率合计（Byte/s，= Σ `w_rx_r`/`w_tx_r`，与上游 "WAN Traffic" 卡同式） |
 | `top` | array | **≤8 条**，按累计 `t_rx_b+t_tx_b` 降序；每条 `{ mac, host, ip, rx_b, tx_b, pct }`（`pct` = 占全部设备累计流量比，1 位小数） |
