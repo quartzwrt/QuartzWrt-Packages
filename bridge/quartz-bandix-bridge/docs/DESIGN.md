@@ -419,6 +419,8 @@ bridge/quartz-bandix-bridge/
 | 2 | `limit_default_set` 直接 **Invalid argument**（连处理器都没进） | rpcd 的 ucode 策略要求**每个传入参数都在 args 里声明且 blobmsg 类型精确匹配**（未声明即拒）；而传输层按数值大小自动选类型（`blobmsg_json`：int32 范围内 → INT32，超出 → INT64）——**单一数值提示必然拒掉一半调用**（声明 64 时 `102400` 被拒） | 含数值字段的方法统一改 **`data: {}` 对象**形态（与基座 `luci-app-tailscale` 的 `form_data` 同款）：对象内部字段不做策略检查，数值合法性由本层校验器把关（ucode 里 int32/int64 同为 `'int'`）。纯字符串方法保持扁平声明 |
 | 3 | `limit_default_set` 报 `action_failed`（上游其实成功） | 上游写面常返回 `{"status":"success","data":null}`——归一后 `data == null`，被我误当失败 | 成功判据从 `data != null` 改为 **`_last_error == null`**；`limits` 聚合的"全失败"判据同步改用错误标记 |
 
+（三个缺陷连同构建/验收侧的机制坑已写入 WORKPLAN 坑位 **#60–#65**：ucode 同步委托死锁、入参策略与数值宽度、写面 data:null、构建期两个静默少包陷阱、WSL PATH 空格拦 `find -execdir`、VM 验收工具事实。）
+
 另记一条**观测特性**（非缺陷）：`hostname_set` 的生效在设备表上有**数秒到十几秒延迟**（绑定文件即时写入，设备表按自身刷新周期更新）——App 侧做"设置后回读"需容忍该延迟（验收脚本用 20s 轮询窗口）。
 
 **验收命令与证据**：
@@ -431,6 +433,8 @@ dev/vm-accept.sh                       # 41/41 PASS（远端脚本经宿主 HTTP
 python3 dev/vm-shot.py --tag wp8       # bandix 四页视觉证据
 # Dashboard 侧证据（WP-3 工具）：luci-app-dashboard/dev/vm-shot.py --tag wp8
 ```
+
+**锁定形态复验（2026-10-17，收尾）**：把构建树的 quartz feed 从临时 src-link 切回 `feeds.conf.extra` 的锁定行（`3a8d172`）后，按 build-local 的顺序（feeds → 种子装配 → defconfig → Gate A → make）重建：镜像 manifest 含 `quartz-bandix-bridge 0.1.0-r1` / `quartz-defaults 0.1.0-r4` / `luci-app-dashboard 26.290.32689~3a8d172`（**规范版本戳** = feed 提交），**VM 验收再次 41/41**。过程另踩中两个"静默少包"陷阱（`feeds install` 重写 `.config`；删 apk 不清构建戳）——见 WORKPLAN 坑位 #63。
 
 **构建期踩到的环境坑（与代码无关，但会拦构建）**：WSL 宿主 PATH 含空格项（`/mnt/c/Program Files/...`）时，基座 `include/rootfs.mk` 的 `find -execdir`（SOURCE_DATE_EPOCH 触发）会以 "relative path ... is insecure" 拒绝执行 → `package/install` 失败。用不含 `/mnt/c` 的 PATH 跑构建即可（本 WP 记录，见 WORKPLAN 坑位）。
 
