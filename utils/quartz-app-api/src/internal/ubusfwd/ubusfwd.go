@@ -101,6 +101,12 @@ var registry = []entry{
 		id: "bandix.hostname_set", object: "quartz.bandix", method: "hostname_set",
 		fields: map[string]field{"mac": {kind: kindMAC}, "hostname": {kind: kindHostOpt}},
 	},
+	{
+		// 唯一读条目：限速/白名单/配额聚合（无参）——App 的「设置类对话框」取当前值
+		// （该状态不在 daemon 快照内）；状态/流量类读面一律走快照，见包注释。
+		id: "bandix.limits", object: "quartz.bandix", method: "limits",
+		fields: map[string]field{},
+	},
 }
 
 // Handles 判定 action id 是否由本机制承载（main.go 前缀路由用）。
@@ -140,21 +146,27 @@ func (m *Manager) Execute(ctx context.Context, id string, args map[string]string
 		return nil, ee
 	}
 
-	payload := map[string]any{}
-	if ent.wrap == "data" {
-		payload["data"] = out
-	} else {
-		payload = out
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, envelope.E(envelope.CodeInternal, "marshal failed")
+	// 有参条目：按声明重建 JSON（数值收 data 对象或扁平）；无参条目：不追加 JSON argv
+	// （ubus call 对无参方法多传空对象虽通常可容忍，但省略最稳）。
+	argv := []string{"call", ent.object, ent.method}
+	if len(ent.fields) > 0 {
+		payload := map[string]any{}
+		if ent.wrap == "data" {
+			payload["data"] = out
+		} else {
+			payload = out
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, envelope.E(envelope.CodeInternal, "marshal failed")
+		}
+		argv = append(argv, string(body))
 	}
 
 	start := time.Now()
 	cctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	raw, err := m.Run(cctx, "ubus", "call", ent.object, ent.method, string(body))
+	raw, err := m.Run(cctx, "ubus", argv...)
 	dur := time.Since(start)
 	if err != nil {
 		audit.Logf("fwd action=%s target=%s.%s fail dur_ms=%d reason=exec", id, ent.object, ent.method, dur.Milliseconds())

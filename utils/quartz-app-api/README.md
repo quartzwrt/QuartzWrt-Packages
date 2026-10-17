@@ -49,8 +49,11 @@ bandix.whitelist_enabled  {enabled}      # 0/1
 bandix.hostname_set       {mac, hostname}  # hostname 空串 = 清除绑定
 ```
 
-bandix **读面**不经本 API 转发——App 读 `status` 快照的 `snapshot.bandix` 节
-（AGGREGATE-API §3.7，与 Dashboard 同字节）。
+`bandix.limits`  # 读：限速/白名单/配额聚合（无参；设置类对话框取当前值）
+
+bandix **状态/流量读面**不经本 API 转发——App 读 `status` 快照的 `snapshot.bandix` 节
+（AGGREGATE-API §3.7，与 Dashboard 同字节）；`bandix.limits` 是唯一读条目（配置状态
+不在快照内）。
 
 ### 软件包读（`packages` 方法）
 

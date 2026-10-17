@@ -181,3 +181,24 @@ func TestPayloadIsJSON(t *testing.T) {
 		t.Fatalf("payload not JSON: %v (%s)", err, c.argv[4])
 	}
 }
+
+// 无参读条目（bandix.limits）：不追加 JSON argv；传参即拒。
+func TestExecuteNoArgsEntry(t *testing.T) {
+	c := &capture{raw: `{"ok":true,"api":1,"data":{"schedule":[],"whitelist":{"enabled":false,"macs":[]}}}`}
+	m := newMgr(c)
+	res, e := m.Execute(context.Background(), "bandix.limits", nil)
+	if e != nil {
+		t.Fatalf("bandix.limits: %v", e)
+	}
+	want := []string{"ubus", "call", "quartz.bandix", "limits"}
+	if strings.Join(c.argv, " ") != strings.Join(want, " ") {
+		t.Fatalf("argv = %v, want %v", c.argv, want)
+	}
+	if res["action"] != "bandix.limits" {
+		t.Fatalf("result = %+v", res)
+	}
+	if _, e := m.Execute(context.Background(), "bandix.limits", map[string]string{"x": "1"}); e == nil ||
+		e.Code != envelope.CodeForbiddenAction {
+		t.Fatalf("extra arg should be rejected, got %+v", e)
+	}
+}

@@ -286,6 +286,7 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 | `bandix.whitelist_add` / `bandix.whitelist_delete` | `{mac}` | …`quartz.bandix` 同名方法（纯字符串 → 扁平参数） | ✅ 2026-10-17 |
 | `bandix.whitelist_enabled` | `{enabled}` | …（0/1，`data` 对象） | ✅ 2026-10-17 |
 | `bandix.hostname_set` | `{mac,hostname}` | …（hostname 空串 = 清除绑定） | ✅ 2026-10-17 |
+| `bandix.limits` | — | **读**：限速/白名单/配额聚合（唯一读条目；§5.1） | ✅ 2026-10-17 |
 | 核心/规则更新触发（TDD §4.4） | — | 归属 WP-7/WP-8 链路；**版本状态由 daemon `services` 报告**（已有），触发器后置 | ✗ 后置 |
 | DDNS 配置（模式 B） | — | 经同一「ubus 转发项」加行接入（机制已落地，本轮不加条目） | ⬜ 后置 |
 
@@ -303,7 +304,7 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 | 执行 | `ubus call <object> <method> <json>`（JSON 作为**单个 argv**，无 shell）；5s 超时；`ubus` 缺失/对象不在 → `data_unavailable`（"bridge unavailable"） |
 | 错误映射 | bridge 信封 `{ok,api,data\|error}`：`ok=false` 时 `bad_request`→`bad_request`、`data_unavailable`→`data_unavailable`（message 带上游原因）、其余→`action_failed`；成功 `data:null` **不算失败**（bridge 写面常态） |
 | 审计 | 每次转发落 logd 一行（`fwd action=… target=<obj>.<method> ok\|fail dur_ms=…`） |
-| 读面 | **不经本机制**——App 读 bandix 状态走 daemon 快照（AGGREGATE-API §3.7，与 Dashboard 同字节）；本机制只承载写动作 |
+| 读面 | **原则上不经本机制**——App 读 bandix 状态/流量走 daemon 快照（AGGREGATE-API §3.7，与 Dashboard 同字节）；唯一读条目 = `bandix.limits`（限速/白名单/配额聚合，无参）——该**配置状态不在快照内**，设置类对话框需取当前值 |
 | 扩展 | 新条目 = registry 一行 + 单测；新对象（如 ddns bridge）= 同样只加行（前缀路由由 `Handles` 判定），机制不变 |
 | 数值入参 | App 传 JSON number 亦可（dispatch 层整数值 → 十进制串，再交条目校验器）；小数丢弃 |
 
