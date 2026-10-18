@@ -139,7 +139,7 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-spark { width: 100%; height: 66px; display: block; }
 /* 真实产物模式（?app=1）：app.css 在 @layer components 内，预览页这条无层 .qzd-spark
  * 会压过分层规则（无层优先于任何层，与特异性无关）。这里补同源覆盖，仅 dev。 */
-.qzd-c2-spark-wide { width: 100%; height: 46px; margin-top: 2px; }
+.qzd-spark-axis .qzd-spark { flex: 1 1 0; width: 100%; min-width: 0; }
 
 /* ---- 设备表（紧凑密度，技术值等宽；固定布局 + 列宽百分比，避免宽屏下列距失衡） ---- */
 .qzd-table { width: 100%; table-layout: fixed; font-size: 12.5px; }

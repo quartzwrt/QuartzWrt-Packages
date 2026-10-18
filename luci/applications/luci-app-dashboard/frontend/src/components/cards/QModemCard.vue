@@ -8,21 +8,25 @@
 import { computed } from 'vue';
 import { Dot, KV, EmptyState, Sparkline, ErrorChip, IpValue } from '../primitives.js';
 import { fmtRate, fmtBytes, fmtTemp } from '../../lib/format.js';
+/* 运营商图标（仅取官方 logo 的符号部分；商标归各运营商所有，见 assets/operators/README.md） */
+import chinaMobileLogo from '../../assets/operators/china-mobile.svg?raw';
+import chinaUnicomLogo from '../../assets/operators/china-unicom.svg?raw';
+import chinaTelecomLogo from '../../assets/operators/china-telecom.svg?raw';
 
 const props = defineProps({ payload: { type: Object, required: true }, host: { type: Object, default: () => ({}) } });
 const t = (s) => (props.host.t ? props.host.t(s) : s);
 
-/* 运营商元数据：PLMN → 名称 / 图标字 / 品牌色（用于头部小圆标）。
- * 图标只做品牌识别，不引入外部 logo 资源；未知 PLMN 不渲染图标。 */
-const opMeta = (name, short, color) => ({ name, short, color });
+/* 运营商元数据：PLMN → 名称 / 官方 logo 符号（SVG，构建期随 app.js 内联）。
+ * 商标归各运营商所有，仅用于标识当前驻网运营商；未知 PLMN 不渲染图标。 */
+const opMeta = (name, logo) => ({ name, logo });
 const PLMN = {
-	'46000': opMeta('中国移动', '移', '#0085D0'), '46002': opMeta('中国移动', '移', '#0085D0'),
-	'46004': opMeta('中国移动', '移', '#0085D0'), '46007': opMeta('中国移动', '移', '#0085D0'),
-	'46008': opMeta('中国移动', '移', '#0085D0'),
-	'46001': opMeta('中国联通', '联', '#E60012'), '46006': opMeta('中国联通', '联', '#E60012'),
-	'46009': opMeta('中国联通', '联', '#E60012'),
-	'46003': opMeta('中国电信', '电', '#0068B7'), '46005': opMeta('中国电信', '电', '#0068B7'),
-	'46011': opMeta('中国电信', '电', '#0068B7')
+	'46000': opMeta('中国移动', chinaMobileLogo), '46002': opMeta('中国移动', chinaMobileLogo),
+	'46004': opMeta('中国移动', chinaMobileLogo), '46007': opMeta('中国移动', chinaMobileLogo),
+	'46008': opMeta('中国移动', chinaMobileLogo),
+	'46001': opMeta('中国联通', chinaUnicomLogo), '46006': opMeta('中国联通', chinaUnicomLogo),
+	'46009': opMeta('中国联通', chinaUnicomLogo),
+	'46003': opMeta('中国电信', chinaTelecomLogo), '46005': opMeta('中国电信', chinaTelecomLogo),
+	'46011': opMeta('中国电信', chinaTelecomLogo)
 };
 
 const c = computed(() => props.payload.cellular);
@@ -48,10 +52,14 @@ const qualityText = computed(() => {
 	return t('Poor');
 });
 const series = computed(() => (sig.value && sig.value.series && Array.isArray(sig.value.series.rsrp) ? sig.value.series.rsrp : null));
-const sigSub = computed(() => {
+const sigSub1 = computed(() => {
 	const s = sig.value || {};
 	const withUnit = (v, unit) => (v == null ? '—' : v + ' ' + unit);
-	return 'RSRQ ' + withUnit(s.rsrq, 'dB') + ' · SINR ' + withUnit(s.sinr, 'dB') + ' · RSSI ' + withUnit(s.rssi, 'dBm');
+	return 'RSRQ ' + withUnit(s.rsrq, 'dB') + ' · SINR ' + withUnit(s.sinr, 'dB');
+});
+const sigSub2 = computed(() => {
+	const s = sig.value || {};
+	return 'RSSI ' + (s.rssi == null ? '—' : s.rssi + ' dBm');
 });
 
 /* ---- 运营商 / 制式 ---- */
@@ -60,8 +68,8 @@ const operator = computed(() => {
 	if (!v) return null;
 	const meta = PLMN[v];
 	return meta
-		? { plmn: v, name: meta.name, short: meta.short, color: meta.color, text: v + ' · ' + meta.name }
-		: { plmn: v, name: v, short: '', color: '', text: v };
+		? { plmn: v, name: meta.name, logo: meta.logo, text: v + ' · ' + meta.name }
+		: { plmn: v, name: v, logo: '', text: v };
 });
 const operatorText = computed(() => (operator.value ? operator.value.text : '—'));
 
@@ -131,8 +139,8 @@ const scsText = computed(() => {
 				{{ m.registered ? t('Registered') : t('Not registered') }}
 			</span>
 			<span class="qzd-c2-op">
-				<span v-if="operator && operator.short" class="qzd-c2-opicon" :style="{ background: operator.color }"
-					:title="operator.name">{{ operator.short }}</span>
+				<span v-if="operator && operator.logo" class="qzd-c2-oplogo" :title="operator.name"
+					v-html="operator.logo"></span>
 				{{ operatorText }}
 			</span>
 			<span v-if="m.network_mode" class="qzd-c2-chip">{{ m.network_mode }}</span>
@@ -149,13 +157,18 @@ const scsText = computed(() => {
 						<i v-for="n in 5" :key="n" :class="{ on: n <= bars }"></i>
 					</span>
 				</div>
-				<div class="qzd-c2-v">
-					<span class="qzd-c2-big qz-mono">{{ sig && sig.rsrp != null ? sig.rsrp : '—' }}</span>
-					<small>dBm</small>
-					<span class="qzd-c2-qual" :class="tone">{{ qualityText }}</span>
+				<div class="qzd-c2-signalbody">
+					<div class="qzd-c2-signaltext">
+						<div class="qzd-c2-v">
+							<span class="qzd-c2-big qz-mono">{{ sig && sig.rsrp != null ? sig.rsrp : '—' }}</span>
+							<small>dBm</small>
+							<span class="qzd-c2-qual" :class="tone">{{ qualityText }}</span>
+						</div>
+						<div class="qzd-c2-sub qz-mono">{{ sigSub1 }}</div>
+						<div class="qzd-c2-sub2 qz-mono">{{ sigSub2 }}</div>
+					</div>
+					<Sparkline v-if="series" :values="series" fill axis :height="46" class="qzd-c2-chart" />
 				</div>
-				<Sparkline v-if="series" :values="series" fill class="qzd-c2-spark-wide" />
-				<div class="qzd-c2-sub qz-mono">{{ sigSub }}</div>
 			</div>
 			<div class="qzd-c2-kpi qzd-c2-kpi-rate">
 				<div class="qzd-c2-k">{{ t('Rate') }}</div>
@@ -181,7 +194,7 @@ const scsText = computed(() => {
 			</div>
 			<div class="qzd-c2-kpi qzd-c2-kpi-cell">
 				<div class="qzd-c2-k">{{ t('Serving cell') }}</div>
-				<div class="qzd-c2-v"><span class="qzd-c2-big qz-mono">{{ bandShort }}</span></div>
+				<div class="qzd-c2-v"><span class="qzd-c2-cellband">{{ bandShort }}</span></div>
 				<div class="qzd-c2-sub qz-mono">PCI {{ pciText }} &middot; ARFCN {{ arfcnText }}</div>
 			</div>
 		</div>

@@ -7,6 +7,8 @@ import { fmtRate } from '../../lib/format.js';
 const props = defineProps({ payload: { type: Object, required: true }, host: { type: Object, default: () => ({}) } });
 const t = (s) => (props.host.t ? props.host.t(s) : s);
 const net = computed(() => props.payload.net);
+/* y 轴标签：0 显示为 0，其余沿用卡片内的速率格式（Kbps/Mbps） */
+const axisRate = (bps) => (bps ? fmtRate(bps) : '0');
 </script>
 
 <template>
@@ -32,7 +34,8 @@ const net = computed(() => props.payload.net);
 				<div class="v">{{ fmtRate(net.wan.tx_bps) }}</div>
 			</div>
 		</div>
-		<Sparkline :series="net.series || null" :rx="net.wan.rx_bps || 0" :tx="net.wan.tx_bps || 0" />
+		<Sparkline :series="net.series || null" :rx="net.wan.rx_bps || 0" :tx="net.wan.tx_bps || 0"
+			axis :axis-format="axisRate" />
 		<div class="qzd-cap">{{ t('Download (blue) / Upload (grey) — last 2 minutes, daemon ring buffer') }}</div>
 	</template>
 	<div v-else class="qzd-empty">{{ t('Unavailable') }}</div>

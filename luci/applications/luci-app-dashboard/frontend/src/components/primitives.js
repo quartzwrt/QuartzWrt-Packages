@@ -81,7 +81,12 @@ export const Sparkline = defineComponent({
 		rx: { type: Number, default: 0 },
 		tx: { type: Number, default: 0 },
 		values: { type: Array, default: null },
-		fill: { type: Boolean, default: false }
+		fill: { type: Boolean, default: false },
+		/* y 轴数值（顶部/中点/底部）；axisFormat 负责把原始值格式化成短标签 */
+		axis: { type: Boolean, default: false },
+		axisFormat: { type: Function, default: null },
+		/* 行内小图的固定高度（px）；不传则沿用 .qzd-spark 的 66px */
+		height: { type: [Number, String], default: null }
 	},
 	setup(props) {
 		const buf = ref({ rx: [], tx: [] });
@@ -114,6 +119,12 @@ export const Sparkline = defineComponent({
 				return { min: lo - pad, max: hi + pad };
 			}
 			return { min: 0, max: hi * 1.15 || 1 };
+		});
+
+		const axisLabels = computed(() => {
+			const { min, max } = domain.value;
+			const fmt = props.axisFormat || ((v) => String(Math.round(v)));
+			return [fmt(max), fmt((min + max) / 2), fmt(min)];
 		});
 
 		function ema(arr, alpha = 0.3) {
@@ -165,21 +176,37 @@ export const Sparkline = defineComponent({
 
 		const single = () => !!(props.values && props.values.length);
 
-		return () => h('svg', {
-			class: 'qzd-spark', viewBox: '0 0 600 66', preserveAspectRatio: 'none', 'aria-hidden': 'true'
-		}, [
-			single()
-				? (props.fill ? h('path', { d: areaOf(buf.value.rx), fill: 'var(--qz-ok)', opacity: '.10' }) : null)
-				: h('path', {
-					d: pathOf(buf.value.tx), fill: 'none', stroke: 'var(--qz-text-3)',
-					'stroke-width': '1.4', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-				}),
-			h('path', {
-				d: pathOf(buf.value.rx), fill: 'none',
-				stroke: single() ? 'var(--qz-ok)' : 'var(--qz-accent)',
-				'stroke-width': single() ? '1.8' : '1.6',
-				'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-			})
-		]);
+		return () => {
+			const svg = h('svg', {
+				class: 'qzd-spark', viewBox: '0 0 600 66', preserveAspectRatio: 'none', 'aria-hidden': 'true',
+				style: props.height
+					? { height: typeof props.height === 'number' ? props.height + 'px' : props.height }
+					: null
+			}, [
+				single()
+					? (props.fill ? h('path', { d: areaOf(buf.value.rx), fill: 'var(--qz-ok)', opacity: '.10' }) : null)
+					: h('path', {
+						d: pathOf(buf.value.tx), fill: 'none', stroke: 'var(--qz-text-3)',
+						'stroke-width': '1.4', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+					}),
+				h('path', {
+					d: pathOf(buf.value.rx), fill: 'none',
+					stroke: single() ? 'var(--qz-ok)' : 'var(--qz-accent)',
+					'stroke-width': single() ? '1.8' : '1.6',
+					'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+				})
+			]);
+
+			if (!props.axis)
+				return svg;
+
+			/* 轴标签放在独立列里，不用 SVG <text>——preserveAspectRatio="none"
+			 * 会把文字横向压扁；HTML 列还能跟随主题字体和行高。 */
+			return h('div', { class: 'qzd-spark-axis' }, [
+				h('div', { class: 'qzd-spark-ylabels' },
+					axisLabels.value.map((label) => h('span', {}, label))),
+				svg
+			]);
+		};
 	}
 });
