@@ -56,6 +56,12 @@
 | `cpu_pct` | number | % | 上次采样以来的 CPU 占用（0–100，一位小数） |
 | `mem` / `swap` / `rootfs` | object | 字节 | `{ total, used, pct }`；`pct` 0–100 一位小数；`total=0` 表示未启用（如 swap） |
 | `temp_c` | number\|null | °C | 无温度传感器时 `null` |
+| `cpu_model` | string（可选） | — | `/proc/cpuinfo` 型号串；缺失时省略 |
+| `cores` | int（可选） | — | 逻辑核数（`runtime.NumCPU()`） |
+| `cpu_mhz` / `cpu_max_mhz` | int（可选） | MHz | 各核当前频率均值 / 最大频率；无 cpufreq 的平台省略 |
+| `procs` | int（可选） | — | 进程总数（`/proc/loadavg` 第 4 段斜杠后的值） |
+
+> 2026-10-19 加法：系统卡补充 CPU 摘要与进程数，全部可选，旧消费方忽略即可。
 
 ### 3.3 `net`（必备）
 

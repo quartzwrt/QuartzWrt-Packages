@@ -487,3 +487,43 @@ msgstr "IPv6"
 
 msgid "IMEI / IMSI / ICCID stay on the QModem page"
 msgstr "敏感信息（IMEI/IMSI/ICCID）仅在 QModem 页面显示"
+
+# ===== 系统卡增密 / 网络卡地址展开 / 蜂窝卡 v2 样板（2026-10-19） =====
+msgid "Processes"
+msgstr "进程数"
+
+msgid "Click to reveal"
+msgstr "点击显示完整地址"
+
+msgid "Click to hide"
+msgstr "点击重新打码"
+
+msgid "Signal"
+msgstr "信号"
+
+msgid "Downlink"
+msgstr "下行"
+
+msgid "Uplink"
+msgstr "上行"
+
+msgid "WAN traffic"
+msgstr "WAN 实时速率"
+
+msgid "Not connected"
+msgstr "未连接"
+
+msgid "No reset plan"
+msgstr "未设置重置计划"
+
+msgid "Radio"
+msgstr "无线"
+
+msgid "Cell & SIM"
+msgstr "小区与 SIM"
+
+msgid "Hardware"
+msgstr "硬件"
+
+msgid "QModem slow lane · 10s"
+msgstr "QModem 慢车道 · 10 秒"

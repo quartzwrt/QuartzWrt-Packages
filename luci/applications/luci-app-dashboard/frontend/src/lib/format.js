@@ -29,15 +29,23 @@ export function fmtTemp(v) {
 	return v == null ? '—' : Number(v).toFixed(1) + ' °C';
 }
 
-/* 地址打码（仪表盘默认隐藏末段；点击展开的交互留给 App） */
+/* 地址打码：保留前半段，后半段整体替换为 *。
+ * IPv4 保留前两段（192.168.*.*），IPv6 保留前两组（2408:8459:*:*:*:*:*:*）。
+ * 点击展开由 primitives.js 的 IpValue 负责（纯前端切换，不发请求）。 */
 export function maskIp(ip) {
 	if (!ip) return '—';
-	if (ip.indexOf(':') >= 0) {
-		const p = ip.split(':');
-		return p.length > 2 ? p.slice(0, 2).join(':') + ':…:' + p[p.length - 1] : ip;
+	const addr = String(ip).split('/')[0];
+	if (addr.indexOf(':') >= 0) {
+		const p = addr.split(':').filter(Boolean);
+		return p.length >= 2 ? p.slice(0, 2).join(':') + ':*:*:*:*:*:*' : addr;
 	}
-	const p = ip.split('.');
-	return p.length === 4 ? p.slice(0, 3).join('.') + '.…' : ip;
+	const p = addr.split('.');
+	return p.length === 4 ? p[0] + '.' + p[1] + '.*.*' : ip;
+}
+
+/* 频率（MHz → GHz，两位小数；0/缺失 → null） */
+export function fmtMHz(mhz) {
+	return mhz ? (Number(mhz) / 1000).toFixed(2) + ' GHz' : null;
 }
 
 /* 相对时间（t = 壳层翻译函数） */

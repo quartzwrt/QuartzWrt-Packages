@@ -1,8 +1,8 @@
 <script setup>
 /* 网络吞吐卡：WAN 状态 + 实时上下行 + 60 点 sparkline（契约 §3.3） */
 import { computed } from 'vue';
-import { Dot, KV, Sparkline } from '../primitives.js';
-import { fmtRate, maskIp } from '../../lib/format.js';
+import { Dot, KV, IpValue, Sparkline } from '../primitives.js';
+import { fmtRate } from '../../lib/format.js';
 
 const props = defineProps({ payload: { type: Object, required: true }, host: { type: Object, default: () => ({}) } });
 const t = (s) => (props.host.t ? props.host.t(s) : s);
@@ -16,8 +16,12 @@ const net = computed(() => props.payload.net);
 			<span>{{ t(net.wan.up ? 'online' : 'offline') }}</span>
 			<span class="qzd-muted">{{ net.wan.ifname }} &middot; {{ net.wan.proto }}</span>
 		</div>
-		<KV :k="t('IPv4')" :v="net.wan.ipv4 ? maskIp(net.wan.ipv4) : '—'" />
-		<KV v-if="net.wan.ipv6" :k="t('IPv6')" :v="maskIp(net.wan.ipv6)" />
+		<KV :k="t('IPv4')">
+			<IpValue :value="net.wan.ipv4" :show-label="t('Click to reveal')" :hide-label="t('Click to hide')" />
+		</KV>
+		<KV v-if="net.wan.ipv6" :k="t('IPv6')">
+			<IpValue :value="net.wan.ipv6" :show-label="t('Click to reveal')" :hide-label="t('Click to hide')" />
+		</KV>
 		<div class="qzd-rate">
 			<div>
 				<div class="k">{{ t('Download') }}</div>

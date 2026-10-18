@@ -121,3 +121,46 @@ func TestReadUptime(t *testing.T) {
 		t.Fatalf("uptime = %d", got)
 	}
 }
+
+func TestParseCPUModel(t *testing.T) {
+	arm := []byte("processor\t: 0\nBogoMIPS\t: 48.00\nmodel name\t: ARMv8 Processor rev 4 (v8l)\n")
+	if got := parseCPUModel(arm); got != "ARMv8 Processor rev 4 (v8l)" {
+		t.Fatalf("arm model = %q", got)
+	}
+	// Processor/Hardware 兜底（老 ARM 内核无 model name）
+	old := []byte("Processor\t: ARMv7 Processor rev 1 (v7l)\nHardware\t: BCM2835\n")
+	if got := parseCPUModel(old); got != "ARMv7 Processor rev 1 (v7l)" {
+		t.Fatalf("old model = %q", got)
+	}
+	if got := parseCPUModel([]byte("nothing here\n")); got != "" {
+		t.Fatalf("empty model = %q", got)
+	}
+}
+
+func TestReadProcs(t *testing.T) {
+	if got := readProcs("0.57 0.60 0.56 1/218 12335\n"); got != 218 {
+		t.Fatalf("procs = %d, want 218", got)
+	}
+	if got := readProcs("garbage"); got != 0 {
+		t.Fatalf("procs garbage = %d", got)
+	}
+}
+
+func TestReadCPUFreqFrom(t *testing.T) {
+	base := t.TempDir()
+	for i, khz := range []string{"1200000", "600000"} {
+		dir := filepath.Join(base, "cpu"+string(rune('0'+i)), "cpufreq")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		os.WriteFile(filepath.Join(dir, "scaling_cur_freq"), []byte(khz+"\n"), 0o644)
+		os.WriteFile(filepath.Join(dir, "cpuinfo_max_freq"), []byte("1800000\n"), 0o644)
+	}
+	cur, max := readCPUFreqFrom(base)
+	if cur != 900 || max != 1800 {
+		t.Fatalf("freq = %d/%d MHz, want 900/1800", cur, max)
+	}
+	if cur, max := readCPUFreqFrom(t.TempDir()); cur != 0 || max != 0 {
+		t.Fatalf("empty freq = %d/%d", cur, max)
+	}
+}

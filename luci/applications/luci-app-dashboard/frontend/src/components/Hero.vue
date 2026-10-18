@@ -1,6 +1,6 @@
 <script setup>
 /* Hero：品牌时刻（衬线主机名）+ 型号/版本/内核 + uptime / WAN / 采集时刻 */
-import { Dot } from './primitives.js';
+import { Dot, IpValue } from './primitives.js';
 import { fmtUptime } from '../lib/format.js';
 
 const props = defineProps({
@@ -26,7 +26,8 @@ const props = defineProps({
 				<div class="k">WAN</div>
 				<div class="v">
 					<Dot :state="net && net.wan && net.wan.up ? 'ok' : 'err'" />
-					{{ net && net.wan ? net.wan.ipv4 : '—' }}
+					<IpValue v-if="net && net.wan && net.wan.ipv4" :value="net.wan.ipv4" />
+					<span v-else>—</span>
 				</div>
 			</div>
 			<div>

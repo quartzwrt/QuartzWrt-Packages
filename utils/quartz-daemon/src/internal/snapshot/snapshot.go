@@ -66,7 +66,7 @@ type Bytes struct {
 	Pct   float64 `json:"pct"`
 }
 
-// System 系统资源（契约 §3.2）。
+// System 系统资源（契约 §3.2；2026-10-19 增补硬件/进程字段，全部可选）。
 type System struct {
 	Load   [3]float64 `json:"load"`
 	CPUPct float64    `json:"cpu_pct"`
@@ -74,6 +74,12 @@ type System struct {
 	Swap   Bytes      `json:"swap"`
 	Rootfs Bytes      `json:"rootfs"`
 	TempC  *float64   `json:"temp_c"`
+	// 2026-10-19 加法（系统卡信息密度）：
+	CPUModel  string `json:"cpu_model,omitempty"`   // /proc/cpuinfo 型号串
+	Cores     int    `json:"cores,omitempty"`       // runtime.NumCPU()
+	CPUMHz    int    `json:"cpu_mhz,omitempty"`     // 各核 scaling_cur_freq 均值（无 cpufreq 时省略）
+	CPUMaxMHz int    `json:"cpu_max_mhz,omitempty"` // 各核 cpuinfo_max_freq 最大值
+	Procs     int    `json:"procs,omitempty"`       // /proc/loadavg 第 4 段斜杠后的进程总数
 }
 
 // WAN 广域网接口状态（契约 §3.3）。

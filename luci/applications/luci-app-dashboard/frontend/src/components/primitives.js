@@ -3,6 +3,7 @@
  * 卡片只允许组合这些件或经复核的自定义组件；不得自行取数。
  */
 import { h, defineComponent, ref, watch, computed } from 'vue';
+import { maskIp } from '../lib/format.js';
 
 /* 状态圆点（彩色仅作细小状态标记，符合主题硬规则） */
 export const Dot = (props) => h('span', {
@@ -27,6 +28,33 @@ export const KV = (props, { slots }) => h('div', { class: 'qzd-kv' }, [
 export const Badge = (props, { slots }) => h('span', {
 	class: ['label', props.tone ? props.tone : '']
 }, slots.default ? slots.default() : props.v);
+
+/* 地址值：默认打码（前半段 + *），点击/回车切换完整地址。
+ * 展开状态只存在于当前组件实例，不写入任何存储；刷新页面即重新打码。 */
+export const IpValue = defineComponent({
+	props: {
+		value: { type: String, default: '' },
+		showLabel: { type: String, default: 'Click to reveal' },
+		hideLabel: { type: String, default: 'Click to hide' }
+	},
+	setup(props) {
+		const open = ref(false);
+		const toggle = () => { if (props.value) open.value = !open.value; };
+		return () => h('span', {
+			class: ['qzd-ip', open.value ? 'qzd-ip-open' : ''],
+			role: 'button',
+			tabindex: props.value ? 0 : -1,
+			title: open.value ? props.hideLabel : props.showLabel,
+			onClick: (e) => { e.stopPropagation(); toggle(); },
+			onKeydown: (e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					toggle();
+				}
+			}
+		}, open.value ? props.value : maskIp(props.value));
+	}
+});
 
 /* 空态 / 不可用 */
 export const EmptyState = (props) => h('div', { class: 'qzd-empty' }, props.msg);

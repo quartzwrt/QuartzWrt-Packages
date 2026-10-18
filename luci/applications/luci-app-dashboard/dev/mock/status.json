@@ -32,7 +32,12 @@
       "used": 402653184,
       "pct": 37.5
     },
-    "temp_c": 46.5
+    "temp_c": 46.5,
+    "cpu_model": "ARMv8 Processor rev 4 (v8l)",
+    "cores": 6,
+    "cpu_mhz": 1200,
+    "cpu_max_mhz": 1800,
+    "procs": 218
   },
   "net": {
     "wan": {

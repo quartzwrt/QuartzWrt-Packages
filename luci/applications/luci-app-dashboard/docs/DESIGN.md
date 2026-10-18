@@ -146,10 +146,11 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 │ Hero（通栏）：衬线 hostname + 型号/版本/内核 · 右：uptime/WAN/采集时刻 │
 ├──────────────────────────┬──────────────────────────────────┤
 │ 系统资源 (4)              │ 网络吞吐 (8)                      │
-│ 负载/CPU/内存/交换/存储/温度│ WAN + 实时上下行 + 60 点 sparkline  │
+│ CPU 摘要/负载/CPU/进程/内存│ WAN + 实时上下行 + 60 点 sparkline  │
+│ /交换/存储/温度            │ （IPv4/IPv6 打码，点击展开）        │
 ├──────────────────────────┴──────────────────────────────────┤
 │ 蜂窝 (12，cellular.available && modems 有值；否则整卡隐藏)：      │
-│ 信号带（质量条+四指标+RSRP 曲线）/ Base / SIM / Network / Cell   │
+│ 状态头 / KPI 带（信号·下行·上行·本月）/ Radio·Cell&SIM·Connection·Hardware │
 ├─────────────────────────────────────────────────────────────┤
 │ Docker (12)：引擎/驱动/根目录 + 容器/镜像/网络/卷 + 容器列表     │
 ├──────────────────────────┬──────────────────────────────────┤
@@ -166,7 +167,9 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 
 - **排布原则（预览实测确定）**：同一行内卡片的内容高度应相近——**矮卡配矮卡**（Docker/Tailscale 与"服务与核心"按行配对，两条大卡各占一行），行内按最高卡对齐、行尾不留大片空白；**不采用 masonry**（CSS 原生 masonry 未标准化，JS 重排对其余场景是负债）。行序 = 注册表顺序，占位由每卡声明（§5.3 `span`）——新增卡时按此原则选行配对。
 - **Docker 卡（2026-10-19 真机反馈轮）**：恢复独立卡并**全宽**（span 12）——引擎版本/驱动/根目录 + 容器/镜像/网络/卷摘要 + 容器表（名称/镜像/状态/详情，≤8）；服务卡不再重复 Docker 行。**无 Tailscale 时服务卡自动 span 12**（`App.vue` 动态），有 Tailscale 时 Tailscale(4)+服务(8) 同行，避免留白。Docker 菜单标题由本包 `menu.d/zz-quartz-docker.json` 覆盖为「Docker」（上游默认「Dockerman JS」）。
-- **蜂窝卡（2026-10-19 真机反馈轮）**：按 qmodem 首页信息项重排——顶部一条横向信号带（质量条+四指标+RSRP 曲线），下方四栏 **Base / SIM / Network / Cell**（Base：型号/厂商/固件/AT 端口/温度/电压/连接态；SIM：状态/运营商 PLMN/槽位/可切换/本月/重置；Network：网络类型/CQI/AMBR/速率/IPv4/USB 模式/偏好；Cell：网络模式/双工/MCC·MNC/TAC/Cell ID/PCI/ARFCN/Band/带宽/SCS）。**IMEI/IMSI/ICCID 不加快照**，仅在 QModem 页面显示。
+- **网络卡地址交互（2026-10-19）**：IPv4/IPv6 默认**前半段 + `*`**（IPv4 保留前两段、IPv6 保留前两组），点击/回车切换完整地址，再点恢复打码；Hero 的 WAN 地址同规则。展开状态只存在组件实例内，刷新即重新打码；纯前端切换，不新增 API。
+- **系统卡（2026-10-19）**：顶部一行 CPU 摘要（型号 · 核数 · 当前/最大频率），信息行新增「进程数」；数据来自 daemon `system` 节加法字段 `cpu_model/cores/cpu_mhz/cpu_max_mhz/procs`（契约 §3.2，全部可选），无 cpufreq 的平台自动省略频率。
+- **蜂窝卡 v2 样板（2026-10-19，待用户拍板）**：三层结构 —— ①状态头（注册态 / 运营商 PLMN / 网络模式 / 网络类型 / 模组名）；②KPI 带（信号：RSRP+质量标签+RSRQ/SINR/RSSI+RSRP 曲线；下行；上行；本月用量+重置计划）；③四栏细节（Radio：Band/ARFCN/PCI/带宽/SCS/双工；Cell & SIM：MCC·MNC/TAC/Cell ID/SIM 状态/槽位/可切换；Connection：IPv4〔打码可展开〕/CQI/AMBR/USB 模式/偏好；Hardware：厂商/固件/AT 端口/电压/温度/连接态）。每栏 5–6 行，首屏先回答「信号/速率/用量」，硬件参数退到第二层。**IMEI/IMSI/ICCID 不加快照**，仅在 QModem 页面显示。
 - 断点：宽屏（≥1120px）如上图；中屏（<1120px）2 卡/行；手机（<700px）单列，顺序为 `#cellular 3 → #clients 4 → #bandix 5 → #tailscale 6 → #docker 7 → #services 8`（蜂窝是 5G CPE 主 WAN，提前；设备列表与流量明细仍先于服务）。
 - **移动端细则**：设备表窄屏隐藏 MAC 与接口列；卡片 `min-width: 0`（表格等最小内容宽度不得撑破页面）；Hero 摘要换行左对齐；悬浮控制条类元素左右贴边。
 - 宽屏设备表用固定布局 + 列宽百分比（24/18/22/14/20），避免自动布局在超宽下列距失衡；超长内容省略号截断。
@@ -434,3 +437,4 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v1.6 2026-10-19 —— **FNet3399 真机反馈轮（用户：蜂窝卡待优化 + 装 Docker 测 Docker 卡）**：①**恢复独立 Docker 卡**（`DockerCard.vue`，span 4；运行/总数/镜像/不健康），服务卡移除 Docker 行；未装 Tailscale 时 Docker(4)+服务(8) 填满一行；②蜂窝卡真机优化：服务小区标签去重（`pcc`→`PCC`，`NR n78` 不再重复 RAT）、`dial.ipv4` 缺失时回退 WAN IPv4（仅 wwan）、速率 <1 Mbps 显示 Kbps（不再 0.0 Mbps）；③真机数据：RG520N-EU / 5G SA / RSRP -77 / NR n78 / PCI 161，Docker 1/1 + 1 镜像；④**Docker 存储驱动真机发现**：FNet3399 的 overlayfs 根上 Docker 默认 overlayfs 驱动 `docker run` 报 `invalid argument`（overlay-on-overlay）→ 测试改用 `storage-driver: vfs` 正常；docker 变体层需为设备选 vfs 或独立 ext4 数据盘（WORKPLAN 坑位 #70）；⑤证据 `dev/shots/vm/fnet-20261019-cellular-docker.png`（真机 1280 宽）、`fnet-20261019-cellular.png`；mock `app-*` 重出；Bundle 32.2KB gzip。*
 *v1.7 2026-10-19 —— **真机反馈第二轮（用户：Docker 卡太简陋 + 蜂窝卡留白大）**：①Docker 卡**全宽**（span 12）：Engine 版本/存储驱动/根目录、容器/镜像/网络/卷摘要、容器表（≤8）；daemon `docker` 节加 `version/driver/root_dir/cpus/mem_total/networks/volumes/containers`（契约 §3.4 加法）；②蜂窝卡按 qmodem 首页信息项重排为 **Base/SIM/Network/Cell** 四栏 + 横向信号带，新增 `at_port/voltage_mv/connect_status/network_type/cqi_*/ambr_*/cell_info` 与 `sim.isp`（契约 §3.9 加法）；时间/电压/运营商 PLMN 与 qmodem 首页同源；IMEI/IMSI/ICCID 仍不进快照；③无 Tailscale 时服务卡自动 span 12；④`menu.d/zz-quartz-docker.json` 将上游「Dockerman JS」菜单标题覆盖为「Docker」；⑤daemon r5、Bundle 33.0KB gzip；证据 `dev/shots/vm/fnet-20261019-cellular-docker.png` 重出。*
 *v1.8 2026-10-19 —— **`net.wan.ipv6` 契约加法 + 网络卡展示**（IA v2 D9′）：daemon `net` 快照新增 `wan.ipv6`（首个公网 GUA，跳过 fe80/ULA/temporary/deprecated；优先 `ip -6 -o addr`，回退 Go 原生枚举；daemon r6）；Dashboard NetworkCard 的 IPv4/IPv6 均打码展示，App 概览网络卡同步；真机 `wwan0_1` GUA 已验证（`2408:8459:…:897d`）。*
+*v1.9 2026-10-19 —— **真机反馈第三轮（用户：地址打码要可展开 / 系统卡补信息 / 蜂窝卡重新规划）**：①`maskIp` 改为前半段+`*`（IPv4 `a.b.*.*`、IPv6 `a:b:*:*:*:*:*:*`）；新增 `IpValue` 原语，点击/回车展开完整地址，网络卡、Hero、蜂窝卡 IPv4 全接入；②系统卡顶部加 CPU 摘要（型号·核数·当前/最大频率）+ 进程数，daemon `system` 节加 `cpu_model/cores/cpu_mhz/cpu_max_mhz/procs`（契约 §3.2 加法，daemon r7）；③蜂窝卡 v2 样板（状态头 + 4 KPI + 4×5–6 细节栏，待用户拍板），证据 `dev/shots/vm/fnet-20261019-cell-v2-{dark,light}.png`（真机快照渲染）；④Bundle 33.5KB gzip / CSS 3.5KB gzip。*
