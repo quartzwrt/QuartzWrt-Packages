@@ -40,12 +40,13 @@ func TestMethodListSurface(t *testing.T) {
 		"config.read", "config.write", "config.changes", "config.revert",
 		"config.apply", "config.confirm", "config.rollback",
 		"config.add", "config.delete",
+		"cron.read", "cron.write",
 	} {
 		if _, has := m[want]; !has {
 			t.Fatalf("method list missing %s", want)
 		}
 	}
-	if len(m) != 18 {
+	if len(m) != 20 {
 		t.Fatalf("method surface changed: %d", len(m))
 	}
 }

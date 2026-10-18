@@ -21,7 +21,9 @@
 					"config.confirm",
 					"config.rollback",
 					"config.add",
-					"config.delete"
+					"config.delete",
+					"cron.read",
+					"cron.write"
 				]
 			}
 		}

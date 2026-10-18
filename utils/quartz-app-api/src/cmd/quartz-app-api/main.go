@@ -26,8 +26,10 @@ import (
 	"time"
 
 	"github.com/quartzwrt/quartz-app-api/internal/actions"
+	"github.com/quartzwrt/quartz-app-api/internal/audit"
 	"github.com/quartzwrt/quartz-app-api/internal/auth"
 	"github.com/quartzwrt/quartz-app-api/internal/config"
+	"github.com/quartzwrt/quartz-app-api/internal/cronfile"
 	"github.com/quartzwrt/quartz-app-api/internal/daemonfwd"
 	"github.com/quartzwrt/quartz-app-api/internal/envelope"
 	"github.com/quartzwrt/quartz-app-api/internal/hostinfo"
@@ -91,6 +93,9 @@ func methodList() map[string]any {
 		"config.rollback": map[string]any{"access_token": "string"},
 		"config.add":      map[string]any{"access_token": "string", "config": "string", "section_type": "string", "values": map[string]any{}},
 		"config.delete":   map[string]any{"access_token": "string", "config": "string", "section": "string"},
+		// 计划任务（W6.11；非 UCI：固定 /etc/crontabs/root）
+		"cron.read":  map[string]any{"access_token": "string"},
+		"cron.write": map[string]any{"access_token": "string", "content": "string"},
 	}
 }
 
@@ -239,9 +244,31 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 		}
 		return envelope.OK(res)
 
+	case "cron.read":
+		if _, e := svc.Authenticate(str(args, "access_token")); e != nil {
+			return envelope.Err(e)
+		}
+		f, ce := cronfile.Read(cronfile.Path)
+		if ce != nil {
+			return envelope.Err(ce)
+		}
+		return envelope.OK(map[string]any{"path": f.Path, "content": f.Content, "exists": f.Exists})
+
+	case "cron.write":
+		dev, e := svc.Authenticate(str(args, "access_token"))
+		if e != nil {
+			return envelope.Err(e)
+		}
+		n, lines, ce := cronfile.Write(cronfile.Path, str(args, "content"))
+		if ce != nil {
+			return envelope.Err(ce)
+		}
+		audit.Logf("cron write bytes=%d lines=%d device=%s", n, lines, dev.ID)
+		return envelope.OK(map[string]any{"path": cronfile.Path, "bytes": n, "lines": lines})
+
 	case "info":
 		info := hostinfo.Info()
-		info["features"] = []string{"status", "actions", "devices", "mdns", "packages", "bandix", "config"}
+		info["features"] = []string{"status", "actions", "devices", "mdns", "packages", "bandix", "config", "cron"}
 		info["auth"] = []string{"password"}
 		// 根口令是否已设（未设时 rpcd session.login 接受任意密码——
 		// DESIGN v1.0.2 / WORKPLAN 坑位 #28；App 应在配对前提示）

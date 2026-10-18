@@ -426,7 +426,7 @@ var registry = []entry{
 		id: "luci.init_action", object: "luci", method: "setInitAction",
 		fields: map[string]field{
 			"name":   {kind: kindInitName},
-			"action": {kind: kindEnum, allowed: []string{"enable", "disable", "start", "stop", "restart"}},
+			"action": {kind: kindEnum, allowed: []string{"enable", "disable", "start", "stop", "restart", "reload"}},
 		},
 	},
 	{
