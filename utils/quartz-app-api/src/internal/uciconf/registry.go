@@ -34,6 +34,7 @@ const (
 	kHostList                 // 主机名列表的别名（同 kIPList 校验）
 	kLeaseTime                // dnsmasq 租期（"12h"/"30m"/"infinite"）
 	kList                     // 字符串列表（多值）
+	kPorts                    // 端口/端口段列表（"80 443 8000-8100"）
 )
 
 // optionSpec 一个字段。
@@ -208,6 +209,76 @@ var registry = []configSpec{
 				"ttylogin":     {Kind: kBool},
 				"log_ip":       {Kind: kStr, Pattern: reIPAny, MaxLen: 64},
 				"log_port":     {Kind: kUint, Max: 65535},
+			}},
+		},
+	},
+	{
+		// 防火墙（W6.11）：defaults / zone / forward / rule / redirect 的常用字段面。
+		// 未列入的高级原语（raw extra、ipset、时间窗口、ICMP 类型等）仍由网页端编辑；
+		// 这里的字段足以覆盖家庭路由的放行/端口转发/NAT/区域开关。
+		Name: "firewall",
+		Sections: map[string]sectionSpec{
+			"@defaults": {Type: "defaults", Options: map[string]optionSpec{
+				"input":              {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"output":             {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"forward":            {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"syn_flood":          {Kind: kBool},
+				"synflood_protect":   {Kind: kBool},
+				"drop_invalid":       {Kind: kBool},
+				"fullcone":           {Kind: kBool},
+				"fullcone6":          {Kind: kBool},
+				"flow_offloading":    {Kind: kBool},
+				"flow_offloading_hw": {Kind: kBool},
+			}},
+			"@zone": {Type: "zone", Deletable: true, Options: map[string]optionSpec{
+				"name":      {Kind: kStr, Pattern: reShort, Required: true},
+				"network":   {Kind: kList},
+				"device":    {Kind: kStr, MaxLen: 64},
+				"input":     {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"output":    {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"forward":   {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP"}},
+				"masq":      {Kind: kBool},
+				"masq6":     {Kind: kBool},
+				"mtu_fix":   {Kind: kBool},
+				"conntrack": {Kind: kBool},
+				"enabled":   {Kind: kBool},
+				"log":       {Kind: kBool},
+				"family":    {Kind: kEnum, Allowed: []string{"any", "ipv4", "ipv6"}},
+			}},
+			"@forwarding": {Type: "forwarding", Deletable: true, Options: map[string]optionSpec{
+				"src":     {Kind: kStr, Pattern: reShort, Required: true},
+				"dest":    {Kind: kStr, Pattern: reShort, Required: true},
+				"enabled": {Kind: kBool},
+			}},
+			"@rule": {Type: "rule", Deletable: true, Options: map[string]optionSpec{
+				"name":      {Kind: kStr, MaxLen: 64},
+				"enabled":   {Kind: kBool},
+				"src":       {Kind: kStr, Pattern: reShort},
+				"dest":      {Kind: kStr, Pattern: reShort},
+				"proto":     {Kind: kList},
+				"icmp_type": {Kind: kList},
+				"src_ip":    {Kind: kStr, Pattern: reRouteTarget, MaxLen: 128},
+				"dest_ip":   {Kind: kStr, Pattern: reRouteTarget, MaxLen: 128},
+				"src_port":  {Kind: kPorts},
+				"dest_port": {Kind: kPorts},
+				"target":    {Kind: kEnum, Allowed: []string{"ACCEPT", "REJECT", "DROP", "MARK"}},
+				"family":    {Kind: kEnum, Allowed: []string{"any", "ipv4", "ipv6"}},
+				"log":       {Kind: kBool},
+				"extra":     {Kind: kStr, MaxLen: 256},
+			}},
+			"@redirect": {Type: "redirect", Deletable: true, Options: map[string]optionSpec{
+				"name":       {Kind: kStr, MaxLen: 64},
+				"enabled":    {Kind: kBool},
+				"src":        {Kind: kStr, Pattern: reShort},
+				"dest":       {Kind: kStr, Pattern: reShort},
+				"src_ip":     {Kind: kStr, Pattern: reRouteTarget, MaxLen: 128},
+				"dest_ip":    {Kind: kStr, Pattern: reRouteTarget, MaxLen: 128},
+				"src_dport":  {Kind: kPorts},
+				"dest_port":  {Kind: kPorts},
+				"proto":      {Kind: kList},
+				"target":     {Kind: kEnum, Allowed: []string{"DNAT", "SNAT", "ACCEPT", "REJECT", "DROP"}},
+				"family":     {Kind: kEnum, Allowed: []string{"any", "ipv4", "ipv6"}},
+				"reflection": {Kind: kBool},
 			}},
 		},
 	},
@@ -395,6 +466,32 @@ func validateValue(o optionSpec, v any) (any, *envelope.Error) {
 			}
 		}
 		return list, nil
+	case kPorts:
+		s, ok := v.(string)
+		if !ok || strings.TrimSpace(s) == "" {
+			return bad("invalid port list")
+		}
+		f := strings.Fields(s)
+		if len(f) == 0 || len(f) > 16 {
+			return bad("invalid port list")
+		}
+		for _, tok := range f {
+			parts := strings.Split(tok, "-")
+			if len(parts) > 2 {
+				return bad("invalid port range")
+			}
+			var lo, hi int
+			if _, err := fmt.Sscanf(parts[0], "%d", &lo); err != nil || lo < 1 || lo > 65535 {
+				return bad("invalid port")
+			}
+			hi = lo
+			if len(parts) == 2 {
+				if _, err := fmt.Sscanf(parts[1], "%d", &hi); err != nil || hi < 1 || hi > 65535 || hi < lo {
+					return bad("invalid port range")
+				}
+			}
+		}
+		return strings.Join(f, " "), nil
 	default: // kStr
 		s, ok := v.(string)
 		if !ok {
