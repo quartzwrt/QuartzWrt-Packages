@@ -19,12 +19,15 @@ import (
 //   - online = last（最后在线时刻）在 bandix.traffic.offline_timeout 内
 //     —— 与上游状态页 isDeviceOnline() 同一条判据（含秒级时间戳兜底）
 //   - wan    = Σ w_rx_r / w_tx_r（设备侧 WAN 速率合计，与上游 "WAN Traffic" 卡同式）
-//   - top    = 按累计 t_rx_b+t_tx_b 降序；pct = 该设备累计 / 全部设备累计 ×100
+//   - top    = 按累计 t_rx_b+t_tx_b 降序；pct = 该设备累计 / 全部设备累计 ×100；
+//     rx_r/tx_r = 设备侧 WAN 速率（同网页设备表）；wl/sch/q = 限速策略标记
+//   - limits = 总体限速策略摘要（默认限速/白名单开关与数量/规则数/配额数）
 //
 // 降级（契约 §3.7 + §6.2）：
 //   - 未装 bridge 包 / 未开 traffic 模块 → {available:false}（卡片隐藏，无 errors）
 //   - traffic 已开但上游不可用 → 整节 null + errors["bandix: …"]（下轮重试）
 //   - connections / dns 模块未启用 → conn/dns 省略（null 语义）
+//   - limits 拉取失败 → limits 省略（不阻塞本节；状态类字段照常）
 
 const (
 	// bandixBridgeUC bridge 包契约文件（存在性判定"已装"，避免多一次 ubus 探测）。
@@ -96,6 +99,8 @@ func collectBandix(now time.Time) (*snapshot.Bandix, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bandix: bridge unreachable")
 	}
+	// 限速/白名单/配额聚合（总体策略行 + 每设备策略标记的数据源；尽力，失败不阻塞）
+	limitsRaw, _ := ubusCall("quartz.bandix", "limits")
 	// connections / dns 为可选摘要：模块未启用时不调用；调用失败不阻塞本节
 	var connRaw, dnsRaw []byte
 	if uci.connections {
@@ -104,7 +109,7 @@ func collectBandix(now time.Time) (*snapshot.Bandix, error) {
 	if uci.dns {
 		dnsRaw, _ = ubusCall("quartz.bandix", "dns_stats")
 	}
-	out, err := buildBandix(statusRaw, connRaw, dnsRaw, uci, now)
+	out, err := buildBandix(statusRaw, limitsRaw, connRaw, dnsRaw, uci, now)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +123,70 @@ func collectBandix(now time.Time) (*snapshot.Bandix, error) {
 	return out, nil
 }
 
+// bandixLimitsSpec `limits` 聚合应答的消费子集（schedule/quotas/whitelist）。
+type bandixLimitsSpec struct {
+	Whitelist struct {
+		Enabled   bool     `json:"enabled"`
+		DefaultRx int64    `json:"default_wan_rx_rate_limit"`
+		DefaultTx int64    `json:"default_wan_tx_rate_limit"`
+		MACs      []string `json:"macs"`
+	} `json:"whitelist"`
+	Schedule struct {
+		Limits []struct {
+			MAC string `json:"mac"`
+		} `json:"limits"`
+	} `json:"schedule"`
+	Quotas struct {
+		Quotas []struct {
+			MAC string `json:"mac"`
+		} `json:"quotas"`
+	} `json:"quotas"`
+}
+
+// parseBandixLimits 解析 limits 聚合（信封 → 摘要 + 每 MAC 的规则集；不可用 → nil）。
+func parseBandixLimits(raw []byte) (*snapshot.BandixLimits, map[string]int, map[string]bool, map[string]bool) {
+	if raw == nil {
+		return nil, nil, nil, nil
+	}
+	var env bandixEnvelope
+	if json.Unmarshal(raw, &env) != nil || !env.OK {
+		return nil, nil, nil, nil
+	}
+	var spec bandixLimitsSpec
+	if json.Unmarshal(env.Data, &spec) != nil {
+		return nil, nil, nil, nil
+	}
+	lim := &snapshot.BandixLimits{
+		DefaultRxBps:     spec.Whitelist.DefaultRx,
+		DefaultTxBps:     spec.Whitelist.DefaultTx,
+		WhitelistEnabled: spec.Whitelist.Enabled,
+		WhitelistCount:   len(spec.Whitelist.MACs),
+		ScheduleCount:    len(spec.Schedule.Limits),
+		QuotaCount:       len(spec.Quotas.Quotas),
+	}
+	schByMAC := map[string]int{}
+	for _, it := range spec.Schedule.Limits {
+		if it.MAC != "" {
+			schByMAC[strings.ToLower(it.MAC)]++
+		}
+	}
+	qByMAC := map[string]bool{}
+	for _, it := range spec.Quotas.Quotas {
+		if it.MAC != "" {
+			qByMAC[strings.ToLower(it.MAC)] = true
+		}
+	}
+	wlByMAC := map[string]bool{}
+	for _, m := range spec.Whitelist.MACs {
+		if m != "" {
+			wlByMAC[strings.ToLower(m)] = true
+		}
+	}
+	return lim, schByMAC, qByMAC, wlByMAC
+}
+
 // buildBandix 由上游应答构造本节（纯函数，单测直插）。
-func buildBandix(statusRaw, connRaw, dnsRaw []byte, uci bandixUCI, now time.Time) (*snapshot.Bandix, error) {
+func buildBandix(statusRaw, limitsRaw, connRaw, dnsRaw []byte, uci bandixUCI, now time.Time) (*snapshot.Bandix, error) {
 	var env bandixEnvelope
 	if err := json.Unmarshal(statusRaw, &env); err != nil {
 		return nil, fmt.Errorf("bandix: status parse error")
@@ -131,6 +198,8 @@ func buildBandix(statusRaw, connRaw, dnsRaw []byte, uci bandixUCI, now time.Time
 		}
 		return nil, fmt.Errorf("bandix: %s", msg)
 	}
+	lim, schByMAC, qByMAC, wlByMAC := parseBandixLimits(limitsRaw)
+
 	var st struct {
 		D []struct {
 			MAC  string `json:"mac"`
@@ -151,6 +220,7 @@ func buildBandix(statusRaw, connRaw, dnsRaw []byte, uci bandixUCI, now time.Time
 		Available: true,
 		Devices:   len(st.D),
 		WAN:       &snapshot.BandixWAN{},
+		Limits:    lim,
 		Top:       []snapshot.BandixTop{},
 	}
 	thresholdMs := int64(uci.offlineTimeoutS) * 1000
@@ -166,9 +236,12 @@ func buildBandix(statusRaw, connRaw, dnsRaw []byte, uci bandixUCI, now time.Time
 		}
 		out.WAN.RxBps += d.WRxR
 		out.WAN.TxBps += d.WTxR
+		key := strings.ToLower(d.MAC)
 		out.Top = append(out.Top, snapshot.BandixTop{
 			MAC: d.MAC, Host: d.Host, IP: d.IP4,
 			RxB: d.TRxB, TxB: d.TTxB,
+			RxR: d.WRxR, TxR: d.WTxR,
+			WL: wlByMAC[key], Sch: schByMAC[key], Q: qByMAC[key],
 		})
 		totalB += d.TRxB + d.TTxB
 	}

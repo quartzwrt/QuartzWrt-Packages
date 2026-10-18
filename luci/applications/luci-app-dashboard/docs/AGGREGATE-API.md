@@ -94,8 +94,9 @@
 | :--- | :--- | :--- |
 | `available` | bool | `false` = 未装 bridge/bandix、未开 traffic 模块、或上游返回空设备表（核心不可达被 `luci.bandix` 伪造成 `{d:[]}`——正常态至少路由器自身在列）→ Dashboard 隐藏整卡（其余字段省略） |
 | `devices` / `online` | int | bandix 设备表总数 / 在线数（`last` 在 `bandix.traffic.offline_timeout` 内，判据同上游状态页） |
-| `wan` | object | `{ rx_bps, tx_bps }`：设备侧 WAN 速率合计（Byte/s，= Σ `w_rx_r`/`w_tx_r`，与上游 "WAN Traffic" 卡同式） |
-| `top` | array | **≤8 条**，按累计 `t_rx_b+t_tx_b` 降序；每条 `{ mac, host, ip, rx_b, tx_b, pct }`（`pct` = 占全部设备累计流量比，1 位小数） |
+| `wan` | object | `{ rx_bps, tx_bps }`：设备侧 WAN 速率合计（Byte/s，= Σ `w_rx_r`/`w_tx_r`）。**内置卡片与 App 不再展示**（与网络卡的接口级吞吐重复，2026-10-17 用户指令）；字段保留供消费方自定义展示/诊断 |
+| `limits` | object\|省略 | **总体限速策略摘要**：`{ default_rx_bps, default_tx_bps, whitelist_enabled, whitelist_count?, schedule_count?, quota_count? }`（来源 `quartz.bandix limits` 聚合；拉取失败时省略） |
+| `top` | array | **≤8 条**，按累计 `t_rx_b+t_tx_b` 降序；每条 `{ mac, host, ip, rx_b, tx_b, pct, rx_r, tx_r, wl?, sch?, q? }`——`pct`=占全部设备累计流量比（1 位小数）；`rx_r/tx_r`=该设备 WAN 速率（Byte/s，与网页设备表 WAN 列同源）；`wl`=白名单（豁免限速）、`sch`=时段限速规则条数、`q`=有配额（三者叠加，展示按 白名单>限速>配额 优先级取首个） |
 | `conn` | object\|省略 | `{ total, tcp, udp }`；connections 模块未启用/上游不可用时省略 |
 | `dns` | object\|省略 | `{ queries }`；dns 模块未启用/上游不可用时省略 |
 
@@ -168,3 +169,4 @@
 
 *变更记录：2026-10-12 v1 冻结（用户拍板；自 `luci-app-dashboard/docs/DESIGN.md` §3 草案转正，`collect_ms` 提升为顶层字段）。*
 *2026-10-17 加法（不升版）：新增可选节 `bandix`（§3.7，WP-8 bridge 链路 P2——daemon 慢刷经 `quartz.bandix`；`available` 隐藏谓词 + `top ≤8`；`errors` 顺延为 §3.8）；§4 示例与 `dev/mock/` 同步。*
+*2026-10-17 加法二（限速策略轮，用户指令）：`bandix.limits`（总体限速策略摘要）+ `top[]` 增 `rx_r/tx_r/wl/sch/q`；`wan` 保留但内置卡片/App 不再展示（与网络卡重复）。*

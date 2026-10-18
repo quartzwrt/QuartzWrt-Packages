@@ -270,7 +270,10 @@
         "ip": "192.168.1.10",
         "rx_b": 823456789,
         "tx_b": 123456789,
-        "pct": 38.6
+        "pct": 38.6,
+        "rx_r": 1250000,
+        "tx_r": 240000,
+        "q": true
       },
       {
         "mac": "aa:bb:cc:dd:ee:ff",
@@ -278,7 +281,10 @@
         "ip": "192.168.1.20",
         "rx_b": 456789012,
         "tx_b": 78901234,
-        "pct": 21.9
+        "pct": 21.9,
+        "rx_r": 410000,
+        "tx_r": 96000,
+        "sch": 1
       },
       {
         "mac": "11:22:33:44:55:66",
@@ -286,7 +292,10 @@
         "ip": "192.168.1.30",
         "rx_b": 234567890,
         "tx_b": 45678901,
-        "pct": 11.4
+        "pct": 11.4,
+        "rx_r": 52000,
+        "tx_r": 11000,
+        "wl": true
       }
     ],
     "conn": {
@@ -296,6 +305,14 @@
     },
     "dns": {
       "queries": 45231
+    },
+    "limits": {
+      "default_rx_bps": 131072,
+      "default_tx_bps": 0,
+      "whitelist_enabled": true,
+      "whitelist_count": 1,
+      "schedule_count": 3,
+      "quota_count": 1
     }
   },
   "errors": []

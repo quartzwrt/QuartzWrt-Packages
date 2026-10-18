@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "api": 1,
+  "data": {
+    "schedule": {
+      "limits": [
+        {
+          "id": "a1",
+          "mac": "aa:bb:cc:dd:ee:02",
+          "time_slot": { "start": "08:00", "end": "12:00", "days": [1, 2, 3] },
+          "wan_rx_rate_limit": 102400,
+          "wan_tx_rate_limit": 51200
+        }
+      ]
+    },
+    "schedule_error": null,
+    "whitelist": {
+      "enabled": true,
+      "default_wan_rx_rate_limit": 131072,
+      "default_wan_tx_rate_limit": 0,
+      "macs": ["AA:BB:CC:DD:EE:03"]
+    },
+    "whitelist_error": null,
+    "quotas": {
+      "quotas": [
+        { "mac": "aa:bb:cc:dd:ee:01", "daily_bytes": 1073741824, "daily_used_bytes": 1024 }
+      ]
+    },
+    "quotas_error": null
+  }
+}

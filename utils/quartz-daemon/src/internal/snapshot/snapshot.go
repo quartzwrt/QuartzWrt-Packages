@@ -128,22 +128,38 @@ func SortClients(items []Client) {
 // `quartz.bandix` 取数）。available=false = 未装/未开 traffic 模块 → 卡片隐藏；
 // 整节缺失（null）= 上游暂不可用（errors 记一条）。
 type Bandix struct {
-	Available bool        `json:"available"`
-	Devices   int         `json:"devices,omitempty"`
-	Online    int         `json:"online,omitempty"`
-	WAN       *BandixWAN  `json:"wan,omitempty"`
-	Top       []BandixTop `json:"top,omitempty"`
-	Conn      *BandixConn `json:"conn,omitempty"`
-	DNS       *BandixDNS  `json:"dns,omitempty"`
+	Available bool          `json:"available"`
+	Devices   int           `json:"devices,omitempty"`
+	Online    int           `json:"online,omitempty"`
+	WAN       *BandixWAN    `json:"wan,omitempty"`
+	Limits    *BandixLimits `json:"limits,omitempty"`
+	Top       []BandixTop   `json:"top,omitempty"`
+	Conn      *BandixConn   `json:"conn,omitempty"`
+	DNS       *BandixDNS    `json:"dns,omitempty"`
 }
 
 // BandixWAN 设备侧 WAN 速率合计（Byte/s；= Σ w_rx_r / w_tx_r，与网页同式）。
+//
+// 注：内置卡片与 App 不再展示（与"网络"卡的接口级吞吐重复，2026-10-17 用户指令）；
+// 字段保留供消费方自定义展示/诊断。
 type BandixWAN struct {
 	RxBps int64 `json:"rx_bps"`
 	TxBps int64 `json:"tx_bps"`
 }
 
+// BandixLimits 总体限速策略摘要（契约 §3.7；来源 `quartz.bandix limits` 聚合）。
+type BandixLimits struct {
+	DefaultRxBps     int64 `json:"default_rx_bps"`
+	DefaultTxBps     int64 `json:"default_tx_bps"`
+	WhitelistEnabled bool  `json:"whitelist_enabled"`
+	WhitelistCount   int   `json:"whitelist_count,omitempty"`
+	ScheduleCount    int   `json:"schedule_count,omitempty"`
+	QuotaCount       int   `json:"quota_count,omitempty"`
+}
+
 // BandixTop 流量 Top 设备（按累计 t_rx_b+t_tx_b 降序，pct = 占全部设备累计流量比）。
+// rx_r/tx_r = 设备侧 WAN 速率（Byte/s，= w_rx_r/w_tx_r，与网页设备表 WAN 列同源）；
+// wl/sch/q = 该设备的限速策略标记（白名单 / 时段限速规则条数 / 有无配额）。
 type BandixTop struct {
 	MAC  string  `json:"mac"`
 	Host string  `json:"host"`
@@ -151,6 +167,11 @@ type BandixTop struct {
 	RxB  int64   `json:"rx_b"`
 	TxB  int64   `json:"tx_b"`
 	Pct  float64 `json:"pct"`
+	RxR  int64   `json:"rx_r"`
+	TxR  int64   `json:"tx_r"`
+	WL   bool    `json:"wl,omitempty"`
+	Sch  int     `json:"sch,omitempty"`
+	Q    bool    `json:"q,omitempty"`
 }
 
 // BandixConn 连接摘要（契约 §3.7；connections 模块未启用/不可用时省略）。

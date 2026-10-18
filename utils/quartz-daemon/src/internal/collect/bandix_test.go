@@ -56,6 +56,7 @@ func TestBuildBandixFull(t *testing.T) {
 
 	got, err := buildBandix(
 		readBandixFixture(t, "bandix_status.json"),
+		readBandixFixture(t, "bandix_limits.json"),
 		readBandixFixture(t, "bandix_connections.json"),
 		readBandixFixture(t, "bandix_dns_stats.json"),
 		uci, now)
@@ -92,6 +93,29 @@ func TestBuildBandixFull(t *testing.T) {
 	if got.DNS == nil || got.DNS.Queries != 100 {
 		t.Fatalf("dns = %+v", got.DNS)
 	}
+	// limits 摘要（总体限速策略）
+	lim := got.Limits
+	if lim == nil {
+		t.Fatal("limits = nil, want summary")
+	}
+	if lim.DefaultRxBps != 131072 || lim.DefaultTxBps != 0 || !lim.WhitelistEnabled ||
+		lim.WhitelistCount != 1 || lim.ScheduleCount != 1 || lim.QuotaCount != 1 {
+		t.Fatalf("limits = %+v", lim)
+	}
+	// 每设备：速率 + 策略标记（白名单 MAC 大写输入 → 小写归一匹配）
+	byMAC := map[string]snapshot.BandixTop{}
+	for _, it := range got.Top {
+		byMAC[it.MAC] = it
+	}
+	if d1 := byMAC["aa:bb:cc:dd:ee:01"]; !d1.Q || d1.WL || d1.Sch != 0 || d1.RxR != 1000 || d1.TxR != 200 {
+		t.Fatalf("d1 policy/rate = %+v", d1)
+	}
+	if d2 := byMAC["aa:bb:cc:dd:ee:02"]; d2.Sch != 1 || d2.WL || d2.Q {
+		t.Fatalf("d2 policy = %+v", d2)
+	}
+	if d3 := byMAC["aa:bb:cc:dd:ee:03"]; !d3.WL || d3.Sch != 0 || d3.Q {
+		t.Fatalf("d3 policy = %+v", d3)
+	}
 
 	// 序列化形状：available + 数字字段名与契约一致
 	b, err := json.Marshal(got)
@@ -124,7 +148,7 @@ func TestBuildBandixTopCap(t *testing.T) {
 	}
 	raw = append(raw, []byte(`]}}`)...)
 
-	got, err := buildBandix(raw, nil, nil,
+	got, err := buildBandix(raw, nil, nil, nil,
 		bandixUCI{installed: true, traffic: true, offlineTimeoutS: 600},
 		time.UnixMilli(1_760_000_100_000))
 	if err != nil {
@@ -141,7 +165,7 @@ func TestBuildBandixTopCap(t *testing.T) {
 // 降级：上游信封 ok=false → error（collector 层会转成 null + errors 条目）。
 func TestBuildBandixUpstreamError(t *testing.T) {
 	raw := []byte(`{"ok":false,"api":1,"error":{"code":"data_unavailable","message":"Traffic monitoring is not enabled"}}`)
-	_, err := buildBandix(raw, nil, nil, bandixUCI{traffic: true}, time.Now())
+	_, err := buildBandix(raw, nil, nil, nil, bandixUCI{traffic: true}, time.Now())
 	if err == nil {
 		t.Fatal("expected error for ok=false envelope")
 	}
@@ -152,7 +176,7 @@ func TestBuildBandixOptionalSummaries(t *testing.T) {
 	status := readBandixFixture(t, "bandix_status.json")
 	badConn := []byte(`{"ok":false,"api":1,"error":{"code":"data_unavailable","message":"Connection monitoring is not enabled"}}`)
 
-	got, err := buildBandix(status, badConn, nil,
+	got, err := buildBandix(status, nil, badConn, nil,
 		bandixUCI{installed: true, traffic: true, offlineTimeoutS: 120},
 		time.UnixMilli(1_760_000_100_000))
 	if err != nil {
@@ -199,7 +223,7 @@ func itoa(n int) string {
 // 不可用（卡片隐藏），避免 "0/0" 误导；非空才正常出数。
 func TestBandixEmptyDeviceListIsUnavailable(t *testing.T) {
 	raw := []byte(`{"ok":true,"api":1,"data":{"d":[]}}`)
-	out, err := buildBandix(raw, nil, nil, bandixUCI{installed: true, traffic: true, offlineTimeoutS: 600}, time.Now())
+	out, err := buildBandix(raw, nil, nil, nil, bandixUCI{installed: true, traffic: true, offlineTimeoutS: 600}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -156,6 +156,8 @@
   - `wan` = Σ `w_rx_r` / `w_tx_r`（设备侧 WAN 速率合计，与上游 "WAN Traffic" 卡同式）；
   - `top` = 按累计 `t_rx_b+t_tx_b` 降序 ≤8（契约上限），`pct` = 占全部设备累计流量比；
 - **可选摘要**：`connections` / `dns` 模块启用时（同一份 uci）各多一次 `quartz.bandix connections|dns_stats`；未启用不调用、调用失败字段省略（`null` 语义，不阻塞本节）；
+- **限速策略（2026-10-17 加法）**：每慢刷周期固定多一次 `quartz.bandix limits`（聚合限速/白名单/配额；≈285ms，失败则 `limits` 省略不阻塞）——产出 ①总体策略摘要 `limits`（默认限速/白名单开关与数量/规则数/配额数）②`top[]` 每设备：`rx_r/tx_r`（设备侧 WAN 速率，同网页设备表 WAN 列）+ 策略标记 `wl/sch/q`（白名单/时段限速条数/有无配额；MAC 大小写归一）；
+- **`wan` 字段保留但不再展示**（内置卡片与 App 删显示：与网络卡的接口级吞吐重复，2026-10-17 用户指令）；
 - **开销**：仅 traffic 时每慢刷周期 +1 次 ubus exec（+1 次 uci exec）。**VM 实测（x86_64，2026-10-17）**：traffic-only RSS 4.5MB / CPU 0.17%；traffic+connections+dns RSS 5.1MB / **CPU 3.27%**（connections 的 3s 全量 conntrack 读是 CPU 大头——D2「只开 traffic」由此获得数据支撑）；真机（RK3399）traffic-only 4.6MB / 0.1%。
 
 ### 3.8 `errors`
@@ -447,5 +449,6 @@ Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
 *v0.3.1 2026-10-12 —— 拍板前校验修正：§3.4 docker 采集改**无版本路径**（核实锁定基座 dockerd 29.6.1 的默认最低接受 API 已升至 1.40，写死 `/v1.24` 会被版本中间件拒 "client version 1.24 is too old"；无版本请求按当前版本接受；§1.2 事实表补记该边界）；§3.6 探测集描述对齐 §13.1（消除 v0.1 "代码内常量" 残文）；头部"版本/待拍板项数"元信息同步至 v0.3/十项。*
 *v1.0 2026-10-12 —— **定案并开工**（用户指示"推进 WP-4"）：§9 十项按推荐案实施；W4.1–W4.5 落地（包骨架/Makefile/采集全层/配置/单测 25 例/dev 工具 `vm-ssh.py`+`contract-check.py`），单包交叉编译通过（验收①，产物 `quartz-daemon-0.1.0-r1.apk`）。实现期修正（同步进正文）：①§3.3 `up` 判定放宽为"非 down"（pppoe/wg 的 operstate=unknown）；②§7.1 `GO_PKG_LDFLAGS_X` 改 `main.version`（完整 import path 对 main 包静默失配，实测）；③采纳 v0.3.1 的 docker 无版本路径（§3.4）与 docker 移出预装（出厂 `available=false` 为常态）。*
 *v1.0.1 2026-10-12 —— 并入并行对话（引导对话）经 WORKPLAN §4 登记的校验修正（docker 无版本路径 / §1.2 事实表 / §3.6 描述对齐）；W4.6–W4.7 进行中。*
+*v1.0.4 2026-10-17 —— **限速策略轮（用户指令）**：`bandix.limits`（总体限速策略摘要）+ `top[]` 增 `rx_r/tx_r/wl/sch/q`（设备速率与限速策略标记；来源新增一次 `quartz.bandix limits` 调用，失败不阻塞）；`wan` 保留但卡片/App 不再展示；PKG_RELEASE 3。*
 *v1.0.3 2026-10-17 —— **P2 加法：`bandix` 节**（契约 §3.7，WP-8 bridge 链路）——慢刷 10s 经 `quartz.bandix` 取数（设备/在线/WAN 速率合计/Top≤8/连接与 DNS 摘要），语义与网页逐字段同源（`online` 判据同 `isDeviceOnline()`、`wan` 同 "WAN Traffic" 卡合计式）；未装/未开 traffic → `available:false`（卡片隐藏），上游不可用 → 整节 null + errors；单测 6 例（解析/判据/排序截断/降级/序列化形状），PKG_RELEASE 2。*
 *v1.0.2 2026-10-12 —— 完成补记：W4.6–W4.7 落地——QEMU 新镜像 VM 集成验收全绿（procd 自启 / 快照 2s·0644 / 契约校验 / HTTP 语义 / kill -9 恢复；Dashboard 真数据联调闭环、未装 Docker 卡正确隐藏），README/TDD 定稿同步；过程修复 rpcd realpath 二次 ACL（WORKPLAN 坑位 #25）、记录 procd respawn crash-loop 语义（#26）。已推送（Packages `917f5d2..93f9075`、Builder feed 锁定 bump `3e77e9c`——常规构建自动携带本包）。*

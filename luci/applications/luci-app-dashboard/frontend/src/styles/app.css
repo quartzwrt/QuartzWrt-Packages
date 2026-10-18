@@ -122,10 +122,11 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-w-mac  { width: 22%; }
 .qzd-w-if   { width: 14%; }
 .qzd-w-ago  { width: 20%; }
-/* 流量明细卡（bandix）：设备 / 下行 / 上行 / 占比（移动端全局隐藏第 3、4 列 → 设备+下行） */
-.qzd-w-dev  { width: 40%; }
-.qzd-w-b    { width: 21%; }
-.qzd-w-p    { width: 18%; }
+/* 流量明细卡（bandix）：设备 / 下行速率 / 上行速率 / 累计 / 限速策略
+   （移动端全局隐藏第 3、4 列 → 设备 + 下行 + 限速） */
+.qzd-w-bd   { width: 26%; }
+.qzd-w-br   { width: 16%; }
+.qzd-w-bp   { width: 26%; }
 
 /* ---- 服务卡 ---- */
 .qzd-svc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 26px; }

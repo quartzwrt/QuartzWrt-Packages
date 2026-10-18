@@ -161,9 +161,9 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-table .w-if   { width: 14%; }
 .qzd-table .w-ago  { width: 20%; }
 /* 流量明细卡（bandix）：设备 / 下行 / 上行 / 占比 */
-.qzd-table .w-dev  { width: 40%; }
-.qzd-table .w-b    { width: 21%; }
-.qzd-table .w-p    { width: 18%; }
+.qzd-table .w-bd   { width: 26%; }
+.qzd-table .w-br   { width: 16%; }
+.qzd-table .w-bp   { width: 26%; }
 .qzd-table tr:last-child td { border-bottom: 0; }
 .qzd-table .mono { font-family: var(--qz-font-mono); }
 .qzd-table .dim { color: var(--qz-text-2); }
@@ -420,16 +420,29 @@ function cardBandix(b) {
 	/* 契约 §3.7：available!==true（未装/未开 traffic/整节缺失）→ 整卡隐藏（与注册表谓词一致） */
 	if (!b || b.available !== true) return '';
 	var top = b.top || [];
-	if (!b.devices && !top.length && !(b.wan && (b.wan.rx_bps || b.wan.tx_bps)))
-		return emptyCard('流量明细', '暂无流量数据');
+	if (!b.devices && !top.length) return emptyCard('流量明细', '暂无流量数据');
+	var lim = b.limits;
 	var connTxt = b.conn ? (b.conn.total + ' · TCP ' + b.conn.tcp + ' · UDP ' + b.conn.udp) : '<span class="qzd-muted">未启用</span>';
 	var dnsTxt = b.dns ? String(b.dns.queries) : '<span class="qzd-muted">未启用</span>';
+	function policyOf(it) {
+		if (it.wl) return dot('ok') + ' 白名单';
+		if (it.sch) return dot('warn') + ' 限速 ' + it.sch;
+		if (it.q) return dot('warn') + ' 配额';
+		return '默认';
+	}
 	var rows = top.map(function (it) {
 		return '<tr><td>' + (it.host || it.ip || it.mac) + '</td>' +
-			'<td class="mono">' + fmtBytes(it.rx_b) + '</td>' +
-			'<td class="mono">' + fmtBytes(it.tx_b) + '</td>' +
-			'<td class="mono dim">' + Number(it.pct).toFixed(1) + '%</td></tr>';
+			'<td class="mono">' + fmtRate(it.rx_r || 0) + '</td>' +
+			'<td class="mono">' + fmtRate(it.tx_r || 0) + '</td>' +
+			'<td class="mono dim">' + fmtBytes((it.rx_b || 0) + (it.tx_b || 0)) + '</td>' +
+			'<td class="dim">' + policyOf(it) + '</td></tr>';
 	}).join('');
+	var limRows = lim
+		? '<div class="qzd-kv"><span class="k">默认限速</span><span class="v">↓ ' + (lim.default_rx_bps ? fmtRate(lim.default_rx_bps) : '不限') +
+		  ' · ↑ ' + (lim.default_tx_bps ? fmtRate(lim.default_tx_bps) : '不限') + '</span></div>' +
+		  '<div class="qzd-kv"><span class="k">白名单</span><span class="v">' + (lim.whitelist_enabled ? '开' : '关') +
+		  ' <span class="qzd-muted">· 规则 ' + (lim.schedule_count || 0) + ' · 配额 ' + (lim.quota_count || 0) + ' · 设备 ' + (lim.whitelist_count || 0) + '</span></span></div>'
+		: '';
 	return '' +
 	'<div class="qzd-wan">' + dot('ok') + '<span>在线设备</span>' +
 		'<span class="qz-mono">' + (b.online || 0) + ' / ' + (b.devices || 0) + '</span>' +
@@ -437,14 +450,11 @@ function cardBandix(b) {
 			'<div><div class="k">连接</div><div class="v">' + connTxt + '</div></div>' +
 			'<div><div class="k">DNS 查询</div><div class="v">' + dnsTxt + '</div></div>' +
 		'</div></div>' +
-	'<div class="qzd-rate">' +
-		'<div><div class="k">下行</div><div class="v down">' + fmtRate((b.wan && b.wan.rx_bps) || 0) + '</div></div>' +
-		'<div><div class="k">上行</div><div class="v">' + fmtRate((b.wan && b.wan.tx_bps) || 0) + '</div></div>' +
-	'</div>' +
+	limRows +
 	(top.length
-		? '<table class="qzd-table"><thead><tr><th class="w-dev">设备</th><th class="w-b">下行</th><th class="w-b">上行</th><th class="w-p">占比</th></tr></thead><tbody>' + rows + '</tbody></table>'
+		? '<table class="qzd-table"><thead><tr><th class="w-bd">设备</th><th class="w-br">下行</th><th class="w-br">上行</th><th class="w-bd">累计</th><th class="w-bp">限速策略</th></tr></thead><tbody>' + rows + '</tbody></table>'
 		: '') +
-	'<div class="qzd-cap">bandix 设备流量明细（设备侧合计；占比 = 累计流量份额）</div>';
+	'<div class="qzd-cap">bandix 设备流量（WAN 速率；累计 = 总流量；策略 = 白名单/时段限速/配额；完整规则见网页 Bandix 页）</div>';
 }
 
 function cardClients(c, errors) {

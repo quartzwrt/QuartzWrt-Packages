@@ -232,3 +232,49 @@ msgstr "不可用：采集器未返回 Bandix 数据"
 
 msgid "Bandix per-device traffic (device-side totals; share of cumulative bytes)"
 msgstr "bandix 设备流量明细（设备侧合计；占比 = 累计流量份额）"
+
+# ===== 流量明细卡（bandix）·限速策略轮（2026-10-17） =====
+msgid "Default rate limit"
+msgstr "默认限速"
+
+msgid "Whitelist"
+msgstr "白名单"
+
+msgid "On"
+msgstr "开"
+
+msgid "Off"
+msgstr "关"
+
+msgid "unlimited"
+msgstr "不限"
+
+msgid "rules:"
+msgstr "规则"
+
+msgid "quotas:"
+msgstr "配额"
+
+msgid "devices:"
+msgstr "设备"
+
+msgid "Total"
+msgstr "累计"
+
+msgid "Rate limit"
+msgstr "限速策略"
+
+msgid "Whitelisted"
+msgstr "白名单"
+
+msgid "Limits:"
+msgstr "限速"
+
+msgid "Quota"
+msgstr "配额"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Bandix per-device traffic (WAN rates; totals & share of cumulative bytes; policy = whitelist/schedule/quota)"
+msgstr "bandix 设备流量（WAN 速率；累计 = 总流量；策略 = 白名单/时段限速/配额；完整规则见网页 Bandix 页）"
