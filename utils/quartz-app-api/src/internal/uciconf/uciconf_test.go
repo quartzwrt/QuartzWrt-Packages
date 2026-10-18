@@ -76,7 +76,7 @@ func TestReadRegisteredAndMasking(t *testing.T) {
 		t.Fatalf("read key must be masked: %v %v", v, e)
 	}
 	// 未注册配置 / 未注册选项
-	if _, e := m.Read("fstab", "", ""); e == nil || e.Code != envelope.CodeForbiddenAction {
+	if _, e := m.Read("crontab", "", ""); e == nil || e.Code != envelope.CodeForbiddenAction {
 		t.Fatalf("unregistered config: %+v", e)
 	}
 	if _, e := m.Read("system", "@system[0]", "rootpw"); e == nil || e.Code != envelope.CodeForbiddenAction {

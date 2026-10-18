@@ -210,6 +210,16 @@ var registry = []configSpec{
 				"log_ip":       {Kind: kStr, Pattern: reIPAny, MaxLen: 64},
 				"log_port":     {Kind: kUint, Max: 65535},
 			}},
+			"@led": {Type: "led", Deletable: true, Options: map[string]optionSpec{
+				"name":     {Kind: kStr, MaxLen: 64, Required: true},
+				"sysfs":    {Kind: kStr, MaxLen: 128},
+				"trigger":  {Kind: kStr, MaxLen: 32},
+				"default":  {Kind: kBool},
+				"dev":      {Kind: kStr, MaxLen: 64},
+				"interval": {Kind: kUint, Max: 10000},
+				"delayon":  {Kind: kUint, Max: 10000},
+				"delayoff": {Kind: kUint, Max: 10000},
+			}},
 		},
 	},
 	{
@@ -299,6 +309,34 @@ var registry = []configSpec{
 				"BannerFile":        {Kind: kStr, MaxLen: 128},
 				"LocalPortForward":  {Kind: kEnum, Allowed: []string{"on", "off"}},
 				"RemotePortForward": {Kind: kEnum, Allowed: []string{"on", "off"}},
+			}},
+		},
+	},
+	{
+		// 挂载 / 交换分区（W6.11）：fstab 的 global/mount/swap 节。
+		Name: "fstab",
+		Sections: map[string]sectionSpec{
+			"@global": {Type: "global", Options: map[string]optionSpec{
+				"anon_swap":  {Kind: kBool},
+				"anon_mount": {Kind: kBool},
+				"auto_swap":  {Kind: kBool},
+				"auto_mount": {Kind: kBool},
+				"check_fs":   {Kind: kBool},
+				"delay_root": {Kind: kUint, Max: 120},
+			}},
+			"@mount": {Type: "mount", Deletable: true, Options: map[string]optionSpec{
+				"target":       {Kind: kStr, MaxLen: 128, Required: true},
+				"device":       {Kind: kStr, MaxLen: 128},
+				"fstype":       {Kind: kStr, MaxLen: 32},
+				"options":      {Kind: kStr, MaxLen: 256},
+				"enabled":      {Kind: kBool},
+				"enabled_fsck": {Kind: kBool},
+				"uuid":         {Kind: kStr, MaxLen: 128},
+				"label":        {Kind: kStr, MaxLen: 128},
+			}},
+			"@swap": {Type: "swap", Deletable: true, Options: map[string]optionSpec{
+				"device":  {Kind: kStr, MaxLen: 128, Required: true},
+				"enabled": {Kind: kBool},
 			}},
 		},
 	},

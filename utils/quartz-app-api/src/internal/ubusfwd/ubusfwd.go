@@ -443,6 +443,21 @@ var registry = []entry{
 			"password": {kind: kindPassword, maxLen: 128},
 		},
 	},
+	{
+		// 当前挂载点（/proc/mounts + statvfs）：[{device,mount,size,avail,free}]。
+		id: "luci.mounts", object: "luci", method: "getMountPoints", shape: shapeNone,
+		fields: map[string]field{},
+	},
+	{
+		// 块设备（block info + /proc/swaps）：{dev:{dev,size,type,...}}。
+		id: "luci.block_devices", object: "luci", method: "getBlockDevices", shape: shapeNone,
+		fields: map[string]field{},
+	},
+	{
+		// 物理 LED 列表（sysfs）：{led:{triggers[],active_trigger,brightness,max_brightness}}。
+		id: "luci.leds", object: "luci", method: "getLEDs", shape: shapeNone,
+		fields: map[string]field{},
+	},
 }
 
 // Handles 判定 action id 是否由本机制承载（main.go 前缀路由用）。
