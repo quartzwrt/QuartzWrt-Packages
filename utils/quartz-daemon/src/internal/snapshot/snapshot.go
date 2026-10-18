@@ -23,6 +23,12 @@ const (
 	MaxUnhealthy = 8
 	// MaxBandixTop bandix.top 上限（契约 §3.7）。
 	MaxBandixTop = 8
+	// MaxCellularModems cellular.modems 上限（契约 §3.9）。
+	MaxCellularModems = 4
+	// MaxCellularSeries cellular 每模组 signal.series 上限。
+	MaxCellularSeries = 60
+	// MaxServingCells cellular 每模组 serving_cells 上限。
+	MaxServingCells = 4
 )
 
 // Snapshot 是快照顶层结构（契约 §2）。
@@ -38,6 +44,7 @@ type Snapshot struct {
 	Clients   *Clients       `json:"clients"`
 	Services  map[string]any `json:"services"`
 	Bandix    *Bandix        `json:"bandix,omitempty"`
+	Cellular  *Cellular      `json:"cellular,omitempty"`
 	Errors    []string       `json:"errors"`
 }
 
@@ -186,6 +193,149 @@ type BandixDNS struct {
 	Queries int64 `json:"queries"`
 }
 
+// Cellular 蜂窝节（契约 §3.9；慢刷 10s，经 ubus 对象 `qmodem` 读方法。
+// 第三方插件 qmodem 的 rpcd 接口——与网页端同一数据源）。
+//
+// available=false = 未装 qmodem / 无 modem-device section / 全部模组读取失败
+// → 蜂窝 tab 与三处卡片一起隐藏（与 bandix 条件卡同款语义）。
+type Cellular struct {
+	Available    bool            `json:"available"`
+	Updated      int64           `json:"updated,omitempty"`
+	Capabilities *CellularCaps   `json:"capabilities,omitempty"`
+	Modems       []CellularModem `json:"modems,omitempty"`
+	Errors       []string        `json:"errors,omitempty"`
+}
+
+// CellularCaps 端级能力（任一模组具备即为真；用于 tab 内的功能入口显隐）。
+type CellularCaps struct {
+	AT        bool `json:"at"`
+	SMS       bool `json:"sms"`
+	SIMSwitch bool `json:"sim_switch"`
+	Stats     bool `json:"stats"`
+	Temp      bool `json:"temp"`
+}
+
+// CellularModem 单个模组（uci section = qmodem.<id>，type=modem-device）。
+type CellularModem struct {
+	ID           string             `json:"id"`
+	Model        string             `json:"model,omitempty"`
+	Vendor       string             `json:"vendor,omitempty"`
+	Firmware     string             `json:"firmware,omitempty"`
+	TempC        *float64           `json:"temp_c,omitempty"`
+	Registered   bool               `json:"registered"`
+	Operator     string             `json:"operator,omitempty"`
+	NetworkMode  string             `json:"network_mode,omitempty"`
+	Signal       *CellularSignal    `json:"signal,omitempty"`
+	ServingCells []CellularCell     `json:"serving_cells,omitempty"`
+	Dial         *CellularDial      `json:"dial,omitempty"`
+	Traffic      *CellularTraffic   `json:"traffic,omitempty"`
+	SIM          *CellularSIM       `json:"sim,omitempty"`
+	Settings     *CellularSettings  `json:"settings,omitempty"`
+	Capabilities *CellularModemCaps `json:"capabilities,omitempty"`
+}
+
+// CellularSignal 信号指标（RSRP/RSRQ/SINR/RSSI 取上游 progress_bar 条目的值，
+// 单位与标尺与网页端一致；quality_pct 用同一条目的 min/max 归一）。
+type CellularSignal struct {
+	RSRP       *int64          `json:"rsrp,omitempty"`
+	RSRQ       *float64        `json:"rsrq,omitempty"`
+	SINR       *float64        `json:"sinr,omitempty"`
+	RSSI       *int64          `json:"rssi,omitempty"`
+	QualityPct *float64        `json:"quality_pct,omitempty"`
+	Series     *CellularSeries `json:"series,omitempty"`
+}
+
+// CellularSeries RSRP 环形缓冲（daemon 侧累积；step 秒/点，≤60 点）。
+type CellularSeries struct {
+	Step int     `json:"step"`
+	RSRP []int64 `json:"rsrp"`
+}
+
+// CellularCell 服务小区（源自 get_current_band.cells，归一化字段名）。
+type CellularCell struct {
+	Role        string `json:"role,omitempty"`
+	RAT         string `json:"rat,omitempty"`
+	Band        string `json:"band,omitempty"`
+	Channel     string `json:"channel,omitempty"`
+	ChannelType string `json:"channel_type,omitempty"`
+	PCI         string `json:"pci,omitempty"`
+	DLBandwidth string `json:"dl_bandwidth,omitempty"`
+	ULBandwidth string `json:"ul_bandwidth,omitempty"`
+	SCS         string `json:"scs,omitempty"`
+}
+
+// CellularDial 拨号状态（running 由上游字符串布尔 "true"/"false" 归一）。
+type CellularDial struct {
+	Running bool   `json:"running"`
+	IPv4    string `json:"ipv4,omitempty"`
+	RxBps   int64  `json:"rx_bps,omitempty"`
+	TxBps   int64  `json:"tx_bps,omitempty"`
+}
+
+// CellularTraffic 流量统计（available=false = 本模组不支持，如非 Quectel）。
+type CellularTraffic struct {
+	Available bool           `json:"available"`
+	UpdatedAt int64          `json:"updated_at,omitempty"`
+	RxBytes   int64          `json:"rx_bytes,omitempty"`
+	TxBytes   int64          `json:"tx_bytes,omitempty"`
+	Reset     *CellularReset `json:"reset,omitempty"`
+}
+
+// CellularReset 流量重置计划。
+type CellularReset struct {
+	Enabled bool   `json:"enabled"`
+	Type    string `json:"type,omitempty"`
+	Hour    int    `json:"hour,omitempty"`
+	Day     int    `json:"day,omitempty"`
+}
+
+// CellularSIM SIM 摘要（存储容量与未读短信属页面级读，不进快照）。
+type CellularSIM struct {
+	Status     string `json:"status,omitempty"`
+	Slot       string `json:"slot,omitempty"`
+	Switchable bool   `json:"switchable"`
+}
+
+// CellularSettings 当前设置回显（尽力；上游形状随厂商，取不到则省略）。
+//
+// 语义（读上游源码核实，2026-10-18）：USBMode = `get_mode` 的 **USB 拨号模式**
+// （qmi/ecm/mbim/rndis/ncm，AT+QCFG="usbnet"）——**不是** 5G/4G 网络模式；网络偏好
+// 在 `prefer`（`get_network_prefer` 的 3G/4G/5G 标志位归一，如 "4G+5G"）。
+type CellularSettings struct {
+	USBMode  string   `json:"usb_mode,omitempty"`
+	Prefer   string   `json:"prefer,omitempty"`
+	Lockband []string `json:"lockband,omitempty"`
+}
+
+// CellularModemCaps 单模组能力（灰显依据；不支持项由消费方标注原因）。
+type CellularModemCaps struct {
+	AT          bool `json:"at"`
+	SMS         bool `json:"sms"`
+	SIMSwitch   bool `json:"sim_switch"`
+	Stats       bool `json:"stats"`
+	CurrentBand bool `json:"current_band"`
+	Temp        bool `json:"temp"`
+}
+
+// trimCellular 收缩 cellular 节（超限阶梯用；seriesMax ≤0 表示只裁模组数）。
+func trimCellular(c *Cellular, seriesMax, modemsMax int) {
+	if c == nil {
+		return
+	}
+	if modemsMax > 0 && len(c.Modems) > modemsMax {
+		c.Modems = c.Modems[:modemsMax]
+	}
+	for i := range c.Modems {
+		m := &c.Modems[i]
+		if m.Signal == nil || m.Signal.Series == nil {
+			continue
+		}
+		if seriesMax > 0 && len(m.Signal.Series.RSRP) > seriesMax {
+			m.Signal.Series.RSRP = m.Signal.Series.RSRP[len(m.Signal.Series.RSRP)-seriesMax:]
+		}
+	}
+}
+
 // Marshal 序列化并执行上限自守（契约 §6.3）。
 //
 // 阶梯：正常 → 超限时先收 clients→16、series→30 → 仍超则丢弃可选节
@@ -207,6 +357,7 @@ func Marshal(s *Snapshot) ([]byte, error) {
 	if len(s.Net.Series.Tx) > 30 {
 		s.Net.Series.Tx = s.Net.Series.Tx[len(s.Net.Series.Tx)-30:]
 	}
+	trimCellular(s.Cellular, 30, 2)
 	b, err = json.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -216,6 +367,7 @@ func Marshal(s *Snapshot) ([]byte, error) {
 	}
 	// 防御性兜底：丢可选节（罕见路径；正常数据量级在 ~3KB）
 	s.Clients = nil
+	s.Cellular = nil
 	s.Net.Series = Series{Step: s.Interval}
 	b, err = json.Marshal(s)
 	if err != nil {

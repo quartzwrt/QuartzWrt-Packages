@@ -12,7 +12,13 @@
 					"action",
 					"devices",
 					"revoke",
-					"packages"
+					"packages",
+					"config.read",
+					"config.write",
+					"config.changes",
+					"config.revert",
+					"config.apply",
+					"config.confirm"
 				]
 			}
 		}

@@ -53,14 +53,14 @@ func TestServiceActions(t *testing.T) {
 func TestServiceWhitelistAndValidation(t *testing.T) {
 	e, calls := testExecutor(t)
 	bad := []map[string]string{
-		{"name": "dropbear"},                    // 不在白名单
-		{"name": "network"},                     // 不在白名单
-		{"name": "openclash; rm -rf /"},         // 注入
-		{"name": "../etc/passwd"},               // 路径穿越
-		{"name": "OPENCLASH"},                   // 大小写
-		{"name": ""},                            // 空
-		{"name": "openclash --force"},           // 参数注入
-		{"name": strings.Repeat("a", 40)},       // 超长
+		{"name": "dropbear"},              // 不在白名单
+		{"name": "network"},               // 不在白名单
+		{"name": "openclash; rm -rf /"},   // 注入
+		{"name": "../etc/passwd"},         // 路径穿越
+		{"name": "OPENCLASH"},             // 大小写
+		{"name": ""},                      // 空
+		{"name": "openclash --force"},     // 参数注入
+		{"name": strings.Repeat("a", 40)}, // 超长
 	}
 	for _, args := range bad {
 		_, errE := e.Do(context.Background(), "service.restart", args)

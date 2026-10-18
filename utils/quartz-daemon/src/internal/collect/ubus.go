@@ -19,6 +19,22 @@ func ubusCall(obj, method string) ([]byte, error) {
 	return out, nil
 }
 
+// ubusCallTimeout 执行 `ubus call <obj> <method> [<argsJSON>]`（指定超时）。
+// argsJSON 为单个 argv（无 shell），空串表示不带参数调用。
+func ubusCallTimeout(timeout time.Duration, obj, method, argsJSON string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	argv := []string{"call", obj, method}
+	if argsJSON != "" {
+		argv = append(argv, argsJSON)
+	}
+	out, err := exec.CommandContext(ctx, "ubus", argv...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("ubus %s %s: %v", obj, method, err)
+	}
+	return out, nil
+}
+
 // ubusServiceStates 取 procd 服务运行态：name → 存在任一 running 实例。
 func ubusServiceStates() (map[string]bool, error) {
 	out, err := ubusCall("service", "list")

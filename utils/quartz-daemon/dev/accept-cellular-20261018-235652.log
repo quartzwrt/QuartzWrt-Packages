@@ -1,0 +1,26 @@
+== 蜂窝轮 VM 验收（2026-10-18T23:56:52+08:00）==
+== 1. daemon cellular 节（无模组 → 空态，契约通过） ==
+PASS  快照含 cellular 节
+PASS  无 qmodem → available=false（tab 与卡片隐藏）
+PASS  契约校验器通过（§3.9 形状）
+PASS  无模组时零 ubus 调用（不报 error）
+== 2. 认证 ==
+PASS  登录取得 access_token
+== 3. 转发条目：未注册 / 白名单 / 校验 / 上游缺失 ==
+PASS  未注册条目 qmodem.scan_all → forbidden_action
+PASS  白名单外 section → bad_request
+PASS  合法 section 但 qmodem 未装 → data_unavailable
+PASS  AT 注入负例 → bad_request
+PASS  IMEI 位数负例 → bad_request
+PASS  SIM 槽位非枚举 → bad_request
+PASS  at_cfg 非法 lang → bad_request
+PASS  at_cfg 合法 lang 通过校验（上游未装 → data_unavailable）
+PASS  短信对象条目（sectionKey=modem_id）链路可达（上游未装 → data_unavailable）
+== 4. bandix 条目回归（同机制，改造后不得回归） ==
+PASS  bandix.limits 仍返回 ok=true
+PASS  bandix 参数校验仍拒非法 MAC → bad_request
+== 5. 审计与清理 ==
+PASS  qmodem 转发尝试落审计（logd 含 fwd action=qmodem，计 16 条）
+PASS  临时 section 已清理
+
+== 汇总: PASS=18 FAIL=0（日志 /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-daemon/dev/accept-cellular-20261018-235652.log）==

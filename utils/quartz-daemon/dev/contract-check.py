@@ -15,6 +15,9 @@ MAX_CLIENTS = 32
 MAX_SERIES = 60
 MAX_UNHEALTHY = 8
 MAX_BANDIX_TOP = 8
+MAX_CELLULAR_MODEMS = 4
+MAX_CELLULAR_SERIES = 60
+MAX_SERVING_CELLS = 4
 
 errors: list[str] = []
 
@@ -256,6 +259,74 @@ def main() -> int:
             if dn is not None:
                 if not isinstance(dn, dict) or not is_int(dn.get("queries")) or dn.get("queries", -1) < 0:
                     err(f"bandix.dns: bad ({dn!r})")
+
+    # cellular（契约 §3.9 加法；可空）
+    cl = s.get("cellular")
+    if cl is not None:
+        if not isinstance(cl, dict):
+            err("cellular: not object/null")
+        elif not isinstance(cl.get("available"), bool):
+            err("cellular.available: not bool")
+        elif cl["available"]:
+            md = cl.get("modems")
+            if not isinstance(md, list) or not md:
+                err(f"cellular.modems: not non-empty list ({md!r})")
+            elif len(md) > MAX_CELLULAR_MODEMS:
+                err(f"cellular.modems: {len(md)} > {MAX_CELLULAR_MODEMS}")
+            else:
+                for i, m in enumerate(md):
+                    if not isinstance(m, dict):
+                        err(f"cellular.modems[{i}]: not object")
+                        continue
+                    if not isinstance(m.get("id"), str) or not m["id"]:
+                        err(f"cellular.modems[{i}].id: not non-empty string")
+                    if not isinstance(m.get("registered"), bool):
+                        err(f"cellular.modems[{i}].registered: not bool")
+                    sg = m.get("signal")
+                    if sg is not None:
+                        if not isinstance(sg, dict):
+                            err(f"cellular.modems[{i}].signal: not object")
+                        else:
+                            for k in ("rsrp", "rssi"):
+                                v = sg.get(k)
+                                if v is not None and not is_int(v):
+                                    err(f"cellular.modems[{i}].signal.{k}: not int/absent")
+                            for k in ("rsrq", "sinr", "quality_pct"):
+                                v = sg.get(k)
+                                if v is not None and not is_num(v):
+                                    err(f"cellular.modems[{i}].signal.{k}: not number/absent")
+                            q = sg.get("quality_pct")
+                            if q is not None and not (0 <= q <= 100):
+                                err(f"cellular.modems[{i}].signal.quality_pct: not in 0..100 ({q!r})")
+                            se = sg.get("series")
+                            if se is not None:
+                                if not isinstance(se, dict) or not is_int(se.get("step")) or not isinstance(se.get("rsrp"), list):
+                                    err(f"cellular.modems[{i}].signal.series: bad shape")
+                                elif len(se["rsrp"]) > MAX_CELLULAR_SERIES:
+                                    err(f"cellular.modems[{i}].signal.series.rsrp: {len(se['rsrp'])} > {MAX_CELLULAR_SERIES}")
+                                elif not all(is_int(x) for x in se["rsrp"]):
+                                    err(f"cellular.modems[{i}].signal.series.rsrp: non-int point")
+                    cells = m.get("serving_cells")
+                    if cells is not None and (not isinstance(cells, list) or len(cells) > MAX_SERVING_CELLS):
+                        err(f"cellular.modems[{i}].serving_cells: not list/≤{MAX_SERVING_CELLS}")
+                    dl = m.get("dial")
+                    if dl is not None:
+                        if not isinstance(dl, dict) or not isinstance(dl.get("running"), bool):
+                            err(f"cellular.modems[{i}].dial: missing bool running")
+                        else:
+                            for k in ("rx_bps", "tx_bps"):
+                                v = dl.get(k)
+                                if v is not None and (not is_int(v) or v < 0):
+                                    err(f"cellular.modems[{i}].dial.{k}: not non-negative int/absent")
+                    tr = m.get("traffic")
+                    if tr is not None:
+                        if not isinstance(tr, dict) or not isinstance(tr.get("available"), bool):
+                            err(f"cellular.modems[{i}].traffic: missing bool available")
+                        else:
+                            for k in ("updated_at", "rx_bytes", "tx_bytes"):
+                                v = tr.get(k)
+                                if v is not None and (not is_int(v) or v < 0):
+                                    err(f"cellular.modems[{i}].traffic.{k}: not non-negative int/absent")
 
     # errors
     er = s.get("errors")

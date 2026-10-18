@@ -165,6 +165,27 @@
 - 机器可读短串 `<组件>: <原因>`；**仅真实采集异常**（"WAN 未配置"是合法态，不入列——与 §3.3 一致）；
 - 快照内全量；日志侧同类错误节流 1 次/分钟（防 2s 周期刷屏，走 logd）。
 
+
+### 3.9 `cellular` 节（2026-10-18 加法，W6.12 蜂窝轮）
+
+**数据面**：ubus 对象 `qmodem`（第三方插件 qmodem 的 rpcd 接口，与网页端同源）。**第二条慢车道**（周期同 bandix 的 10s，与上游 `try_cache` 10s 同拍命中缓存）。**实现位置** `internal/collect/cellular.go`；采集器为**每模组串行**调用（单方法 1s 超时、调用间 30ms 间隔，降低 AT 通道瞬时争用），模组数来自 `uci show qmodem` 的 `modem-device` section（名字符集校验 `^[A-Za-z0-9_]+$`，上限 4）。
+
+**降级**：无 section / 全部模组无数据 → `available:false`（tab 与卡片隐藏，**不报 error**）；模组已拔出（全方法失败）→ 无条目、无错误。
+
+**方法分两组（避免错误面板被"非故障"刷屏）**：
+- **必需**（失败 → `errors["cellular: <id>.<method> failed"]`，恢复即清除）：`base_info` / `network_info` / `cell_info` / `get_current_band` / `dial_status` / `get_stats` / `sim_info`；
+- **尽力**（失败 → **静默省略**，不记错误）：`get_traffic_reset_schedule` / `get_sim_switch_capabilities` / `get_sim_slot` / `get_mode` / `get_network_prefer` / `get_lockband` / `get_reboot_caps`——这些"设置回显/能力声明"本就随厂商实现而异。
+- **关键字段缺失可见化**：模组**看起来活跃**（已注册 / 拨号中 / 有服务小区）但信号块或拨号块解析不出（上游改 key 的典型症状）→ 记 `cellular: <id>.signal missing (upstream key drift?)`，避免"卡片少一块"式的静默失败。
+
+**上游三则实现级事实**（读源码核实，勿当文档猜测）：
+1. `dial_status` 返回**字符串** `"true"/"false"`——按 string 解析再判等；
+2. generic 兜底实现恒回 `get_stats.available=0`、`supportSwitch="0"`——一律按 availability/能力门控，**不得把 0 值当数据**；
+3. 信号指标来自 `cell_info` 的 `progress_bar` 条目（`value` + `min_value`/`max_value` + `unit`，值均为**字符串**）——`quality_pct` 用上游同一条目的标尺归一，保持与网页端进度条同尺度。
+
+**设置回显语义（2026-10-18 实现期纠正）**：`get_mode` 是 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm），**不是**网络模式 → 落 `settings.usb_mode`；网络偏好取 `get_network_prefer` 的 3G/4G/5G 标志位并归一为 `"4G+5G"`；`get_lockband` 按厂商方言（`{band_class, lock_band}` 及其变体）归一为条目串 `"NR:41,78,79"`（`unlock` 视为未锁定）。
+
+**序列**：`signal.series`（RSRP 环形 ≤60 点，10s/点）由 **daemon 侧累积**（每模组一环形，仅慢 goroutine 访问）——三端曲线同源，消费方零本地累积；读取失败即 `drop`（避免断档后新旧点相连）。
+
 ## 4. 输出、自守与错误语义（契约 §6 生产者义务逐条落地）
 
 | 契约义务 | 实现 |
@@ -450,5 +471,6 @@ Flutter App ──HTTPS──▶ WP-5 quartz-app-api（JWT / ACL）
 *v1.0 2026-10-12 —— **定案并开工**（用户指示"推进 WP-4"）：§9 十项按推荐案实施；W4.1–W4.5 落地（包骨架/Makefile/采集全层/配置/单测 25 例/dev 工具 `vm-ssh.py`+`contract-check.py`），单包交叉编译通过（验收①，产物 `quartz-daemon-0.1.0-r1.apk`）。实现期修正（同步进正文）：①§3.3 `up` 判定放宽为"非 down"（pppoe/wg 的 operstate=unknown）；②§7.1 `GO_PKG_LDFLAGS_X` 改 `main.version`（完整 import path 对 main 包静默失配，实测）；③采纳 v0.3.1 的 docker 无版本路径（§3.4）与 docker 移出预装（出厂 `available=false` 为常态）。*
 *v1.0.1 2026-10-12 —— 并入并行对话（引导对话）经 WORKPLAN §4 登记的校验修正（docker 无版本路径 / §1.2 事实表 / §3.6 描述对齐）；W4.6–W4.7 进行中。*
 *v1.0.4 2026-10-17 —— **限速策略轮（用户指令）**：`bandix.limits`（总体限速策略摘要）+ `top[]` 增 `rx_r/tx_r/wl/sch/q`（设备速率与限速策略标记；来源新增一次 `quartz.bandix limits` 调用，失败不阻塞）；`wan` 保留但卡片/App 不再展示；PKG_RELEASE 3。*
+*v1.0.5 2026-10-18 —— **加法：`cellular` 节**（§3.9，W6.12 蜂窝轮）：第二条慢车道（10s，与 qmodem 上游缓存同拍）经 ubus `qmodem` 读方法采集（base/network/cell/band/dial/stats/reset/sim/mode/prefer/lockband 全量尽力）；daemon 侧累积 RSRP 环形序列（≤60 点，三端同源曲线）；`available:false` 三条件 + 子块错误隔离 + 已拔出模组静默；单测 9 例（含字符串布尔 / generic 桩 / 多模组 / 环形 / 错误隔离 / 速度与单位解析）；契约校验器 `dev/contract-check.py` 同步扩展。（同批修 3 个由单测抓出的实现缺陷：rx/tx 速率 `else if` 互斥、坏模组刷错误、`Mbps` 被当 `MB/s` 少乘 8 倍。）PKG_RELEASE 4。*
 *v1.0.3 2026-10-17 —— **P2 加法：`bandix` 节**（契约 §3.7，WP-8 bridge 链路）——慢刷 10s 经 `quartz.bandix` 取数（设备/在线/WAN 速率合计/Top≤8/连接与 DNS 摘要），语义与网页逐字段同源（`online` 判据同 `isDeviceOnline()`、`wan` 同 "WAN Traffic" 卡合计式）；未装/未开 traffic → `available:false`（卡片隐藏），上游不可用 → 整节 null + errors；单测 6 例（解析/判据/排序截断/降级/序列化形状），PKG_RELEASE 2。*
 *v1.0.2 2026-10-12 —— 完成补记：W4.6–W4.7 落地——QEMU 新镜像 VM 集成验收全绿（procd 自启 / 快照 2s·0644 / 契约校验 / HTTP 语义 / kill -9 恢复；Dashboard 真数据联调闭环、未装 Docker 卡正确隐藏），README/TDD 定稿同步；过程修复 rpcd realpath 二次 ACL（WORKPLAN 坑位 #25）、记录 procd respawn crash-loop 语义（#26）。已推送（Packages `917f5d2..93f9075`、Builder feed 锁定 bump `3e77e9c`——常规构建自动携带本包）。*

@@ -1,0 +1,26 @@
+== 配置面 VM 验收（2026-10-19T00:21:45+08:00）==
+== 1. 认证与配置会话（login 时开启保留会话） ==
+PASS  登录成功（并开启配置会话）
+FAIL  设备记录已持久化配置会话 sid（0 字符计数）
+== 2. 读面（注册表白名单 + 敏感掩码语义） ==
+FAIL  读 system 全量（hostname=）
+FAIL  读 network.lan.ipaddr（）
+FAIL  未注册配置 firewall → forbidden_action
+FAIL  未注册选项 → forbidden_action
+== 3. 写（暂存）+ 负例 ==
+FAIL  写入 description 返回待应用改动
+PASS  真实配置未被修改（暂存语义）
+FAIL  非法字符值 → bad_request
+FAIL  未注册选项写入 → forbidden_action
+== 4. 应用 + 回滚安全网（不确认 → 自动回滚） ==
+FAIL  apply(rollback,10s) 成功
+FAIL  apply 后真实配置生效（description=qz-accept）
+PASS  10s 超时未确认 → 自动回滚到原值
+== 5. 应用 + 确认（落盘） ==
+FAIL  confirm 成功
+FAIL  确认后值保留（qz-accept2）
+PASS  现场复原（description 回原值）
+== 6. 会话缺失（logout 销毁会话 → 配置写入需重新登录） ==
+FAIL  logout 后设备记录已移除（无残留 sid）
+
+== 汇总: PASS=4 FAIL=13（日志 /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-app-api/dev/accept-config-20261019-002145.log）==

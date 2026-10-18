@@ -308,6 +308,26 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 | 扩展 | 新条目 = registry 一行 + 单测；新对象（如 ddns bridge）= 同样只加行（前缀路由由 `Handles` 判定），机制不变 |
 | 数值入参 | App 传 JSON number 亦可（dispatch 层整数值 → 十进制串，再交条目校验器）；小数丢弃 |
 
+### 5.1.1 qmodem 蜂窝域条目（2026-10-18，W6.12 蜂窝轮）
+
+**写入面 15 条**（`qmodem.*`）：拨号 `dial`/`hang`/`redial`、`set_usb_mode`、`set_lockband`、`set_network_prefer`、`send_at`、`send_sms`、`delete_sms`、`set_sms_storage`、`set_traffic_reset_schedule`、`clear_stats`/`save_stats`/`clear_dial_log`、`reboot`、`set_sim_slot`、`set_imei`。
+**读面 16 条**（页面级读，见"读面例外"）：`at_cfg`（含预置命令，与网页端同源、可选 `lang`）、`sms_list` / `sms_storage_get`（**独立对象 `qmodem.sms`**——结构化消息，与网页端同源）、`dial_log`、`lockband`、`usb_mode`、`network_prefer`、`neighborcell`、`current_band`、`traffic_reset_schedule`、`sim_slot`、`sim_switch_capabilities`、`reboot_caps`、`disabled_features`、`tty_ports`。
+**写面补 4 条**（短信对象）：`sms_send` / `sms_delete` / `sms_mark_read` / `sms_storage_set` / `sms_sync`（= 22 号条目组）。
+**不注册**：`scan_*` / `remove_modem` / `set_5g_lan` / `set_neighborcell`（手动锁小区工具，参数多、风险高，v1 留网页端）。
+
+**新增机制（本机制的三项扩展，均已落单测）**：
+
+| 项 | 说明 |
+| :--- | :--- |
+| **上游 JSON 形态（shape）声明** | 每条目声明上游要哪一种形态：`flat` / `data`（bridge 数值）/ `sectionParams`（`config_section` 顶层 + 其余收 `params` 对象或数组）/ `sectionOnly` / `none`。qmodem 方法参数为三层结构，转发时按声明重建 |
+| **两档参数校验** | ① **严格字段校验**：section（白名单，读 `uci show qmodem` 的 `modem-device`）/ at（字符集+长度）/ port（**白名单优先**，`get_tty_ports` 不可用时回退路径字符集）/ imei（15 位）/ phone / 索引列表 / 枚举（usb mode、storage、reset_type、slot、reboot method）。② **厂商方言参数的"结构校验"**：`set_lockband` 的 `{band_class, lock_band}`、`set_network_prefer` 的 `["4G","5G"]` 数组等形态由上游厂商脚本定义（**与其 rpcd 文档示例不一致——按源码实现为准**）→ 校验对象/数组形状 + 键名白名单 + 值类型与长度上限，语义交上游判定 |
+| **sectionKey（模组参数名）** | 上游各对象对模组的参数名不同（`qmodem.*` 用 `config_section`、`qmodem.sms` 用 `modem_id`）→ 条目声明 `sectionKey`，App 统一以 `config_section` 传参、转发时按声明重建（`config_section` 不会泄漏到上游） |
+| **上游应答两形态** | bridge 走信封 `{ok,data|error:{code,message}}`；qmodem 插件为**裸对象**（无 `ok`）→ 整对象作 data，其错误为 `{"error":"<字符串>"}` → 映射 `action_failed` |
+
+**厂商方言参数以 JSON 字符串传入**：`action` 方法的 `args` 为扁平 `map[string]string`，嵌套参数（如 AT 页的 `params{at,port}`）由 App 以 **JSON 字符串**传给 `args.params`，app-api 解析并按子模式校验后重建（不引入嵌套透传）。
+
+**读面例外（2026-10-18 规则修订）**：快照承载**概览级只读摘要**；**页面级读**（AT 端口与预置命令、短信列表、设置回显、能力声明）走本机制——先例 `bandix.limits`，条目仍逐条显式注册、无自由参数。
+
 ## 6. 传输与暴露面
 
 ### 6.1 uhttpd 专用实例（`config uhttpd 'app'`，由本包 uci-defaults 幂等注入）

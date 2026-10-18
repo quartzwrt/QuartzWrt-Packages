@@ -8,6 +8,7 @@ package collect
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +41,7 @@ type Collector struct {
 	hasNetPrev bool
 	ringRx     *ring
 	ringTx     *ring
+	cellSeries *cellularSeriesStore // cellular 每模组 RSRP 环形（仅慢 goroutine 访问）
 
 	mu   sync.Mutex
 	slow slowCache
@@ -53,6 +55,7 @@ type slowCache struct {
 	services    map[string]any
 	hasServices bool
 	bandix      *snapshot.Bandix
+	cellular    *snapshot.Cellular
 	errs        map[string]string // 组件 → 当前错误（恢复即清除）
 	probeWarns  []string          // 非法探针描述文件告警
 }
@@ -60,10 +63,11 @@ type slowCache struct {
 // New 创建采集器。
 func New(cfg config.Config) *Collector {
 	return &Collector{
-		cfg:    cfg,
-		now:    time.Now,
-		ringRx: newRing(snapshot.MaxSeries),
-		ringTx: newRing(snapshot.MaxSeries),
+		cfg:        cfg,
+		now:        time.Now,
+		ringRx:     newRing(snapshot.MaxSeries),
+		ringTx:     newRing(snapshot.MaxSeries),
+		cellSeries: newCellularSeriesStore(),
 	}
 }
 
@@ -80,6 +84,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	services := c.slow.services
 	hasServices := c.slow.hasServices
 	bandix := c.slow.bandix
+	cellular := c.slow.cellular
 	var errs []string
 	for _, e := range c.slow.errs {
 		errs = append(errs, e)
@@ -98,6 +103,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	s.Docker = docker
 	s.Clients = clients
 	s.Bandix = bandix
+	s.Cellular = cellular
 	if hasServices {
 		s.Services = services
 	}
@@ -128,6 +134,7 @@ func (c *Collector) Slow() {
 	docker, dockerErr := collectDocker()
 	clients, clientsErr := collectClients(wanIface)
 	bandix, bandixErr := collectBandix(c.now())
+	cellular, cellularErr := collectCellular(c.now(), c.cellSeries)
 	proto := ubusWANProto(wanIface)
 
 	c.mu.Lock()
@@ -175,6 +182,30 @@ func (c *Collector) Slow() {
 	} else {
 		set("bandix", "")
 		c.slow.bandix = bandix
+	}
+	if cellularErr != nil {
+		set("cellular", cellularErr.Error())
+		c.slow.cellular = nil
+		for k := range c.slow.errs { // 整节失败：清掉旧的子块错误
+			if strings.HasPrefix(k, "cellular:") {
+				delete(c.slow.errs, k)
+			}
+		}
+	} else {
+		// 节内子块错误逐条上报（cellular.Errors），恢复即清除
+		cur := map[string]bool{}
+		for _, e := range cellular.Errors {
+			cur[e] = true
+		}
+		for k, v := range c.slow.errs {
+			if strings.HasPrefix(k, "cellular:") && !cur[v] {
+				delete(c.slow.errs, k)
+			}
+		}
+		for _, e := range cellular.Errors {
+			set("cellular:"+e, e)
+		}
+		c.slow.cellular = cellular
 	}
 
 	// 型号兜底：文件缺失且尚无缓存时低频尝试 ubus system.board

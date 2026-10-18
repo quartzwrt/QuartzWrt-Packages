@@ -29,6 +29,10 @@ import (
 // 见 cmd/quartz-app-api；测试注入假实现）。
 type CredValidator func(ctx context.Context, username, password string) error
 
+// SessionOpener 以管理员凭据开启一条**保留**的 rpcd 会话（配置面用；DESIGN §5.2）。
+// 返回 sid 与有效期（epoch 秒）；生产实现在 cmd 层（session.login，不销毁）。
+type SessionOpener func(ctx context.Context, username, password string) (sid string, exp int64, err error)
+
 // Service 认证服务（无内部状态，状态全在 store/limiter 文件）。
 type Service struct {
 	Store    *store.Store
@@ -36,7 +40,11 @@ type Service struct {
 	Cfg      config.Config
 	Now      func() time.Time
 	Validate CredValidator
-	Router   func() map[string]any // 身份信息（hostinfo.Info；测试可注入）
+	// OpenSession 可选：配置面会话开启钩子（nil = 不做配置面，保留旧语义）。
+	OpenSession SessionOpener
+	// SessionCloser 可选：销毁配置面会话（logout/revoke 时调用，避免会话残留）。
+	SessionCloser func(ctx context.Context, sid string) error
+	Router        func() map[string]any // 身份信息（hostinfo.Info；测试可注入）
 	// TouchWindow 秒：Authenticate 刷新 last_seen 的节流窗口（省 flash 写）。
 	TouchWindow int64
 }
@@ -107,6 +115,17 @@ func (s *Service) Login(ctx context.Context, username, password, deviceName, cli
 		LastIP:        sanitizeIP(clientIP),
 		RefreshSHA256: token.HashRefresh(refresh),
 		RefreshExp:    now.Unix() + int64(s.Cfg.RefreshTTL),
+	}
+	// 配置面会话（W6.10）：用管理员凭据开启一条**保留**的 rpcd 会话（ACL 全量），
+	// 供 uci 写入与 apply/confirm（会话私有 delta）使用；开启失败不阻断登录，
+	// 但配置写入会以 re_login_required 提示（下次登录重试）。
+	if s.OpenSession != nil {
+		if sid, exp, err := s.OpenSession(ctx, username, password); err == nil && sid != "" {
+			dev.ConfigSID = sid
+			dev.ConfigSIDExp = exp
+		} else {
+			audit.Logf("login config session unavailable: %v", err)
+		}
 	}
 	if _, err := s.Store.Update(func(st *store.State) error {
 		st.Devices = append(st.Devices, dev)
@@ -193,6 +212,7 @@ func (s *Service) Refresh(deviceID, refreshToken string) (map[string]any, *envel
 // Logout 删除设备记录（refresh 当前/上一枚均可）。
 func (s *Service) Logout(deviceID, refreshToken string) (map[string]any, *envelope.Error) {
 	hash := token.HashRefresh(refreshToken)
+	var sid string
 	_, err := s.Store.Update(func(st *store.State) error {
 		d := st.Find(deviceID)
 		if d == nil {
@@ -201,6 +221,7 @@ func (s *Service) Logout(deviceID, refreshToken string) (map[string]any, *envelo
 		if hash != d.RefreshSHA256 && hash != d.PrevRefreshHash {
 			return errBadRefresh
 		}
+		sid = d.ConfigSID
 		out := st.Devices[:0]
 		for _, dev := range st.Devices {
 			if dev.ID != deviceID {
@@ -212,6 +233,9 @@ func (s *Service) Logout(deviceID, refreshToken string) (map[string]any, *envelo
 	})
 	if err != nil {
 		return nil, envelope.E(envelope.CodeTokenInvalid, "invalid credentials for logout")
+	}
+	if s.SessionCloser != nil && sid != "" {
+		_ = s.SessionCloser(context.Background(), sid)
 	}
 	audit.Logf("logout device=%s", deviceID)
 	return map[string]any{}, nil

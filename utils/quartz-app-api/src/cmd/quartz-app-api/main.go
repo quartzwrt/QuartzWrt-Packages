@@ -35,6 +35,7 @@ import (
 	"github.com/quartzwrt/quartz-app-api/internal/ratelimit"
 	"github.com/quartzwrt/quartz-app-api/internal/store"
 	"github.com/quartzwrt/quartz-app-api/internal/ubusfwd"
+	"github.com/quartzwrt/quartz-app-api/internal/uciconf"
 )
 
 // version/release 经 -ldflags -X 注入（Makefile GO_PKG_LDFLAGS_X；main 包符号名）。
@@ -80,6 +81,13 @@ func methodList() map[string]any {
 		"devices":  map[string]any{"access_token": "string"},
 		"revoke":   map[string]any{"access_token": "string", "device_id": "string"},
 		"packages": map[string]any{"access_token": "string", "scope": "string", "query": "string", "page": "Integer", "per_page": "Integer"},
+		// 配置面（W6.10；注册表按节完整声明，见 internal/uciconf）
+		"config.read":    map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string"},
+		"config.write":   map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string", "value": map[string]any{}},
+		"config.changes": map[string]any{"access_token": "string", "config": "string"},
+		"config.revert":  map[string]any{"access_token": "string", "config": "string"},
+		"config.apply":   map[string]any{"access_token": "string", "rollback": "Boolean", "timeout": "Integer"},
+		"config.confirm": map[string]any{"access_token": "string"},
 	}
 }
 
@@ -159,6 +167,11 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 		validateCredentials,
 	)
 	svc.Router = hostinfo.Info
+	// 配置面（W6.10）：login 时开启一条保留的管理员会话（uci 写入与
+	// apply/confirm 必须同会话；app-api 每次调用是新进程 → sid 持久在设备记录），
+	// logout/revoke 时销毁，不留残余。
+	svc.OpenSession = openConfigSession
+	svc.SessionCloser = destroySession
 
 	// 每方法预算（DESIGN §4.4 v1.1）：默认 10s；packages 读 20s；packages.*
 	// 动作由 pkgs 包内部按操作细分（refresh 45s / upgrade|remove 50s），
@@ -167,9 +180,58 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 	defer cancel()
 
 	switch method {
+	// 配置面（W6.10「路由器 tab」）：读走注册表白名单；写/apply/confirm/revert
+	// 需设备的管理员会话（login 时开启并持久化）。
+	case "config.read":
+		if _, e := svc.Authenticate(str(args, "access_token")); e != nil {
+			return envelope.Err(e)
+		}
+		mgr := uciconf.New(deviceConfigSID)
+		v, ce := mgr.Read(str(args, "config"), str(args, "section"), str(args, "option"))
+		if ce != nil {
+			return envelope.Err(ce)
+		}
+		return envelope.OK(map[string]any{
+			"config": str(args, "config"), "section": str(args, "section"),
+			"option": str(args, "option"), "value": v,
+		})
+
+	case "config.write", "config.revert", "config.changes", "config.apply", "config.confirm":
+		dev, e := svc.Authenticate(str(args, "access_token"))
+		if e != nil {
+			return envelope.Err(e)
+		}
+		mgr := uciconf.New(deviceConfigSID)
+		var res map[string]any
+		var ce *envelope.Error
+		switch method {
+		case "config.write":
+			res, ce = mgr.Write(dev.ID, str(args, "config"), str(args, "section"), str(args, "option"), args["value"])
+		case "config.revert":
+			res, ce = mgr.Revert(dev.ID, str(args, "config"))
+		case "config.changes":
+			res, ce = mgr.Changes(dev.ID, str(args, "config"))
+		case "config.apply":
+			rollback := true
+			if b, ok := args["rollback"].(bool); ok {
+				rollback = b
+			}
+			timeout := 0
+			if n, ok := args["timeout"].(float64); ok {
+				timeout = int(n)
+			}
+			res, ce = mgr.Apply(dev.ID, timeout, rollback)
+		case "config.confirm":
+			res, ce = mgr.Confirm(dev.ID)
+		}
+		if ce != nil {
+			return envelope.Err(ce)
+		}
+		return envelope.OK(res)
+
 	case "info":
 		info := hostinfo.Info()
-		info["features"] = []string{"status", "actions", "devices", "mdns", "packages", "bandix"}
+		info["features"] = []string{"status", "actions", "devices", "mdns", "packages", "bandix", "config"}
 		info["auth"] = []string{"password"}
 		// 根口令是否已设（未设时 rpcd session.login 接受任意密码——
 		// DESIGN v1.0.2 / WORKPLAN 坑位 #28；App 应在配对前提示）
@@ -339,6 +401,52 @@ func validateCredentials(ctx context.Context, username, password string) error {
 	destroy, _ := json.Marshal(map[string]string{"ubus_rpc_session": resp.SID})
 	_ = ubusCommand(ctx, "call", "session", "destroy", string(destroy)).Run()
 	return nil
+}
+
+// openConfigSession 开启配置面所需的**保留**会话（管理员凭据 → 全量 ACL）。
+// 与 validateCredentials 的差别：不销毁；超时按配置面需要取长值（默认 12h）。
+func openConfigSession(ctx context.Context, username, password string) (string, int64, error) {
+	req, err := json.Marshal(map[string]any{"username": username, "password": password, "timeout": 43200})
+	if err != nil {
+		return "", 0, err
+	}
+	out, err := ubusCommand(ctx, "call", "session", "login", string(req)).Output()
+	if err != nil {
+		return "", 0, err
+	}
+	var resp struct {
+		SID     string `json:"ubus_rpc_session"`
+		Expires int64  `json:"expires"`
+	}
+	if err := json.Unmarshal(out, &resp); err != nil || resp.SID == "" {
+		return "", 0, errors.New("config session rejected")
+	}
+	return resp.SID, time.Now().Unix() + resp.Expires, nil
+}
+
+// destroySession 销毁一条 rpcd 会话（logout/revoke 时调用）。
+func destroySession(ctx context.Context, sid string) error {
+	if sid == "" {
+		return nil
+	}
+	req, _ := json.Marshal(map[string]string{"ubus_rpc_session": sid})
+	return ubusCommand(ctx, "call", "session", "destroy", string(req)).Run()
+}
+
+// deviceConfigSID 取设备持久化的配置会话 sid（过期视为不可用）。
+func deviceConfigSID(deviceID string) string {
+	st, err := store.New(store.DefaultDir).Load()
+	if err != nil {
+		return ""
+	}
+	d := st.Find(deviceID)
+	if d == nil || d.ConfigSID == "" {
+		return ""
+	}
+	if d.ConfigSIDExp > 0 && time.Now().Unix() >= d.ConfigSIDExp-60 {
+		return ""
+	}
+	return d.ConfigSID
 }
 
 // rootPasswordSet 读 /etc/shadow 判断 root 口令（读失败时按"已设"放行，

@@ -1,7 +1,7 @@
 // Package store 管理 quartz-app-api 的持久状态（DESIGN §3.4）。
 //
-//	  /etc/quartz-app-api/secret      32B 随机 HMAC 密钥（0600）
-//	  /etc/quartz-app-api/state.json  设备注册表（0600；原子写 + flock）
+//	/etc/quartz-app-api/secret      32B 随机 HMAC 密钥（0600）
+//	/etc/quartz-app-api/state.json  设备注册表（0600；原子写 + flock）
 //
 // 插件为「每调用一进程」（rpcd exec 模型），全部读改写经 Update() 在同一把
 // flock 下完成，防并发登录/刷新互相覆盖。
@@ -28,11 +28,17 @@ type Device struct {
 	Created         int64  `json:"created"`
 	LastSeen        int64  `json:"last_seen"`
 	LastIP          string `json:"last_ip"`
-	RefreshSHA256   string `json:"refresh_sha256"`            // 当前 refresh 的哈希
+	RefreshSHA256   string `json:"refresh_sha256"`                // 当前 refresh 的哈希
 	PrevRefreshHash string `json:"prev_refresh_sha256,omitempty"` // 上一枚（复用检测）
 	RefreshExp      int64  `json:"refresh_exp"`
 	RotCounter      int    `json:"rot_counter"`
 	Revoked         bool   `json:"revoked"`
+	// ConfigSID / ConfigSIDExp：配置面（WP-6 W6.10 `config.*`）所需的 rpcd 会话——
+	// rpcd 的 uci 写入与 apply/confirm 必须在同一会话内（会话私有 delta 目录），
+	// 而 app-api 是 rpcd exec 插件、每次调用都是新进程 → sid 必须持久化。
+	// 会话由 login 时用管理员凭据开启（ACL 全量），logout/revoke 时销毁。
+	ConfigSID    string `json:"config_sid,omitempty"`
+	ConfigSIDExp int64  `json:"config_sid_exp,omitempty"`
 }
 
 // State 注册表根。

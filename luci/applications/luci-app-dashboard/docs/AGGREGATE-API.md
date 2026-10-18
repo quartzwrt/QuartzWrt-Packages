@@ -33,6 +33,7 @@
 | `clients` | object | 是 | §3.5 |
 | `services` | object | 是 | §3.6（**开放映射**，键 = 服务/包 id） |
 | `bandix` | object | 是 | §3.7（WP-8 bridge 链路，慢刷 10s）；整节缺失 = 上游不可用（errors 记一条）；`available=false` = 未装/未开（卡片隐藏） |
+| `cellular` | object | 是 | §3.9（W6.12 蜂窝轮，慢刷 10s）；整节缺失 = 采集异常；`available=false` = 未装 qmodem/无模组（tab 与卡片一起隐藏） |
 | `errors` | array\<string\> | 否（可为空数组） | 采集失败项，机器可读短串，如 `"docker: socket unavailable"` |
 
 ## 3. 各节字段
@@ -103,6 +104,36 @@
 - 整节缺失（`null`）= 上游暂不可用，`errors` 记 `"bandix: …"`；下轮自动重试。
 - 消费方义务：`available !== true` 或整节缺失 → 不渲染卡片。
 
+### 3.9 `cellular`（可空；慢刷 10s；2026-10-18 加法，W6.12 蜂窝轮）
+
+数据面 = ubus 对象 `qmodem`（第三方插件 qmodem 的 rpcd 接口，**与网页端同一数据源**）；本节 10s 采集周期与上游 `try_cache`（10s）同拍，命中缓存不放大 AT 压力。**敏感值（IMEI/IMSI/ICCID/短信内容）不进本节**——属页面级读（app-api 转发读条目）。
+
+| 字段 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `available` | bool | `false` = 未装 qmodem / 无 `modem-device` section / 全部模组读取失败 → **蜂窝 tab 与三处卡片一起隐藏**（与 bandix 条件卡同款语义，无 errors） |
+| `updated` | int | 本节采样时刻（epoch 秒） |
+| `capabilities` | object | 端级能力：`{at, sms, sim_switch, stats, temp}`（任一模组具备即为真，用于 tab 内入口显隐） |
+| `modems` | array | **≤4 条**；元素见下 |
+| `errors` | array\<string\> | 节内**必需**方法失败串（`cellular: <section>.<method> failed`）与关键字段缺失提示（`… .signal missing (upstream key drift?)`）；**尽力方法**（设置回显/能力声明）失败与模组整体无数据（已拔出）**不算错误** |
+
+`modems[]` 元素：
+
+| 字段 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `id` / `model` / `vendor` / `firmware` | string | uci section（`qmodem.<id>`）与上游 `base_info` 条目（型号/厂商/固件） |
+| `temp_c` | number\|省略 | 模组温度（`base_info.temperature`，去单位） |
+| `registered` / `operator` / `network_mode` | bool / string / string | 注册态（`get_current_band.status=="ok"`，无该能力时回退"拨号在跑"）/ 运营商（`ISP`）/ 归一化模式（`EN-DC → 5G NSA`） |
+| `signal` | object\|省略 | `{rsrp, rsrq, sinr, rssi, quality_pct, series}`——四指标取上游 `progress_bar` 条目的值；`quality_pct` 用**同一条目的 min/max** 归一并 clamp 0–100（无标尺时回退 RSRP -140…-44）；`series{step,rsrp[]}` = **daemon 侧累积**的 RSRP 环形（≤60 点，10s/点 → 10 分钟窗口，三端同源曲线） |
+| `serving_cells` | array\|省略 | **≤4 条**，源自 `get_current_band.cells`：`{role, rat, band, channel, channel_type, pci, dl_bandwidth, ul_bandwidth, scs}` |
+| `dial` | object\|省略 | `{running, ipv4?, rx_bps?, tx_bps?}`；`running` 由上游**字符串布尔** `"true"/"false"` 归一；速率字符串（`"18.2 MB/s"`/`"150 Mbps"`）解析为 Byte/s（bit/byte 按大小写区分） |
+| `traffic` | object\|省略 | `{available, updated_at, rx_bytes, tx_bytes, reset{enabled,type,hour,day}}`；`available=false` = 本模组不支持统计（上游 generic 桩恒 `0`）→ 消费方**不得展示 0 值** |
+| `sim` | object\|省略 | `{status, slot, switchable}`；`switchable` 来自 `get_sim_switch_capabilities.supportSwitch`（字符串 `"0"/"1"`）。存储容量与未读数**不在本节**（页面级读） |
+| `settings` | object\|省略 | `{usb_mode?, prefer?, lockband[]?}` 当前设置回显（尽力取，取不到即省略）。**语义**（读上游源码核实）：`usb_mode` = `get_mode` 的 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm，AT+QCFG="usbnet"）——**不是** 5G/4G 网络模式；网络偏好在 `prefer`（`get_network_prefer` 的 3G/4G/5G 标志位归一，如 `"4G+5G"`）；`lockband` 为条目串（如 `"NR:41,78,79"`） |
+| `capabilities` | object | 单模组能力：`{at, sms, sim_switch, stats, current_band, temp}`——不支持项由消费方**灰显并注明原因** |
+
+- 整节缺失（`null`）= 慢刷异常（errors 记一条）；`available=false` 时除 `available` 外字段省略。
+- 消费方义务：`available !== true` 或整节缺失 → 不渲染卡片/不显示 tab；`traffic.available !== true` → 不显示流量数值。
+
 ### 3.8 `errors`
 
 - 机器可读短串数组，建议格式 `"<组件>: <原因>"`。消费方以弱化提示展示，不做解析。
@@ -169,4 +200,5 @@
 
 *变更记录：2026-10-12 v1 冻结（用户拍板；自 `luci-app-dashboard/docs/DESIGN.md` §3 草案转正，`collect_ms` 提升为顶层字段）。*
 *2026-10-17 加法（不升版）：新增可选节 `bandix`（§3.7，WP-8 bridge 链路 P2——daemon 慢刷经 `quartz.bandix`；`available` 隐藏谓词 + `top ≤8`；`errors` 顺延为 §3.8）；§4 示例与 `dev/mock/` 同步。*
+*2026-10-18 加法三（W6.12 蜂窝轮，IA v2 定案）：新增可选节 `cellular`（§3.9——qmodem 读面经 daemon 慢车道，三端〔Dashboard 卡 / App 概览卡 / App 蜂窝 tab〕同源；含 daemon 侧累积的 RSRP 环形序列 `signal.series`）；`errors` 顺延为 §3.8、`cellular` 为 §3.9。*
 *2026-10-17 加法二（限速策略轮，用户指令）：`bandix.limits`（总体限速策略摘要）+ `top[]` 增 `rx_r/tx_r/wl/sch/q`；`wan` 保留但内置卡片/App 不再展示（与网络卡重复）。*
