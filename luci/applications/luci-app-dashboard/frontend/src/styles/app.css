@@ -191,7 +191,8 @@ html[data-qz-translucent] .qzd-hero {
 	#clients  { order: 4; }    /* 手机：设备列表提前到服务之前 */
 	#bandix   { order: 5; }    /* 流量明细跟随设备列表 */
 	#tailscale { order: 6; }
-	#services { order: 7; }
+	#docker { order: 7; }
+	#services { order: 8; }
 	.qzd-table th:nth-child(3), .qzd-table td:nth-child(3),
 	.qzd-table th:nth-child(4), .qzd-table td:nth-child(4) { display: none; }
 	.qzd-summary { margin-left: 0; flex-wrap: wrap; gap: 18px 26px; }

@@ -7,6 +7,7 @@
 import SystemCard from '../components/cards/SystemCard.vue';
 import NetworkCard from '../components/cards/NetworkCard.vue';
 import QModemCard from '../components/cards/QModemCard.vue';
+import DockerCard from '../components/cards/DockerCard.vue';
 import TailscaleCard from '../components/cards/TailscaleCard.vue';
 import ServicesCard from '../components/cards/ServicesCard.vue';
 import ClientsCard from '../components/cards/ClientsCard.vue';
@@ -26,12 +27,17 @@ export default [
 			&& Array.isArray(p.cellular.modems) && p.cellular.modems.length)
 	},
 	{
+		id: 'docker', title: 'Docker', span: 4, component: DockerCard,
+		link: 'admin/services/dockerman/containers', linkLabel: 'Containers',
+		/* 契约 §3.4：available=false（未安装 dockerd）→ 整卡隐藏 */
+		visible: (p) => !(p.docker && p.docker.available === false)
+	},
+	{
 		id: 'tailscale', title: 'Tailscale', span: 4, component: TailscaleCard,
 		link: 'admin/vpn/tailscale', linkLabel: 'Settings',
 		/* services 开放映射：未装 → 键缺省 → 整卡隐藏；装了但停止 → 显示 stopped */
 		visible: (p) => !!(p.services && p.services.tailscale)
 	},
-	/* Docker 信息并入服务卡（运行/总数/镜像/不健康），与 IA v2 dashboard v2 对齐 */
 	{ id: 'services', title: 'Services & cores', span: 8, component: ServicesCard },
 	{
 		id: 'bandix', title: 'Traffic detail', span: 12, component: BandixCard,

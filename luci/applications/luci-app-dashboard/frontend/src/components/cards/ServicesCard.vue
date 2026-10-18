@@ -8,7 +8,6 @@ const props = defineProps({ payload: { type: Object, required: true }, host: { t
 const t = (s) => (props.host.t ? props.host.t(s) : s);
 const svc = computed(() => props.payload.services);
 const meta = computed(() => props.payload);
-const docker = computed(() => props.payload.docker);
 const hasAny = computed(() => !!svc.value || (meta.value && meta.value.interval != null));
 
 /* 深链：存在性判定（对应菜单未装则不给链接，DESIGN §6.3-1 不死链） */
@@ -35,21 +34,6 @@ const qmodemHref = computed(() => pageHref('admin/modem/qmodem'));
 			</div>
 			<div v-if="svc && svc.openclash && svc.openclash.core_update" class="qzd-svc-extra">
 				<Badge tone="notice">{{ t('Core update available') }} {{ svc.openclash.core_update }}</Badge>
-			</div>
-		</div>
-
-		<!-- dockerd（Docker 卡并入服务行：运行/总数 + 镜像 + 不健康数） -->
-		<div>
-			<div class="qzd-svc-name">
-				<Dot :state="docker && docker.available !== false ? (docker.running ? 'ok' : 'err') : (svc && svc.dockerd ? (svc.dockerd.running ? 'ok' : 'err') : '')" />Docker
-			</div>
-			<div class="qzd-stat-v qz-mono">
-				<template v-if="docker && docker.available !== false">
-					{{ docker.running }}/{{ docker.total }} <span class="qzd-muted">&middot; {{ docker.images }} {{ t('Images') }}</span>
-					<Badge v-if="docker.unhealthy && docker.unhealthy.length">{{ docker.unhealthy.length }} {{ t('Unhealthy') }}</Badge>
-				</template>
-				<template v-else-if="svc && svc.dockerd">{{ svc.dockerd.running ? t('running') : t('stopped') }}</template>
-				<template v-else>{{ t('Not installed') }}</template>
 			</div>
 		</div>
 

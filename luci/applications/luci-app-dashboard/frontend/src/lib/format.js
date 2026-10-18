@@ -1,7 +1,10 @@
 /* 格式化（技术数值一律等宽显示，单位见冻结契约 §3） */
 
 export function fmtRate(bps) {
-	const mbps = ((bps || 0) * 8) / 1e6;
+	const bits = (bps || 0) * 8;
+	/* 蜂窝空闲/低速时 <1 Mbps 显示 0.0 Mbps 会误导；Kbps 更诚实 */
+	if (bits < 1e6) return (bits / 1e3).toFixed(bits < 1e4 ? 1 : 0) + ' Kbps';
+	const mbps = bits / 1e6;
 	return (mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1)) + ' Mbps';
 }
 

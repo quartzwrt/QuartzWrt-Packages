@@ -32,8 +32,20 @@ const qualityText = computed(() => {
 });
 const series = computed(() => (sig.value && sig.value.series && Array.isArray(sig.value.series.rsrp) ? sig.value.series.rsrp : null));
 
-const cellLabel = (cell) => [cell.role, cell.rat, cell.band].filter(Boolean).join(' ');
+/* 上游 band 可能已含 RAT（如 "NR n78"），不再重复 rat；role 如 pcc 统一大写。 */
+const cellLabel = (cell) => {
+	const role = cell.role ? String(cell.role).toUpperCase() : '';
+	const band = cell.band || cell.rat || '';
+	return [role, band].filter(Boolean).join(' · ');
+};
 const cellValue = (cell) => [cell.channel, cell.pci ? 'PCI ' + cell.pci : ''].filter(Boolean).join(' · ');
+/* 蜂窝拨号 IPv4：上游 dial.ipv4 缺失时，退回当前 WAN 的 IPv4（仅当 WAN 是 wwan）。 */
+const dialIpv4 = computed(() => {
+	if (dial.value && dial.value.ipv4) return dial.value.ipv4;
+	const wan = props.payload.net && props.payload.net.wan;
+	if (wan && wan.ifname && String(wan.ifname).startsWith('wwan') && wan.ipv4) return wan.ipv4;
+	return '';
+});
 const cellBandwidth = (cell) => {
 	if (!cell) return '—';
 	const parts = [];
@@ -120,7 +132,7 @@ const usageText = computed(() => (traffic.value && traffic.value.available
 						{{ dial && dial.running ? t('Connected') : t('Disconnected') }}
 					</span>
 				</div>
-				<KV :k="t('IPv4')" :v="dial && dial.ipv4 ? maskIp(dial.ipv4) : '—'" />
+				<KV :k="t('IPv4')" :v="dialIpv4 ? maskIp(dialIpv4) : '—'" />
 				<KV :k="t('Rate')" :v="rateText" />
 				<KV :k="t('USB mode')" :v="settings.usb_mode || '—'" />
 			</div>
