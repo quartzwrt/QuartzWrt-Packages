@@ -89,7 +89,8 @@ const (
 	kindAT        // AT 指令（字符集 + 长度）
 	kindPort      // AT 端口路径（白名单优先，回退字符集）
 	kindPhone     // 电话号码
-	kindText      // 文本（长度上限 + 拒绝控制字符）
+	kindText      // 文本（长度上限 + 拒绝控制字符；允许换行/制表，SMS 用）
+	kindPassword  // 密码（长度上限 + 拒绝所有控制字符，含换行/制表）
 	kindDigits    // 定长数字（IMEI 15 位等）
 	kindIndexList // 空格分隔的数字索引列表（delete_sms）
 	kindJSONObj   // 厂商方言对象参数（field.sub 子模式）
@@ -433,6 +434,15 @@ var registry = []entry{
 		id: "luci.timezones", object: "luci", method: "getTimezones", shape: shapeNone,
 		fields: map[string]field{},
 	},
+	{
+		// 管理权·改密：上游 luci.setPassword 经 busybox passwd 写 /etc/shadow。
+		// 只允许 root；密码长度上限 128、拒绝控制字符；审计只记录动作与目标，不记录密码。
+		id: "luci.set_password", object: "luci", method: "setPassword",
+		fields: map[string]field{
+			"username": {kind: kindEnum, allowed: []string{"root"}},
+			"password": {kind: kindPassword, maxLen: 128},
+		},
+	},
 }
 
 // Handles 判定 action id 是否由本机制承载（main.go 前缀路由用）。
@@ -745,6 +755,20 @@ func (m *Manager) validateValue(name string, spec field, v string, section strin
 		}
 		if v == "" || len([]rune(v)) > max || hasControlChars(v) {
 			return bad("invalid text")
+		}
+		return v, nil
+	case kindPassword:
+		max := spec.maxLen
+		if max == 0 || max > 128 {
+			max = 128
+		}
+		if v == "" || len([]rune(v)) > max {
+			return bad("invalid password")
+		}
+		for _, r := range v {
+			if r < 0x20 || r == 0x7f {
+				return bad("invalid password")
+			}
 		}
 		return v, nil
 	case kindDigits:

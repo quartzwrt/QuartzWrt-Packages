@@ -255,6 +255,28 @@ func TestLuciEntries(t *testing.T) {
 	if strings.Join(c.argv, " ") != "ubus call luci getTimezones" {
 		t.Fatalf("timezones argv: %v", c.argv)
 	}
+
+	// 管理权·改密：平铺 {username,password}，只允许 root
+	c = &capture{raw: `{"result":true}`}
+	m = newMgr(c)
+	if _, e := m.Execute(context.Background(), "luci.set_password",
+		map[string]string{"username": "root", "password": "s3cret with space"}); e != nil {
+		t.Fatalf("set_password: %+v", e)
+	}
+	got = lastArgvJSON(t, c)
+	if got["username"] != "root" || got["password"] != "s3cret with space" {
+		t.Fatalf("set_password payload: %v", got)
+	}
+	for _, bad := range []map[string]string{
+		{"username": "admin", "password": "secret"},
+		{"username": "root", "password": ""},
+		{"username": "root", "password": "a\nb"},
+		{"username": "root", "password": "secret", "extra": "x"},
+	} {
+		if _, e := newMgr(&capture{raw: `{}`}).Execute(context.Background(), "luci.set_password", bad); e == nil {
+			t.Fatalf("bad set_password %v accepted", bad)
+		}
+	}
 }
 
 // ---------- qmodem 蜂窝域条目（2026-10-18，W6.12） ----------

@@ -4,8 +4,10 @@
 // 不做散点键白名单——否则「有的字段能改有的不能」本身就是半成品。字段清单来源见
 // `QuartzWrt-App/docs/IA-V2-DISCUSSION.md` §14（从 LuCI 自身定义提取）。
 //
-// 尚未注册（W6.11 及以后）：防火墙（zone/rule/redirect）、静态路由、管理权、
-// 计划任务/挂载/LED、wireless 的 MAC 过滤与漫游段。未注册的读写一律 `forbidden_action`。
+// 已注册（2026-10-19）：network（interface/route/rule）、wireless、dhcp（dnsmasq/dhcp/host）、
+// system、dropbear（管理权·SSH；改密走 `luci.set_password` 动作）。
+// 尚未注册（W6.11 及以后）：防火墙（zone/forward/rule/redirect）、fstab 挂载、
+// system 的 @led、cron（非 UCI 文件）。未注册的读写一律 `forbidden_action`。
 package uciconf
 
 import (
@@ -206,6 +208,26 @@ var registry = []configSpec{
 				"ttylogin":     {Kind: kBool},
 				"log_ip":       {Kind: kStr, Pattern: reIPAny, MaxLen: 64},
 				"log_port":     {Kind: kUint, Max: 65535},
+			}},
+		},
+	},
+	{
+		// 管理权·SSH（LuCI system/dropbear.js 的字段面；密码改走 luci.set_password 动作）
+		Name: "dropbear",
+		Sections: map[string]sectionSpec{
+			"@dropbear": {Type: "dropbear", Options: map[string]optionSpec{
+				"enable":            {Kind: kBool},
+				"Interface":         {Kind: kStr, Pattern: reShort},
+				"DirectInterface":   {Kind: kStr, Pattern: reShort},
+				"Port":              {Kind: kUint, Max: 65535},
+				"PasswordAuth":      {Kind: kEnum, Allowed: []string{"on", "off"}},
+				"RootPasswordAuth":  {Kind: kEnum, Allowed: []string{"on", "off"}},
+				"GatewayPorts":      {Kind: kEnum, Allowed: []string{"on", "off"}},
+				"IdleTimeout":       {Kind: kUint, Max: 86400},
+				"MaxAuthTries":      {Kind: kUint, Max: 10},
+				"BannerFile":        {Kind: kStr, MaxLen: 128},
+				"LocalPortForward":  {Kind: kEnum, Allowed: []string{"on", "off"}},
+				"RemotePortForward": {Kind: kEnum, Allowed: []string{"on", "off"}},
 			}},
 		},
 	},
