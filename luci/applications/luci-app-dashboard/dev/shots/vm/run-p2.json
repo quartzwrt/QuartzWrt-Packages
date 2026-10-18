@@ -18,8 +18,6 @@
     "hostname": "ImmortalWrt",
     "rates": [
       "0.0 Mbps",
-      "0.0 Mbps",
-      "0.0 Mbps",
       "0.0 Mbps"
     ],
     "cardsText": [
@@ -30,7 +28,7 @@
       "ClientsView all →"
     ],
     "bandix": {
-      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Download 0.0 Mbps Upload 0.0 Mbps Device Download Upload Share 192.168.1.1 30 KB 42 KB 50.0% 192.168.1.2 42 KB 30 KB 50.0% Bandix per-device traffic (device-side totals; share of cumulative bytes)",
+      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Default rate limit ↓ unlimited · ↑ unlimited Whitelist Off · rules: 0 · quotas: 0 · devices: 0 Device Download Upload Total Rate limit 192.168.1.1 0.0 Mbps 0.0 Mbps 16 KB Default 192.168.1.2 0.0 Mbps 0.0 Mbp",
       "rows": 2
     },
     "menuActive": "Dashboard",
@@ -52,8 +50,6 @@
     "hostname": "ImmortalWrt",
     "rates": [
       "0.0 Mbps",
-      "0.0 Mbps",
-      "0.0 Mbps",
       "0.0 Mbps"
     ],
     "cardsText": [
@@ -64,7 +60,7 @@
       "ClientsView all →"
     ],
     "bandix": {
-      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Download 0.0 Mbps Upload 0.0 Mbps Device Download Upload Share 192.168.1.1 30 KB 42 KB 50.0% 192.168.1.2 42 KB 30 KB 50.0% Bandix per-device traffic (device-side totals; share of cumulative bytes)",
+      "text": "Traffic detail Bandix → Online devices 2 / 2 Connections Not enabled DNS queries Not enabled Default rate limit ↓ unlimited · ↑ unlimited Whitelist Off · rules: 0 · quotas: 0 · devices: 0 Device Download Upload Total Rate limit 192.168.1.1 0.0 Mbps 0.0 Mbps 16 KB Default 192.168.1.2 0.0 Mbps 0.0 Mbp",
       "rows": 2
     },
     "menuActive": "Dashboard",

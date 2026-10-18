@@ -192,6 +192,20 @@ def main() -> int:
                     err(f"bandix.{k}: not non-negative int")
             if is_int(bx.get("devices")) and is_int(bx.get("online")) and bx["online"] > bx["devices"]:
                 err(f"bandix.online {bx['online']} > devices {bx['devices']}")
+            lm = bx.get("limits")
+            if lm is not None:
+                if not isinstance(lm, dict):
+                    err("bandix.limits: not object")
+                else:
+                    for k in ("default_rx_bps", "default_tx_bps"):
+                        if not is_int(lm.get(k)) or lm.get(k, -1) < 0:
+                            err(f"bandix.limits.{k}: not non-negative int")
+                    if not isinstance(lm.get("whitelist_enabled"), bool):
+                        err("bandix.limits.whitelist_enabled: not bool")
+                    for k in ("whitelist_count", "schedule_count", "quota_count"):
+                        v = lm.get(k)
+                        if v is not None and (not is_int(v) or v < 0):
+                            err(f"bandix.limits.{k}: not non-negative int/absent")
             w = bx.get("wan")
             if w is not None:
                 if not isinstance(w, dict):
@@ -221,6 +235,15 @@ def main() -> int:
                         pc = it.get("pct")
                         if not is_num(pc) or not (0 <= pc <= 100):
                             err(f"bandix.top[{i}].pct: not in 0..100 ({pc!r})")
+                        for k in ("rx_r", "tx_r"):
+                            if not is_int(it.get(k)) or it.get(k, -1) < 0:
+                                err(f"bandix.top[{i}].{k}: not non-negative int")
+                        if it.get("wl") is not None and not isinstance(it.get("wl"), bool):
+                            err(f"bandix.top[{i}].wl: not bool/absent")
+                        if it.get("sch") is not None and (not is_int(it.get("sch")) or it["sch"] < 0):
+                            err(f"bandix.top[{i}].sch: not non-negative int/absent")
+                        if it.get("q") is not None and not isinstance(it.get("q"), bool):
+                            err(f"bandix.top[{i}].q: not bool/absent")
                         cur = (it.get("rx_b") or 0) + (it.get("tx_b") or 0)
                         if prev is not None and cur > prev:
                             err(f"bandix.top[{i}]: not sorted by cumulative bytes desc")

@@ -1,0 +1,26 @@
+== quartz-daemon bandix P2 验收（2026-10-18 19:40:57） ==
+== A1. 快照含 bandix 节真数据（新镜像首启即默认开启 traffic） ==
+PASS  快照 bandix.available=true 且 devices>=1
+PASS  errors[] 无 bandix 条目
+== A2. 契约校验（含 §3.7 全字段/上限/排序） ==
+PASS  contract-check：快照符合 AGGREGATE-API v1（含 bandix）
+== A3. 与 ubus 同源一致性（设备数相等；online ±1；top 累计字节逐项相等） ==
+CONSISTENCY: OK
+PASS  同源一致性（设备数/online/累计字节）
+== A4. 降级态：traffic 关闭 → available=false（≤20s 慢刷生效） ==
+PASS  traffic=0 → bandix.available=false
+PASS  traffic 恢复 → available=true（自动恢复）
+== A5. 降级态：服务停 → available=false（上游伪造空列表 → 视为不可用）；恢复自动重试 ==
+PASS  服务停 → bandix.available=false（与网页同事实：上游 get_device_status 伪造 {d:[]}）
+PASS  errors[] 无 bandix 条目（空列表非错误）
+PASS  服务恢复 → 节自动重建
+== B. Dashboard 流量明细卡（真数据渲染；经 W3 工具取证） ==
+BANDIX-CARD: OK
+PASS  落地页渲染 bandix 卡（证据 run-p2.json + dashboard-*-p2.png）
+== C. 常驻开销两档（各计时 30s；RSS=/proc/<pid>/status） ==
+  traffic-only: RSS=4560KB→4576KB  CPU=0.27%（单核占比，30s 均值）
+  traffic+connections+dns: RSS=5140KB→5164KB  CPU=3.73%（单核占比，30s 均值）
+PASS  开销量取并已恢复默认（仅 traffic）
+  指标另存: /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-daemon/dev/accept-bandix-p2-20261018-194057.metrics
+
+== 汇总: PASS=11 FAIL=0（证据: /home/nrxboat/quartzwrt/QuartzWrt-Packages/utils/quartz-daemon/dev/accept-bandix-p2-20261018-194057.log） ==
