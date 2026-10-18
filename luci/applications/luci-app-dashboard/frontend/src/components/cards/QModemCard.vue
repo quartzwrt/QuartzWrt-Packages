@@ -52,14 +52,10 @@ const qualityText = computed(() => {
 	return t('Poor');
 });
 const series = computed(() => (sig.value && sig.value.series && Array.isArray(sig.value.series.rsrp) ? sig.value.series.rsrp : null));
-const sigSub1 = computed(() => {
+const sigSub = computed(() => {
 	const s = sig.value || {};
 	const withUnit = (v, unit) => (v == null ? '—' : v + ' ' + unit);
-	return 'RSRQ ' + withUnit(s.rsrq, 'dB') + ' · SINR ' + withUnit(s.sinr, 'dB');
-});
-const sigSub2 = computed(() => {
-	const s = sig.value || {};
-	return 'RSSI ' + (s.rssi == null ? '—' : s.rssi + ' dBm');
+	return 'RSRQ ' + withUnit(s.rsrq, 'dB') + ' · SINR ' + withUnit(s.sinr, 'dB') + ' · RSSI ' + withUnit(s.rssi, 'dBm');
 });
 
 /* ---- 运营商 / 制式 ---- */
@@ -158,17 +154,14 @@ const scsText = computed(() => {
 					</span>
 				</div>
 				<div class="qzd-c2-signalbody">
-					<div class="qzd-c2-signaltext">
-						<div class="qzd-c2-v">
-							<span class="qzd-c2-big qz-mono">{{ sig && sig.rsrp != null ? sig.rsrp : '—' }}</span>
-							<small>dBm</small>
-							<span class="qzd-c2-qual" :class="tone">{{ qualityText }}</span>
-						</div>
-						<div class="qzd-c2-sub qz-mono">{{ sigSub1 }}</div>
-						<div class="qzd-c2-sub2 qz-mono">{{ sigSub2 }}</div>
+					<div class="qzd-c2-v">
+						<span class="qzd-c2-big qz-mono">{{ sig && sig.rsrp != null ? sig.rsrp : '—' }}</span>
+						<small>dBm</small>
+						<span class="qzd-c2-qual" :class="tone">{{ qualityText }}</span>
 					</div>
 					<Sparkline v-if="series" :values="series" fill axis :height="46" class="qzd-c2-chart" />
 				</div>
+				<div class="qzd-c2-sub qz-mono">{{ sigSub }}</div>
 			</div>
 			<div class="qzd-c2-kpi qzd-c2-kpi-rate">
 				<div class="qzd-c2-k">{{ t('Rate') }}</div>

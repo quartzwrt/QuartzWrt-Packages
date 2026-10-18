@@ -159,8 +159,8 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-c2-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; font-size: 13px; }
 .qzd-c2-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
 .qzd-c2-op { display: inline-flex; align-items: center; gap: 6px; font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); }
-.qzd-c2-oplogo { width: 20px; height: 20px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; }
-.qzd-c2-oplogo svg { width: 100%; height: 100%; display: block; }
+.qzd-c2-oplogo { height: 20px; width: auto; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; }
+.qzd-c2-oplogo svg { height: 100%; width: auto; display: block; }
 .qzd-c2-chip { font-size: 11.5px; color: var(--qz-text-2); background: var(--qz-bg-well); border: 1px solid var(--qz-border); border-radius: 999px; padding: 1px 8px; }
 .qzd-c2-meta { margin-left: auto; font-size: 12px; color: var(--qz-text-2); }
 .qzd-c2-kpis { display: grid; grid-template-columns: 1.5fr 1.2fr 1fr 1fr; gap: 10px; margin: 2px 0 12px; }
@@ -175,11 +175,9 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-c2-qual.warn { color: var(--qz-warn); }
 .qzd-c2-qual.err { color: var(--qz-err); }
 .qzd-c2-sub { margin-top: auto; padding-top: 2px; font-size: 11px; color: var(--qz-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* 信号格：左侧读数/子指标，右下角放放大的 RSRP 曲线（补右下留白，不拉满整行） */
+/* 信号格：读数在左、RSRP 曲线在右下；RSRQ/SINR/RSSI 同一行放在下方通栏 */
 .qzd-c2-signalbody { display: flex; align-items: flex-end; gap: 10px; margin-top: 2px; }
-.qzd-c2-signaltext { min-width: 0; }
-.qzd-c2-signaltext .qzd-c2-sub { margin-top: 2px; padding-top: 0; white-space: nowrap; line-height: 1.35; }
-.qzd-c2-sub2 { margin-top: 1px; font-size: 10.5px; line-height: 1.35; color: var(--qz-text-3); white-space: nowrap; }
+.qzd-c2-kpi-signal .qzd-c2-sub { margin-top: 4px; padding-top: 0; white-space: nowrap; }
 .qzd-c2-chart { flex: 0 0 170px; width: 170px; height: 46px; margin-left: auto; }
 .qzd-c2-chart .qzd-spark-ylabels { font-size: 9.5px; }
 /* 服务小区的频段号：技术值走等宽、正常字重，避免和 KPI 大数字混淆 */
