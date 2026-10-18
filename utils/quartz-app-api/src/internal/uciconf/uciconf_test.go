@@ -190,6 +190,27 @@ func TestApplyConfirmAndNoSession(t *testing.T) {
 	}
 }
 
+// apply 后「立即回滚」必须走 uci rollback（revert 无法撤销已生效配置）。
+func TestRollbackUsesUciRollbackWithSession(t *testing.T) {
+	c := &cap{byMeth: map[string]string{"rollback": `{}`}}
+	m := newMgr(c, "sid-rb")
+	res, e := m.Rollback("dev1")
+	if e != nil {
+		t.Fatalf("rollback: %+v", e)
+	}
+	got := argvFor(t, c, "rollback")
+	if got["ubus_rpc_session"] != "sid-rb" {
+		t.Fatalf("rollback must carry session: %v", got)
+	}
+	if res["rolled_back"] != true {
+		t.Fatalf("rollback result: %+v", res)
+	}
+	// 无会话 → data_unavailable（与 write/apply 同语义）
+	if _, e := newMgr(&cap{}, "").Rollback("dev1"); e == nil || e.Code != envelope.CodeDataUnavailable {
+		t.Fatalf("rollback without session: %+v", e)
+	}
+}
+
 // uci 权限被拒（sid 已被销毁/过期）→ 映射为 data_unavailable + 重新登录文案。
 func TestPermissionDeniedMapping(t *testing.T) {
 	c := &cap{err: errors.New("exit 1"), byMeth: map[string]string{}}

@@ -203,6 +203,60 @@ func TestExecuteNoArgsEntry(t *testing.T) {
 	}
 }
 
+// luci 条目（W6.10 路由器 tab）：启动项列表/动作、时区列表。
+func TestLuciEntries(t *testing.T) {
+	// 启动项列表：无参调用
+	c := &capture{raw: `{"uhttpd":{"index":50,"stop":null,"enabled":true}}`}
+	m := newMgr(c)
+	res, e := m.Execute(context.Background(), "luci.init_list", nil)
+	if e != nil {
+		t.Fatalf("init_list: %+v", e)
+	}
+	want := []string{"ubus", "call", "luci", "getInitList"}
+	if strings.Join(c.argv, " ") != strings.Join(want, " ") {
+		t.Fatalf("argv = %v, want %v", c.argv, want)
+	}
+	if res["action"] != "luci.init_list" {
+		t.Fatalf("result = %+v", res)
+	}
+
+	// 启动项动作：平铺 {name, action}
+	c = &capture{raw: `{}`}
+	m = newMgr(c)
+	if _, e := m.Execute(context.Background(), "luci.init_action",
+		map[string]string{"name": "uhttpd", "action": "restart"}); e != nil {
+		t.Fatalf("init_action: %+v", e)
+	}
+	got := lastArgvJSON(t, c)
+	if got["name"] != "uhttpd" || got["action"] != "restart" {
+		t.Fatalf("init_action payload: %v", got)
+	}
+
+	// 注入 / 路径分隔符 / 非法动作一律拒绝
+	for _, bad := range []map[string]string{
+		{"name": "../etc/passwd", "action": "start"},
+		{"name": "uhttpd;reboot", "action": "start"},
+		{"name": "uhttpd", "action": "rm"},
+		{"name": "uhttpd"},
+		{"action": "start"},
+	} {
+		if _, e := newMgr(&capture{raw: `{}`}).Execute(context.Background(), "luci.init_action", bad); e == nil ||
+			e.Code != envelope.CodeBadRequest {
+			t.Fatalf("bad init_action %v: %+v", bad, e)
+		}
+	}
+
+	// 时区列表：无参
+	c = &capture{raw: `{"Asia/Shanghai":{"tzstring":"CST-8","active":true}}`}
+	m = newMgr(c)
+	if _, e := m.Execute(context.Background(), "luci.timezones", nil); e != nil {
+		t.Fatalf("timezones: %+v", e)
+	}
+	if strings.Join(c.argv, " ") != "ubus call luci getTimezones" {
+		t.Fatalf("timezones argv: %v", c.argv)
+	}
+}
+
 // ---------- qmodem 蜂窝域条目（2026-10-18，W6.12） ----------
 
 // qmodemMgr 构造带 section/port provider 的管理器。

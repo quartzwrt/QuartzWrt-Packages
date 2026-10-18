@@ -71,6 +71,7 @@ var (
 	phoneRe     = regexp.MustCompile(`^\+?[0-9]{3,20}$`)
 	indexListRe = regexp.MustCompile(`^[0-9]{1,3}( [0-9]{1,3}){0,19}$`)
 	labelRe     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,15}$`)
+	initNameRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 )
 
 // 参数类型。
@@ -93,6 +94,7 @@ const (
 	kindIndexList // 空格分隔的数字索引列表（delete_sms）
 	kindJSONObj   // 厂商方言对象参数（field.sub 子模式）
 	kindJSONArr   // 厂商方言数组参数（元素 ∈ field.allowed）
+	kindInitName  // procd init 脚本名（/etc/init.d/<name>；字符集 + 长度）
 )
 
 type field struct {
@@ -407,6 +409,28 @@ var registry = []entry{
 	{
 		// AT 端口列表（无参；App 的 AT 页端口下拉数据源）
 		id: "qmodem.tty_ports", object: "qmodem", method: "get_tty_ports", shape: shapeNone,
+		fields: map[string]field{},
+	},
+
+	// ---------------- luci（路由器 tab：启动项 / 时区，W6.10） ----------------
+	{
+		// 启动项列表（无参）：{name:{index,stop,enabled}}；`stop` 可为 null。
+		id: "luci.init_list", object: "luci", method: "getInitList", shape: shapeNone,
+		fields: map[string]field{},
+	},
+	{
+		// 启动项动作（与网页端启动项页同源）：enable/disable 改 rc.d 链接，
+		// start/stop/restart 调 init 脚本。`name` 必须是 /etc/init.d 下的脚本名，
+		// 严格字符集校验（该值由上游拼进 init 调用，禁止任何路径分隔符）。
+		id: "luci.init_action", object: "luci", method: "setInitAction",
+		fields: map[string]field{
+			"name":   {kind: kindInitName},
+			"action": {kind: kindEnum, allowed: []string{"enable", "disable", "start", "stop", "restart"}},
+		},
+	},
+	{
+		// 时区列表（无参）：{zone:{tzstring,active?}}；App 系统页的时区选择器数据源。
+		id: "luci.timezones", object: "luci", method: "getTimezones", shape: shapeNone,
 		fields: map[string]field{},
 	},
 }
@@ -740,6 +764,11 @@ func (m *Manager) validateValue(name string, spec field, v string, section strin
 	case kindIndexList:
 		if !indexListRe.MatchString(v) {
 			return bad("invalid index list")
+		}
+		return v, nil
+	case kindInitName:
+		if !initNameRe.MatchString(v) || strings.Contains(v, "..") {
+			return bad("invalid init script name")
 		}
 		return v, nil
 	case kindJSONObj:

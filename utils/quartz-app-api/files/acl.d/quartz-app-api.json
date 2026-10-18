@@ -18,7 +18,8 @@
 					"config.changes",
 					"config.revert",
 					"config.apply",
-					"config.confirm"
+					"config.confirm",
+					"config.rollback"
 				]
 			}
 		}

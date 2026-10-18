@@ -35,12 +35,16 @@ func TestReplyWrapsPayload(t *testing.T) {
 
 func TestMethodListSurface(t *testing.T) {
 	m := methodList()
-	for _, want := range []string{"info", "login", "refresh", "logout", "status", "action", "devices", "revoke", "packages"} {
+	for _, want := range []string{
+		"info", "login", "refresh", "logout", "status", "action", "devices", "revoke", "packages",
+		"config.read", "config.write", "config.changes", "config.revert",
+		"config.apply", "config.confirm", "config.rollback",
+	} {
 		if _, has := m[want]; !has {
 			t.Fatalf("method list missing %s", want)
 		}
 	}
-	if len(m) != 9 {
+	if len(m) != 16 {
 		t.Fatalf("method surface changed: %d", len(m))
 	}
 }

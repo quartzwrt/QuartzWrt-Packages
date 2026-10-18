@@ -82,12 +82,13 @@ func methodList() map[string]any {
 		"revoke":   map[string]any{"access_token": "string", "device_id": "string"},
 		"packages": map[string]any{"access_token": "string", "scope": "string", "query": "string", "page": "Integer", "per_page": "Integer"},
 		// 配置面（W6.10；注册表按节完整声明，见 internal/uciconf）
-		"config.read":    map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string"},
-		"config.write":   map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string", "value": map[string]any{}},
-		"config.changes": map[string]any{"access_token": "string", "config": "string"},
-		"config.revert":  map[string]any{"access_token": "string", "config": "string"},
-		"config.apply":   map[string]any{"access_token": "string", "rollback": "Boolean", "timeout": "Integer"},
-		"config.confirm": map[string]any{"access_token": "string"},
+		"config.read":     map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string"},
+		"config.write":    map[string]any{"access_token": "string", "config": "string", "section": "string", "option": "string", "value": map[string]any{}},
+		"config.changes":  map[string]any{"access_token": "string", "config": "string"},
+		"config.revert":   map[string]any{"access_token": "string", "config": "string"},
+		"config.apply":    map[string]any{"access_token": "string", "rollback": "Boolean", "timeout": "Integer"},
+		"config.confirm":  map[string]any{"access_token": "string"},
+		"config.rollback": map[string]any{"access_token": "string"},
 	}
 }
 
@@ -196,7 +197,7 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 			"option": str(args, "option"), "value": v,
 		})
 
-	case "config.write", "config.revert", "config.changes", "config.apply", "config.confirm":
+	case "config.write", "config.revert", "config.changes", "config.apply", "config.confirm", "config.rollback":
 		dev, e := svc.Authenticate(str(args, "access_token"))
 		if e != nil {
 			return envelope.Err(e)
@@ -223,6 +224,8 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 			res, ce = mgr.Apply(dev.ID, timeout, rollback)
 		case "config.confirm":
 			res, ce = mgr.Confirm(dev.ID)
+		case "config.rollback":
+			res, ce = mgr.Rollback(dev.ID)
 		}
 		if ce != nil {
 			return envelope.Err(ce)

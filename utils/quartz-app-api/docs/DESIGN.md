@@ -186,6 +186,7 @@ quartz-app-api（exec 插件，root；每调用一进程）
 | `devices` | access | `{access_token}` | `{ok,api,devices:[{device_id,name,created,last_seen,current}]}` | 已配对设备清单 |
 | `revoke` | access | `{access_token,device_id}` | `{ok,api}` | 踢出指定设备（含自身=登出） |
 | `packages` | access | `{access_token,scope,query?,page?,per_page?}` | `{ok,api,scope,page,per_page,total,pages,items:[…]}` | 软件包管理面读（v1.1，§4.5）；`scope=installed\|upgradable\|available\|history` |
+| `config.*` | access | 见 §5.2 | 见 §5.2 | 配置面（W6.10）：注册表读、暂存写、apply/confirm/rollback 安全网；`config.read/write/changes/revert/apply/confirm/rollback` |
 
 ### 4.2 信封
 
@@ -327,6 +328,30 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 **厂商方言参数以 JSON 字符串传入**：`action` 方法的 `args` 为扁平 `map[string]string`，嵌套参数（如 AT 页的 `params{at,port}`）由 App 以 **JSON 字符串**传给 `args.params`，app-api 解析并按子模式校验后重建（不引入嵌套透传）。
 
 **读面例外（2026-10-18 规则修订）**：快照承载**概览级只读摘要**；**页面级读**（AT 端口与预置命令、短信列表、设置回显、能力声明）走本机制——先例 `bandix.limits`，条目仍逐条显式注册、无自由参数。
+
+**luci 对象条目（2026-10-19，W6.10 路由器 tab）**：三条只读/动作条目——`luci.init_list`（无参，`getInitList`）、`luci.init_action`（`{name,action}`，`setInitAction`；`name` 走 `/etc/init.d/<name>` 字符集 + 禁止 `..`，action 枚举 enable/disable/start/stop/restart）、`luci.timezones`（无参，`getTimezones`）。`setInitAction` 成功回 `{}`（裸对象），失败回 `{"error":"…"}`，由既有「裸对象」分支处理。
+
+### 5.2 配置面 `config.*`（2026-10-19，W6.10/W6.11 路由器 tab）
+
+**定位**：网页端 Network/System 配置面的**受控暴露**。与 §5.1 同一纪律：**无任意透传**——配置文件、section、option 全部在 `internal/uciconf/registry.go` **按节完整注册**（类型/枚举/范围/字符集/敏感标记），未注册一律 `forbidden_action`；执行 = `ubus call uci …`（JSON 单个 argv，不拼 shell）。
+
+| 方法 | 参数 | 返回（成功载荷） | 说明 |
+| :--- | :--- | :--- | :--- |
+| `config.read` | `{access_token,config,section?,option?}` | `{config,section,option,value}` | `value` 三形态：全量 `{section:{option:value}}` / 单节 `{option:value}` / 单选项标量；敏感项 `"__masked__"` |
+| `config.write` | `{access_token,config,section,option,value}` | `{changes:{changes:[…]}}` | **暂存**（不落盘）；类型/枚举/范围/字符集校验 |
+| `config.changes` | `{access_token,config}` | `{changes:{changes:[…]}}` | 查看当前会话暂存 |
+| `config.revert` | `{access_token,config}` | `{reverted:<config>}` | 丢弃**暂存**（apply 之前有效） |
+| `config.apply` | `{access_token,rollback?:bool=true,timeout?:int=90}` | `{applied:true,rollback,timeout}` | 提交；rollback=true 武装回滚窗口 |
+| `config.confirm` | `{access_token}` | `{confirmed:true}` | 保留改动，取消回滚窗口 |
+| `config.rollback` | `{access_token}` | `{rolled_back:true}` | **立即回滚已 apply 未 confirm 的改动**（`uci rollback`） |
+
+**会话模型（VM 实测）**：uci 写入/apply/confirm/rollback 必须携带**同一 `ubus_rpc_session`**；`session create` 是空 ACL，只有 `session login`（管理员凭据）的会话有全量 ACL。app-api 是 rpcd exec 插件、每次调用是新进程 → login 时开启保留会话（12h）并把 sid 持久化进设备记录（`store.Device.ConfigSID`），logout/revoke 销毁。
+
+**安全网与 revert/rollback 的区别（2026-10-19 VM 实测，关键）**：`config.apply{rollback:true,timeout}` 后未确认会自动回滚；但**立即回滚不能调 `config.revert`**——`uci revert` 只丢弃暂存（apply 后暂存已空），已生效配置保留，且会解除回滚计时器（配置「漂」在生效态）。必须调 `config.rollback`（`uci rollback`，同会话）。App 侧确认条 = 90s 倒计时 + 「保留更改 / 立即回滚」。
+
+**注册表试点范围**：`network.lan|wan`、`wireless @wifi-device|@wifi-iface`、`dhcp @dnsmasq|@dhcp`、`system @system`。W6.11 再扩防火墙/静态路由/管理权/计划任务/挂载/LED 与 `config.add/delete`（静态租约）。
+
+**错误码**：`forbidden_action`（未注册配置/节/选项）、`bad_request`（类型/枚举/范围/字符集/掩码回写）、`data_unavailable`（配置会话不可用）、`action_failed`（uci 执行失败，detail 带上游串；网页端有未确认 apply 时也会落此码）。
 
 ## 6. 传输与暴露面
 
@@ -495,3 +520,5 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v1.0.3 2026-10-13 —— **W5.1–W5.5 完成**：全部代码 + 打包落地并通过 **VM 集成验收 35/35 全绿**（QEMU 新镜像；六组：环境/ACL 边界/认证/旋转吊销登出/限速/数据面降级/控制面/reboot 持久化；证据 `dev/accept-run-20261013-1341.log`，可复跑 `dev/vm-accept.sh`，两次重跑一致）。验收期另修复 logout 信封不对称（auth 层统一返回裸载荷、reply 层统一包裹；回归测试 `main_test.go`）。剩余：推送 + feed 锁定 bump（跨 WP，待用户指令）、R4S 真机复测（与 WP-3 合并）。*
 *v1.1 2026-10-14 —— **软件包管理面扩展（W5.7）实施并 VM 验收**（WP-6 UI-DESIGN §5 登记项的 WP-5 侧落地）：读方法 `packages`（`scope=installed|upgradable|available|history`，分页；数据源=apk 体系与 LuCI 软件包页同源命令 `apk query --format json`）+ 动作 `packages.refresh/upgrade/remove`（通用 action 白名单前缀路由）+ 结构化操作记录 `/etc/quartz-app-api/history.json`（环形 30，成功/失败+apk 错误摘录，供 App「操作记录」页）；acl.d 追加 `packages`；`info.features` 增 `packages`。新增 §4.5 与超时预算（§4.4：读 20s / refresh 45s / upgrade·remove 50s——**uhttpd /ubus 单次调用 60s 硬窗**源码核实）。**VM 验收 26/26 PASS**（`dev/vm-accept-packages.sh`，证据 `dev/accept-packages-run-*.log`），测试源 `dev/testrepo/`（serve.py 同 URL 可切换 stage 模拟上游发新版；VM 实测教训：`apk add 文件/等值` 写 world 钉死条目会抑制升级）。安装浏览（可用源搜索安装）v1 后置（不改本包方法面）。*
 *v1.2 2026-10-17 —— **ubus 转发项机制落地（§5.1）+ bandix 服务面**（WP-8 衔接项 D5，用户「把没做的做了吧」）：①默认允许集加 `bandix`（`service.start/stop/restart`；一行 + 回归测试）；②新增 `internal/ubusfwd` 转发项机制——**无任意透传**：条目逐条显式注册（object+method+参数模式表），参数结构+字符集/数值域校验、JSON 单 argv 执行 `ubus call`、bridge 信封错误码映射（`data:null` 不算失败）、logd 审计；首批 5 条目 = bandix 写面（limit_default_set / whitelist_add / whitelist_delete / whitelist_enabled / hostname_set）；③`action` 方法参数接受 JSON number/bool（整数值转十进制串）；④`info.features` 增 `bandix`。读面不经本机制（App 读走 daemon 快照 §3.7）。单测 9 例（路由/校验/包装/错误映射/审计）。PKG_RELEASE 2。*
+*v1.3 2026-10-19 —— **配置面 `config.*` 落地（§5.2，W6.10 路由器 tab 后端）**：`internal/uciconf` 注册表（network.lan|wan、wireless、dhcp、system）+ 六个方法（read/write/changes/revert/apply/confirm）+ 配置会话（login 保留 12h、sid 持久化、logout 销毁）；`methodList`/ACL 三处登记；PKG_RELEASE 8。VM 验收 17/17（`dev/vm-accept-config.sh`）。*
+*v1.4 2026-10-19 —— **路由器 tab 后端补强（W6.9/W6.10 前端落地同批）**：①新增 `config.rollback`（VM 实测 `config.revert` 不能撤销已生效配置且会解除回滚计时器 → 立即回滚必须 `uci rollback`；PKG_RELEASE 9）；②`internal/ubusfwd` 增 `luci.init_list` / `luci.init_action` / `luci.timezones` 三条转发条目（启动项页与时区选择器数据源；`init_action.name` 严格字符集 + `..` 拒绝、action 枚举）；③修复 `main_test.go` 方法面断言仍写死 9 个方法的历史遗留（配置面加入后必然失败，已扩到 16 并显式列出）。VM 验收 15/15（`dev/vm-accept-router.sh`，含 rollback 往返与 luci 负例）；App e2e 23 项 ALL PASS。*

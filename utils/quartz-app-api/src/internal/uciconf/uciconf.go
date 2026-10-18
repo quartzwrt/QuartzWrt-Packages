@@ -304,6 +304,23 @@ func (m *Manager) Confirm(deviceID string) (map[string]any, *envelope.Error) {
 	return map[string]any{"confirmed": true}, nil
 }
 
+// Rollback 立即回滚已 apply 但未 confirm 的改动（App 的「立即回滚」按钮）。
+//
+// **不能复用 Revert**：VM 实测 apply 后调用 `uci revert` 只丢弃（已空的）暂存改动，
+// 已生效配置原样保留、且会解除回滚计时器——配置就「漂」在那里。立即撤销必须走
+// rpcd uci 的 `rollback` 方法（同一会话）。
+func (m *Manager) Rollback(deviceID string) (map[string]any, *envelope.Error) {
+	sid, ee := m.requireSession(deviceID)
+	if ee != nil {
+		return nil, ee
+	}
+	if _, ee := m.uciCallSID(sid, "rollback", nil); ee != nil {
+		return nil, ee
+	}
+	audit.Logf("config rollback device=%s", deviceID)
+	return map[string]any{"rolled_back": true}, nil
+}
+
 // ------------- 内部 -------------
 
 func (m *Manager) requireSession(deviceID string) (string, *envelope.Error) {
@@ -322,7 +339,7 @@ func (m *Manager) uciCall(method string, args map[string]any) ([]byte, *envelope
 	return m.runUCI(method, args)
 }
 
-// uciCallSID 带会话写（set/revert/apply/confirm 需同一 sid）。
+// uciCallSID 带会话写（set/revert/apply/confirm/rollback 需同一 sid）。
 func (m *Manager) uciCallSID(sid, method string, args map[string]any) ([]byte, *envelope.Error) {
 	if args == nil {
 		args = map[string]any{}
