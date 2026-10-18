@@ -60,15 +60,16 @@ type configSpec struct {
 }
 
 var (
-	reHostname = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$`)
-	reMAC      = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
-	reSSID     = regexp.MustCompile(`^[\x20-\x7e]{1,32}$`)
-	reKeyStr   = regexp.MustCompile(`^[\x20-\x7e]{8,63}$`)
-	reCountry  = regexp.MustCompile(`^[A-Z]{2}$`)
-	reChan     = regexp.MustCompile(`^(auto|[0-9]{1,4})$`)
-	reShort    = regexp.MustCompile(`^[A-Za-z0-9_.:-]{0,64}$`)
-	reLease    = regexp.MustCompile(`^([0-9]{1,6}[smhd]|infinite)$`)
-	reIPAny    = regexp.MustCompile(`^[0-9a-fA-F:.%]{2,45}$`)
+	reHostname    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$`)
+	reMAC         = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
+	reSSID        = regexp.MustCompile(`^[\x20-\x7e]{1,32}$`)
+	reKeyStr      = regexp.MustCompile(`^[\x20-\x7e]{8,63}$`)
+	reCountry     = regexp.MustCompile(`^[A-Z]{2}$`)
+	reChan        = regexp.MustCompile(`^(auto|[0-9]{1,4})$`)
+	reShort       = regexp.MustCompile(`^[A-Za-z0-9_.:-]{0,64}$`)
+	reRouteTarget = regexp.MustCompile(`^[A-Za-z0-9:./]{1,64}$`)
+	reLease       = regexp.MustCompile(`^([0-9]{1,6}[smhd]|infinite)$`)
+	reIPAny       = regexp.MustCompile(`^[0-9a-fA-F:.%]{2,45}$`)
 )
 
 // 常用枚举。
@@ -103,6 +104,26 @@ var registry = []configSpec{
 				"device":   {Kind: kStr, Pattern: reShort},
 				"disabled": {Kind: kBool},
 				"auto":     {Kind: kBool},
+			}},
+			"@route": {Type: "route", Deletable: true, Options: map[string]optionSpec{
+				"interface": {Kind: kStr, Pattern: reShort},
+				"target":    {Kind: kStr, Pattern: reRouteTarget, Required: true},
+				"netmask":   {Kind: kIPv4Mask},
+				"gateway":   {Kind: kIPv4},
+				"metric":    {Kind: kUint, Max: 65535},
+				"source":    {Kind: kIPv4},
+				"table":     {Kind: kStr, Pattern: reShort, MaxLen: 16},
+				"onlink":    {Kind: kBool},
+				"disabled":  {Kind: kBool},
+			}},
+			"@rule": {Type: "rule", Deletable: true, Options: map[string]optionSpec{
+				"in":       {Kind: kStr, Pattern: reShort},
+				"out":      {Kind: kStr, Pattern: reShort},
+				"src":      {Kind: kStr, Pattern: reRouteTarget},
+				"dest":     {Kind: kStr, Pattern: reRouteTarget},
+				"lookup":   {Kind: kStr, Pattern: reShort, MaxLen: 16},
+				"priority": {Kind: kUint, Max: 65535},
+				"disabled": {Kind: kBool},
 			}},
 		},
 	},
