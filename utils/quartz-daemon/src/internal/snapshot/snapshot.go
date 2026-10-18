@@ -21,6 +21,8 @@ const (
 	MaxSeries = 60
 	// MaxUnhealthy docker.unhealthy 上限。
 	MaxUnhealthy = 8
+	// MaxDockerContainers docker.containers 上限。
+	MaxDockerContainers = 8
 	// MaxBandixTop bandix.top 上限（契约 §3.7）。
 	MaxBandixTop = 8
 	// MaxCellularModems cellular.modems 上限（契约 §3.9）。
@@ -104,6 +106,23 @@ type Docker struct {
 	Total     int      `json:"total"`
 	Images    int      `json:"images"`
 	Unhealthy []string `json:"unhealthy"`
+	// 2026-10-19 加法（Dashboard Docker 卡信息密度；全部可选）：
+	Version    string            `json:"version,omitempty"`    // Docker ServerVersion
+	Driver     string            `json:"driver,omitempty"`     // 存储驱动（overlayfs/vfs…）
+	RootDir    string            `json:"root_dir,omitempty"`   // Docker Root Dir
+	CPUs       int               `json:"cpus,omitempty"`       // 节点 CPU 数
+	MemTotal   int64             `json:"mem_total,omitempty"`  // 节点内存（字节）
+	Networks   int               `json:"networks,omitempty"`   // 网络数
+	Volumes    int               `json:"volumes,omitempty"`    // 卷数
+	Containers []DockerContainer `json:"containers,omitempty"` // 容器摘要（≤8）
+}
+
+// DockerContainer 容器摘要（Dashboard 列表；不含敏感 env/labels）。
+type DockerContainer struct {
+	Name   string `json:"name"`
+	Image  string `json:"image,omitempty"`
+	State  string `json:"state,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 // Client 在线设备条目（契约 §3.5）。
@@ -217,21 +236,48 @@ type CellularCaps struct {
 
 // CellularModem 单个模组（uci section = qmodem.<id>，type=modem-device）。
 type CellularModem struct {
-	ID           string             `json:"id"`
-	Model        string             `json:"model,omitempty"`
-	Vendor       string             `json:"vendor,omitempty"`
-	Firmware     string             `json:"firmware,omitempty"`
-	TempC        *float64           `json:"temp_c,omitempty"`
-	Registered   bool               `json:"registered"`
-	Operator     string             `json:"operator,omitempty"`
-	NetworkMode  string             `json:"network_mode,omitempty"`
-	Signal       *CellularSignal    `json:"signal,omitempty"`
-	ServingCells []CellularCell     `json:"serving_cells,omitempty"`
-	Dial         *CellularDial      `json:"dial,omitempty"`
-	Traffic      *CellularTraffic   `json:"traffic,omitempty"`
-	SIM          *CellularSIM       `json:"sim,omitempty"`
-	Settings     *CellularSettings  `json:"settings,omitempty"`
-	Capabilities *CellularModemCaps `json:"capabilities,omitempty"`
+	ID          string   `json:"id"`
+	Model       string   `json:"model,omitempty"`
+	Vendor      string   `json:"vendor,omitempty"`
+	Firmware    string   `json:"firmware,omitempty"`
+	TempC       *float64 `json:"temp_c,omitempty"`
+	Registered  bool     `json:"registered"`
+	Operator    string   `json:"operator,omitempty"`
+	NetworkMode string   `json:"network_mode,omitempty"`
+	// 2026-10-19 加法（对齐 qmodem 首页 Base/Network Information；全部可选）：
+	ATPort        string             `json:"at_port,omitempty"`
+	VoltageMV     int                `json:"voltage_mv,omitempty"`
+	ConnectStatus string             `json:"connect_status,omitempty"`
+	NetworkType   string             `json:"network_type,omitempty"`
+	CQIUL         int                `json:"cqi_ul,omitempty"`
+	CQIDL         int                `json:"cqi_dl,omitempty"`
+	AMBRUL        int                `json:"ambr_ul,omitempty"`
+	AMBRDL        int                `json:"ambr_dl,omitempty"`
+	CellInfo      *CellularCellInfo  `json:"cell_info,omitempty"`
+	Signal        *CellularSignal    `json:"signal,omitempty"`
+	ServingCells  []CellularCell     `json:"serving_cells,omitempty"`
+	Dial          *CellularDial      `json:"dial,omitempty"`
+	Traffic       *CellularTraffic   `json:"traffic,omitempty"`
+	SIM           *CellularSIM       `json:"sim,omitempty"`
+	Settings      *CellularSettings  `json:"settings,omitempty"`
+	Capabilities  *CellularModemCaps `json:"capabilities,omitempty"`
+}
+
+// CellularCellInfo qmodem 首页 Cell Information 段（单服务小区；MCC/MNC/TAC/
+// Cell ID 等结构字段来自 cell_info；PCI/ARFCN/带宽/SCS 优先取 get_current_band）。
+type CellularCellInfo struct {
+	NetworkMode string `json:"network_mode,omitempty"`
+	Duplex      string `json:"duplex,omitempty"`
+	MCC         string `json:"mcc,omitempty"`
+	MNC         string `json:"mnc,omitempty"`
+	TAC         string `json:"tac,omitempty"`
+	CellID      string `json:"cell_id,omitempty"`
+	PCI         string `json:"pci,omitempty"`
+	ARFCN       string `json:"arfcn,omitempty"`
+	Band        string `json:"band,omitempty"`
+	ULBandwidth string `json:"ul_bandwidth,omitempty"`
+	DLBandwidth string `json:"dl_bandwidth,omitempty"`
+	SCS         string `json:"scs,omitempty"`
 }
 
 // CellularSignal 信号指标（RSRP/RSRQ/SINR/RSSI 取上游 progress_bar 条目的值，
@@ -293,6 +339,7 @@ type CellularReset struct {
 type CellularSIM struct {
 	Status     string `json:"status,omitempty"`
 	Slot       string `json:"slot,omitempty"`
+	ISP        string `json:"isp,omitempty"` // 运营商 PLMN（qmodem 首页 SIM Information）
 	Switchable bool   `json:"switchable"`
 }
 

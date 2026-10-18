@@ -192,11 +192,29 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 			m.TempC = &v
 			m.Capabilities.Temp = true
 		}
+		m.ATPort = itemValue(items, "at_port", "at port")
+		m.ConnectStatus = itemValue(items, "connect_status", "connect status")
+		if v, ok := numValue(itemValue(items, "voltage")); ok {
+			m.VoltageMV = int(v)
+		}
 	}
 	// 网络信息（运营商 / 网络类型 / 速率 / 地址）
 	if items := parseModemInfo(callReq("network_info")); len(items) > 0 {
 		readOK = true
 		m.Operator = itemValue(items, "isp", "operator", "network operator")
+		m.NetworkType = itemValue(items, "network type", "network_type")
+		if v, ok := intValue(itemValue(items, "cqi ul", "cqi_ul")); ok {
+			m.CQIUL = int(v)
+		}
+		if v, ok := intValue(itemValue(items, "cqi dl", "cqi_dl")); ok {
+			m.CQIDL = int(v)
+		}
+		if v, ok := intValue(itemValue(items, "ambr ul", "ambr_ul")); ok {
+			m.AMBRUL = int(v)
+		}
+		if v, ok := intValue(itemValue(items, "ambr dl", "ambr_dl")); ok {
+			m.AMBRDL = int(v)
+		}
 		if v := itemValue(items, "network type", "network_mode", "network mode"); v != "" {
 			m.NetworkMode = normalizeNetworkMode(v)
 		}
@@ -254,6 +272,23 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 		if sig.RSRP != nil || sig.RSRQ != nil || sig.SINR != nil || sig.RSSI != nil {
 			m.Signal = sig
 		}
+		ci := &snapshot.CellularCellInfo{
+			NetworkMode: itemValue(items, "network_mode", "network mode"),
+			Duplex:      itemValue(items, "duplex mode", "duplex"),
+			MCC:         itemValue(items, "mcc"),
+			MNC:         itemValue(items, "mnc"),
+			TAC:         itemValue(items, "tac"),
+			CellID:      itemValue(items, "cell id", "cell_id"),
+			PCI:         itemValue(items, "physical cell id", "pci"),
+			ARFCN:       itemValue(items, "arfcn"),
+			Band:        itemValue(items, "band"),
+			ULBandwidth: itemValue(items, "ul bandwidth", "ul_bandwidth"),
+			DLBandwidth: itemValue(items, "dl bandwidth", "dl_bandwidth"),
+			SCS:         itemValue(items, "scs"),
+		}
+		if ci.NetworkMode != "" || ci.Duplex != "" || ci.MCC != "" || ci.CellID != "" {
+			m.CellInfo = ci
+		}
 	}
 	// 服务小区（get_current_band：结构化 cells）
 	if raw := callReq("get_current_band"); raw != nil {
@@ -266,6 +301,32 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 			}
 			if mode != "" {
 				m.NetworkMode = mode
+			}
+			// qmodem 首页 Cell Information 的 PCI/ARFCN/带宽等优先取 get_current_band；
+			// cell_info 缺项时用服务小区补齐（两处同源，字段名不同）。
+			if len(cells) > 0 {
+				if m.CellInfo == nil {
+					m.CellInfo = &snapshot.CellularCellInfo{}
+				}
+				c := cells[0]
+				if m.CellInfo.PCI == "" {
+					m.CellInfo.PCI = c.PCI
+				}
+				if m.CellInfo.ARFCN == "" {
+					m.CellInfo.ARFCN = c.Channel
+				}
+				if m.CellInfo.Band == "" {
+					m.CellInfo.Band = c.Band
+				}
+				if m.CellInfo.ULBandwidth == "" {
+					m.CellInfo.ULBandwidth = c.ULBandwidth
+				}
+				if m.CellInfo.DLBandwidth == "" {
+					m.CellInfo.DLBandwidth = c.DLBandwidth
+				}
+				if m.CellInfo.SCS == "" {
+					m.CellInfo.SCS = c.SCS
+				}
 			}
 		}
 	}
@@ -330,6 +391,10 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 		readOK = true
 		sim.Status = itemValue(items, "sim status", "status")
 		sim.Slot = itemValue(items, "sim slot", "slot")
+		sim.ISP = itemValue(items, "isp", "internet service provider")
+		if m.Operator == "" {
+			m.Operator = sim.ISP
+		}
 	}
 	if raw := callOpt("get_sim_switch_capabilities"); raw != nil {
 		if sw, ok := parseSupportSwitch(raw); ok {
@@ -344,7 +409,7 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 			sim.Slot = slot
 		}
 	}
-	if sim.Status != "" || sim.Slot != "" {
+	if sim.Status != "" || sim.Slot != "" || sim.ISP != "" {
 		m.SIM = sim
 	}
 	// 设置回显（尽力：形状随厂商，失败即省略）

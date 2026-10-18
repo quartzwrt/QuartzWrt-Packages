@@ -27,7 +27,7 @@ export default [
 			&& Array.isArray(p.cellular.modems) && p.cellular.modems.length)
 	},
 	{
-		id: 'docker', title: 'Docker', span: 4, component: DockerCard,
+		id: 'docker', title: 'Docker', span: 12, component: DockerCard,
 		link: 'admin/services/dockerman/containers', linkLabel: 'Containers',
 		/* 契约 §3.4：available=false（未安装 dockerd）→ 整卡隐藏 */
 		visible: (p) => !(p.docker && p.docker.available === false)

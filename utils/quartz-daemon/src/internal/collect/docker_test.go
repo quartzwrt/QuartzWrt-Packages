@@ -15,6 +15,21 @@ func TestParseContainers(t *testing.T) {
 	}
 }
 
+func TestParseContainerDigest(t *testing.T) {
+	_, _, _, cs := parseContainerDigest(readTestdata(t, "docker_containers.json"))
+	if len(cs) != 4 {
+		t.Fatalf("containers = %d, want 4", len(cs))
+	}
+	if cs[0].State != "running" {
+		t.Fatalf("running containers must be sorted first: %+v", cs[0])
+	}
+	for _, c := range cs {
+		if c.Name == "" || c.State == "" {
+			t.Fatalf("container summary missing fields: %+v", c)
+		}
+	}
+}
+
 func TestParseContainersCap(t *testing.T) {
 	raw := []byte(`[`)
 	for i := 0; i < 12; i++ {

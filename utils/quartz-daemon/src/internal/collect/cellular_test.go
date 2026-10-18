@@ -29,14 +29,33 @@ func quectelFixture(section string) fixtureFetch {
 		{"key":"name","value":"RM500U-CN","class":"base"},
 		{"key":"manufacturer","value":"Quectel","class":"base"},
 		{"key":"revision","value":"RM500UCNCAR03A09M4G","class":"base"},
-		{"key":"temperature","value":"42.5 °C","class":"base"}]}`)
+		{"key":"at_port","value":"/dev/ttyUSB3","class":"base"},
+		{"key":"temperature","value":"42.5 °C","class":"base"},
+		{"key":"voltage","value":"3131 mV","class":"base"},
+		{"key":"connect_status","value":"Yes","class":"base"}]}`)
 	put("network_info", `{"modem_info":[
 		{"key":"ISP","value":"中国联通","class":"network"},
 		{"key":"Network Type","value":"5G NSA","class":"network"},
+		{"key":"CQI UL","value":"6","class":"network"},
+		{"key":"CQI DL","value":"5","class":"network"},
+		{"key":"AMBR UL","value":"100","class":"network"},
+		{"key":"AMBR DL","value":"500","class":"network"},
 		{"key":"IP Address","value":"10.42.7.23","class":"network"},
 		{"key":"Rx Rate","value":"18.2 MB/s","class":"network"},
 		{"key":"Tx Rate","value":"2.4 MB/s","class":"network"}]}`)
 	put("cell_info", `{"modem_info":[
+		{"key":"network_mode","value":"NR5G-SA Mode","class":"cell"},
+		{"key":"Duplex Mode","value":"TDD","class":"cell"},
+		{"key":"MCC","value":"460","class":"cell"},
+		{"key":"MNC","value":"01","class":"cell"},
+		{"key":"TAC","value":"78C300","class":"cell"},
+		{"key":"Cell ID","value":"78C088002","class":"cell"},
+		{"key":"Physical Cell ID","value":"161","class":"cell"},
+		{"key":"ARFCN","value":"627264","class":"cell"},
+		{"key":"Band","value":"78","class":"cell"},
+		{"key":"UL Bandwidth","value":"400","class":"cell"},
+		{"key":"DL Bandwidth","value":"400","class":"cell"},
+		{"key":"SCS","value":"30","class":"cell"},
 		{"key":"RSRP","value":"-78 dBm","min_value":"-140","max_value":"-44","unit":"dBm","type":"progress_bar","class":"cell"},
 		{"key":"RSRQ","value":"-11.0 dB","min_value":"-19.5","max_value":"-3","unit":"dB","type":"progress_bar","class":"cell"},
 		{"key":"SINR","value":"22 dB","min_value":"0","max_value":"30","unit":"dB","type":"progress_bar","class":"cell"},
@@ -48,7 +67,7 @@ func quectelFixture(section string) fixtureFetch {
 	put("dial_status", `{"running":"true"}`)
 	put("get_stats", `{"available":true,"updated_at":1760000000,"total_rx_bytes":46180000000,"total_tx_bytes":3832000000}`)
 	put("get_traffic_reset_schedule", `{"enabled":true,"reset_type":"monthly","hour":0,"day":1,"minute":0,"line":null}`)
-	put("sim_info", `{"modem_info":[{"key":"SIM Status","value":"ready"},{"key":"SIM Slot","value":"1"}]}`)
+	put("sim_info", `{"modem_info":[{"key":"SIM Status","value":"ready"},{"key":"ISP","value":"46001"},{"key":"SIM Slot","value":"1"}]}`)
 	put("get_sim_switch_capabilities", `{"supportSwitch":"0"}`)
 	put("get_sim_slot", `{"slot":"1"}`)
 	put("get_mode", `{"mode":"qmi"}`)
@@ -80,6 +99,19 @@ func TestBuildCellularQuectel(t *testing.T) {
 	}
 	if m.Operator != "中国联通" {
 		t.Fatalf("operator: %q", m.Operator)
+	}
+	if m.ATPort != "/dev/ttyUSB3" || m.VoltageMV != 3131 || m.ConnectStatus != "Yes" {
+		t.Fatalf("base extras: at_port=%q voltage=%d connect=%q", m.ATPort, m.VoltageMV, m.ConnectStatus)
+	}
+	if m.NetworkType != "5G NSA" || m.CQIUL != 6 || m.CQIDL != 5 || m.AMBRUL != 100 || m.AMBRDL != 500 {
+		t.Fatalf("network extras: type=%q cqi=%d/%d ambr=%d/%d", m.NetworkType, m.CQIUL, m.CQIDL, m.AMBRUL, m.AMBRDL)
+	}
+	if m.CellInfo == nil || m.CellInfo.Duplex != "TDD" || m.CellInfo.MCC != "460" ||
+		m.CellInfo.MNC != "01" || m.CellInfo.TAC != "78C300" || m.CellInfo.CellID != "78C088002" {
+		t.Fatalf("cell info: %+v", m.CellInfo)
+	}
+	if m.SIM == nil || m.SIM.ISP != "46001" {
+		t.Fatalf("sim isp: %+v", m.SIM)
 	}
 	// 归一化：EN-DC → 5G NSA
 	if m.NetworkMode != "5G NSA" {

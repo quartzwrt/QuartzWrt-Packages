@@ -38,9 +38,14 @@ onMounted(() => {
 
 onUnmounted(() => { if (agoTimer) clearInterval(agoTimer); });
 
-const visible = computed(() => payload.value
-	? cards.filter((c) => !c.visible || c.visible(payload.value))
-	: []);
+const visible = computed(() => {
+	if (!payload.value)
+		return [];
+	const list = cards.filter((c) => !c.visible || c.visible(payload.value));
+	// Docker 卡改为全宽容器表；无 Tailscale 时服务卡也占满一行，避免 4 列留白。
+	const hasTailscale = list.some((c) => c.id === 'tailscale');
+	return list.map((c) => c.id === 'services' ? { ...c, span: hasTailscale ? 8 : 12 } : c);
+});
 
 const agoText = computed(() => {
 	const ts = payload.value && payload.value.ts;

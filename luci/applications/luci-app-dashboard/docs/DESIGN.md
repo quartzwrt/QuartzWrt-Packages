@@ -149,11 +149,13 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 │ 负载/CPU/内存/交换/存储/温度│ WAN + 实时上下行 + 60 点 sparkline  │
 ├──────────────────────────┴──────────────────────────────────┤
 │ 蜂窝 (12，cellular.available && modems 有值；否则整卡隐藏)：      │
-│ 信号（质量条+四指标+RSRP 曲线）/ 服务小区 / 拨号 / 流量与 SIM      │
+│ 信号带（质量条+四指标+RSRP 曲线）/ Base / SIM / Network / Cell   │
+├─────────────────────────────────────────────────────────────┤
+│ Docker (12)：引擎/驱动/根目录 + 容器/镜像/网络/卷 + 容器列表     │
 ├──────────────────────────┬──────────────────────────────────┤
-│ Docker (4) · Tailscale (4)│ 服务与核心 (8；Tailscale 存在时换行) │
-│ 运行/总数/镜像/不健康      │ OpenClash / Tailscale / Bandix /  │
-│ 状态/地址/MagicDNS/对端   │ QModem / daemon（Docker 独立成卡）  │
+│ Tailscale (4)            │ 服务与核心 (8；无 Tailscale 时 12) │
+│ 状态/地址/MagicDNS/对端   │ OpenClash / Tailscale / Bandix /  │
+│                          │ QModem / daemon（Docker 独立成卡）  │
 ├──────────────────────────┴──────────────────────────────────┤
 │ 流量明细 (12，bandix；available=false 时整卡隐藏)：在线设备 + WAN 合计 │
 │ + 连接/DNS 摘要 + Top≤8 设备表（设备/下行/上行/占比）              │
@@ -163,7 +165,8 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 ```
 
 - **排布原则（预览实测确定）**：同一行内卡片的内容高度应相近——**矮卡配矮卡**（Docker/Tailscale 与"服务与核心"按行配对，两条大卡各占一行），行内按最高卡对齐、行尾不留大片空白；**不采用 masonry**（CSS 原生 masonry 未标准化，JS 重排对其余场景是负债）。行序 = 注册表顺序，占位由每卡声明（§5.3 `span`）——新增卡时按此原则选行配对。
-- **Docker 卡（2026-10-19 真机反馈恢复独立卡）**：运行/总数/镜像/不健康；服务卡不再重复 Docker 行。设备未装 Tailscale 时 Docker(4)+服务(8) 正好填满一行；装了 Tailscale 时 Services(8) 换到下一行（4 列留白，可后续做动态 span）。
+- **Docker 卡（2026-10-19 真机反馈轮）**：恢复独立卡并**全宽**（span 12）——引擎版本/驱动/根目录 + 容器/镜像/网络/卷摘要 + 容器表（名称/镜像/状态/详情，≤8）；服务卡不再重复 Docker 行。**无 Tailscale 时服务卡自动 span 12**（`App.vue` 动态），有 Tailscale 时 Tailscale(4)+服务(8) 同行，避免留白。Docker 菜单标题由本包 `menu.d/zz-quartz-docker.json` 覆盖为「Docker」（上游默认「Dockerman JS」）。
+- **蜂窝卡（2026-10-19 真机反馈轮）**：按 qmodem 首页信息项重排——顶部一条横向信号带（质量条+四指标+RSRP 曲线），下方四栏 **Base / SIM / Network / Cell**（Base：型号/厂商/固件/AT 端口/温度/电压/连接态；SIM：状态/运营商 PLMN/槽位/可切换/本月/重置；Network：网络类型/CQI/AMBR/速率/IPv4/USB 模式/偏好；Cell：网络模式/双工/MCC·MNC/TAC/Cell ID/PCI/ARFCN/Band/带宽/SCS）。**IMEI/IMSI/ICCID 不加快照**，仅在 QModem 页面显示。
 - 断点：宽屏（≥1120px）如上图；中屏（<1120px）2 卡/行；手机（<700px）单列，顺序为 `#cellular 3 → #clients 4 → #bandix 5 → #tailscale 6 → #docker 7 → #services 8`（蜂窝是 5G CPE 主 WAN，提前；设备列表与流量明细仍先于服务）。
 - **移动端细则**：设备表窄屏隐藏 MAC 与接口列；卡片 `min-width: 0`（表格等最小内容宽度不得撑破页面）；Hero 摘要换行左对齐；悬浮控制条类元素左右贴边。
 - 宽屏设备表用固定布局 + 列宽百分比（24/18/22/14/20），避免自动布局在超宽下列距失衡；超长内容省略号截断。
@@ -197,7 +200,7 @@ export default [
 	{ id: 'network', title: 'Network', span: 8, component: NetworkCard, link: 'admin/status/realtime' },
 	{ id: 'cellular', title: 'Cellular', span: 12, component: QModemCard,
 	  link: 'admin/modem/qmodem', visible: (p) => !!(p.cellular?.available && p.cellular.modems?.length) },
-	{ id: 'docker', title: 'Docker', span: 4, component: DockerCard,
+	{ id: 'docker', title: 'Docker', span: 12, component: DockerCard,
 	  link: 'admin/services/dockerman/containers', visible: (p) => p.docker?.available !== false },
 	{ id: 'tailscale', title: 'Tailscale', span: 4, component: TailscaleCard,
 	  link: 'admin/vpn/tailscale', visible: (p) => !!p.services?.tailscale },
@@ -429,3 +432,4 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v1.4 2026-10-17 —— **WP-8 P2（bandix 流量明细卡，契约 §3.7 加法）**：新增 `BandixCard.vue`（在线设备/WAN 合计/连接与 DNS 摘要/Top≤8 表）+ 注册表一行（span 12，`available!==true` 整卡隐藏）；`app.css` 增列宽类与移动端 order（clients 4 → bandix 5 → services 6）；mock/po/产物/基线同步（`dev/shots/*` 重出）；preview.html 同步（补 Bandix 服务行 + 流量明细卡；预览页样式无层，规则成对改，见 §服务卡 注）。数据面 = WP-4 daemon `bandix` 节（慢刷 10s 经 `quartz.bandix`）。*
 *v1.5 2026-10-19 —— **IA v2 dashboard 卡补齐（WP-3）**：①新增 `QModemCard.vue`（span 12 四栏：信号〔质量条+四指标+RSRP 曲线〕/ 服务小区〔PCC/NSA 的 ARFCN·PCI·带宽·SCS〕/ 拨号〔状态·IPv4 打码·速率·USB 模式〕/ 流量与 SIM〔本月·重置计划·SIM·温度〕；`cellular.available && modems` 才显示；数据面 = daemon `cellular` 10s 慢车道节 §3.9）；②新增 `TailscaleCard.vue`（span 4：运行态/版本、tailnet 地址打码、MagicDNS、对端在线、后端状态；`services.tailscale` 存在才显示；探针 extras 由 WP-10 的 `tailscale_probe` 提供）；③**Docker 卡并入服务卡**（运行/总数/镜像/不健康），服务卡改为 Tailscale 同行 span 8；④`primitives.js` Sparkline 改 EMA(α=0.3)+等距降采样(~13)+Catmull-Rom `<path>`+round 端点，新增 `values` 单序列与负值域；⑤mock/po/产物/`app-*` 基线同步（Bundle 32.0KB gzip / CSS 2.8KB gzip）。字段口径：蜂窝只用快照已有字段（APN/DNS/MTU/短信存储属页面级读，v1 不上卡）。*
 *v1.6 2026-10-19 —— **FNet3399 真机反馈轮（用户：蜂窝卡待优化 + 装 Docker 测 Docker 卡）**：①**恢复独立 Docker 卡**（`DockerCard.vue`，span 4；运行/总数/镜像/不健康），服务卡移除 Docker 行；未装 Tailscale 时 Docker(4)+服务(8) 填满一行；②蜂窝卡真机优化：服务小区标签去重（`pcc`→`PCC`，`NR n78` 不再重复 RAT）、`dial.ipv4` 缺失时回退 WAN IPv4（仅 wwan）、速率 <1 Mbps 显示 Kbps（不再 0.0 Mbps）；③真机数据：RG520N-EU / 5G SA / RSRP -77 / NR n78 / PCI 161，Docker 1/1 + 1 镜像；④**Docker 存储驱动真机发现**：FNet3399 的 overlayfs 根上 Docker 默认 overlayfs 驱动 `docker run` 报 `invalid argument`（overlay-on-overlay）→ 测试改用 `storage-driver: vfs` 正常；docker 变体层需为设备选 vfs 或独立 ext4 数据盘（WORKPLAN 坑位 #70）；⑤证据 `dev/shots/vm/fnet-20261019-cellular-docker.png`（真机 1280 宽）、`fnet-20261019-cellular.png`；mock `app-*` 重出；Bundle 32.2KB gzip。*
+*v1.7 2026-10-19 —— **真机反馈第二轮（用户：Docker 卡太简陋 + 蜂窝卡留白大）**：①Docker 卡**全宽**（span 12）：Engine 版本/存储驱动/根目录、容器/镜像/网络/卷摘要、容器表（≤8）；daemon `docker` 节加 `version/driver/root_dir/cpus/mem_total/networks/volumes/containers`（契约 §3.4 加法）；②蜂窝卡按 qmodem 首页信息项重排为 **Base/SIM/Network/Cell** 四栏 + 横向信号带，新增 `at_port/voltage_mv/connect_status/network_type/cqi_*/ambr_*/cell_info` 与 `sim.isp`（契约 §3.9 加法）；时间/电压/运营商 PLMN 与 qmodem 首页同源；IMEI/IMSI/ICCID 仍不进快照；③无 Tailscale 时服务卡自动 span 12；④`menu.d/zz-quartz-docker.json` 将上游「Dockerman JS」菜单标题覆盖为「Docker」；⑤daemon r5、Bundle 33.0KB gzip；证据 `dev/shots/vm/fnet-20261019-cellular-docker.png` 重出。*

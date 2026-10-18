@@ -384,3 +384,103 @@ msgstr "对端在线"
 
 msgid "Backend state"
 msgstr "后端状态"
+
+# ===== Docker 卡增密 / 蜂窝卡按 qmodem 首页重排（2026-10-19） =====
+msgid "Base"
+msgstr "基础信息"
+
+msgid "Cell"
+msgstr "小区信息"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Manufacturer"
+msgstr "制造商"
+
+msgid "Revision"
+msgstr "固件版本"
+
+msgid "AT Port"
+msgstr "AT 端口"
+
+msgid "Voltage"
+msgstr "电压"
+
+msgid "Connect Status"
+msgstr "连接状态"
+
+msgid "Network Type"
+msgstr "网络类型"
+
+msgid "CQI UL / DL"
+msgstr "CQI 上行 / 下行"
+
+msgid "AMBR UL / DL"
+msgstr "AMBR 上行 / 下行"
+
+msgid "Duplex"
+msgstr "双工模式"
+
+msgid "MCC / MNC"
+msgstr "MCC / MNC"
+
+msgid "TAC"
+msgstr "TAC"
+
+msgid "Cell ID"
+msgstr "小区 ID"
+
+msgid "PCI"
+msgstr "PCI"
+
+msgid "ARFCN"
+msgstr "ARFCN"
+
+msgid "Band"
+msgstr "频段"
+
+msgid "UL / DL BW"
+msgstr "上行 / 下行带宽"
+
+msgid "SCS"
+msgstr "SCS"
+
+msgid "Switchable"
+msgstr "可切换"
+
+msgid "Networks"
+msgstr "网络"
+
+msgid "Volumes"
+msgstr "卷"
+
+msgid "State"
+msgstr "状态"
+
+msgid "Status"
+msgstr "详情"
+
+msgid "No containers"
+msgstr "暂无容器"
+
+msgid "Docker engine"
+msgstr "Docker 引擎"
+
+msgid "Root"
+msgstr "数据目录"
+
+msgid "Operator"
+msgstr "运营商"
+
+msgid "SIM Status"
+msgstr "SIM 状态"
+
+msgid "SIM Slot"
+msgstr "SIM 槽位"
+
+msgid "Image"
+msgstr "镜像"
+
+msgid "IMEI / IMSI / ICCID stay on the QModem page"
+msgstr "敏感信息（IMEI/IMSI/ICCID）仅在 QModem 页面显示"

@@ -66,13 +66,19 @@
 | `wan.rx_bps` / `wan.tx_bps` | int | 瞬时速率（字节/秒，按 `interval` 窗口计） |
 | `series` | object | 可空。`{ step, rx[], tx[] }`：环形缓冲，各 ≤60 点，`step` 秒/点；缺失时前端自累积（§5） |
 
-### 3.4 `docker`（可空）
+### 3.4 `docker`（可空；2026-10-19 增补信息字段）
 
 | 字段 | 类型 | 说明 |
 | :--- | :--- | :--- |
 | `available` | bool | `false` = 未安装 dockerd → Dashboard 隐藏整卡 |
 | `running` / `total` / `images` | int | 运行容器 / 容器总数 / 镜像数 |
 | `unhealthy` | array\<string\> | 非健康容器名（≤8 个，超出截断） |
+| `version` / `driver` / `root_dir` | string（可选） | Engine ServerVersion / 存储驱动 / Docker Root Dir |
+| `cpus` / `mem_total` | int / int64（可选） | 节点 CPU 数 / 内存（字节） |
+| `networks` / `volumes` | int（可选） | 网络数 / 卷数 |
+| `containers` | array（可选） | 容器摘要 **≤8**：`{name,image,state,status}`；运行中优先、其次按 name 排序 |
+
+> 2026-10-19 加法：新增字段全部可选，旧消费方忽略即可；数据来自 Docker HTTP API `/info`、`/networks`、`/volumes` 与 `/containers/json`，卡片仍不自行取数。
 
 ### 3.5 `clients`（可空）
 
@@ -122,12 +128,15 @@
 | :--- | :--- | :--- |
 | `id` / `model` / `vendor` / `firmware` | string | uci section（`qmodem.<id>`）与上游 `base_info` 条目（型号/厂商/固件） |
 | `temp_c` | number\|省略 | 模组温度（`base_info.temperature`，去单位） |
-| `registered` / `operator` / `network_mode` | bool / string / string | 注册态（`get_current_band.status=="ok"`，无该能力时回退"拨号在跑"）/ 运营商（`ISP`）/ 归一化模式（`EN-DC → 5G NSA`） |
+| `registered` / `operator` / `network_mode` | bool / string / string | 注册态（`get_current_band.status=="ok"`，无该能力时回退"拨号在跑"）/ 运营商（`ISP`，优先 `network_info`，缺失时回退 `sim_info.ISP`，如 `46001`）/ 归一化模式（`EN-DC → 5G NSA`） |
+| `at_port` / `voltage_mv` / `connect_status` | string / int / string（可选） | qmodem 首页 Base Information：AT 端口、电压（mV）、连接状态（2026-10-19 加法） |
+| `network_type` / `cqi_ul` / `cqi_dl` / `ambr_ul` / `ambr_dl` | string / int×4（可选） | qmodem 首页 Network Information：网络类型（如 `TDD NR5G`）、CQI 上行/下行、AMBR 上行/下行（2026-10-19 加法） |
+| `cell_info` | object（可选） | qmodem 首页 Cell Information（单服务小区）：`{network_mode,duplex,mcc,mnc,tac,cell_id,pci,arfcn,band,ul_bandwidth,dl_bandwidth,scs}`；PCI/ARFCN/带宽优先取 `get_current_band` 补齐（2026-10-19 加法） |
 | `signal` | object\|省略 | `{rsrp, rsrq, sinr, rssi, quality_pct, series}`——四指标取上游 `progress_bar` 条目的值；`quality_pct` 用**同一条目的 min/max** 归一并 clamp 0–100（无标尺时回退 RSRP -140…-44）；`series{step,rsrp[]}` = **daemon 侧累积**的 RSRP 环形（≤60 点，10s/点 → 10 分钟窗口，三端同源曲线） |
 | `serving_cells` | array\|省略 | **≤4 条**，源自 `get_current_band.cells`：`{role, rat, band, channel, channel_type, pci, dl_bandwidth, ul_bandwidth, scs}` |
 | `dial` | object\|省略 | `{running, ipv4?, rx_bps?, tx_bps?}`；`running` 由上游**字符串布尔** `"true"/"false"` 归一；速率字符串（`"18.2 MB/s"`/`"150 Mbps"`）解析为 Byte/s（bit/byte 按大小写区分） |
 | `traffic` | object\|省略 | `{available, updated_at, rx_bytes, tx_bytes, reset{enabled,type,hour,day}}`；`available=false` = 本模组不支持统计（上游 generic 桩恒 `0`）→ 消费方**不得展示 0 值** |
-| `sim` | object\|省略 | `{status, slot, switchable}`；`switchable` 来自 `get_sim_switch_capabilities.supportSwitch`（字符串 `"0"/"1"`）。存储容量与未读数**不在本节**（页面级读） |
+| `sim` | object\|省略 | `{status, slot, switchable, isp?}`；`switchable` 来自 `get_sim_switch_capabilities.supportSwitch`（字符串 `"0"/"1"`）；`isp` = `sim_info.ISP`（如 `46001`；2026-10-19 加法）。存储容量、未读数、IMEI/IMSI/ICCID **不在本节**（页面级读/敏感值） |
 | `settings` | object\|省略 | `{usb_mode?, prefer?, lockband[]?}` 当前设置回显（尽力取，取不到即省略）。**语义**（读上游源码核实）：`usb_mode` = `get_mode` 的 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm，AT+QCFG="usbnet"）——**不是** 5G/4G 网络模式；网络偏好在 `prefer`（`get_network_prefer` 的 3G/4G/5G 标志位归一，如 `"4G+5G"`）；`lockband` 为条目串（如 `"NR:41,78,79"`） |
 | `capabilities` | object | 单模组能力：`{at, sms, sim_switch, stats, current_band, temp}`——不支持项由消费方**灰显并注明原因** |
 

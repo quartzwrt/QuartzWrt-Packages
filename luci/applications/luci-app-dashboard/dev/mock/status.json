@@ -178,6 +178,27 @@
     "images": 7,
     "unhealthy": [
       "nextcloud"
+    ],
+    "version": "29.6.1",
+    "driver": "vfs",
+    "root_dir": "/opt/docker",
+    "cpus": 6,
+    "mem_total": 4056473600,
+    "networks": 3,
+    "volumes": 0,
+    "containers": [
+      {
+        "name": "qz-dash-test",
+        "image": "qz-test:local",
+        "state": "running",
+        "status": "Up 16 minutes"
+      },
+      {
+        "name": "nextcloud",
+        "image": "nextcloud:latest",
+        "state": "running",
+        "status": "Up 2 hours (unhealthy)"
+      }
     ]
   },
   "clients": {
@@ -345,7 +366,7 @@
         "firmware": "RM500UCNCAR03A09M4G",
         "temp_c": 42.5,
         "registered": true,
-        "operator": "中国联通",
+        "operator": "46001",
         "network_mode": "5G NSA",
         "signal": {
           "rsrp": -78,
@@ -428,7 +449,8 @@
         "sim": {
           "status": "ready",
           "slot": "1",
-          "switchable": true
+          "switchable": true,
+          "isp": "46001"
         },
         "settings": {
           "usb_mode": "qmi",
@@ -442,8 +464,31 @@
           "stats": true,
           "current_band": true,
           "temp": true
+        },
+        "at_port": "/dev/ttyUSB3",
+        "voltage_mv": 3135,
+        "connect_status": "Yes",
+        "network_type": "TDD NR5G",
+        "cqi_ul": 6,
+        "cqi_dl": 6,
+        "ambr_ul": 100,
+        "ambr_dl": 500,
+        "cell_info": {
+          "network_mode": "NR5G-SA Mode",
+          "duplex": "TDD",
+          "mcc": "460",
+          "mnc": "01",
+          "tac": "78C300",
+          "cell_id": "78C088002",
+          "pci": "161",
+          "arfcn": "627264",
+          "band": "78",
+          "ul_bandwidth": "400",
+          "dl_bandwidth": "400",
+          "scs": "30"
         }
       }
     ]
-  }
+  },
+  "modems": null
 }
