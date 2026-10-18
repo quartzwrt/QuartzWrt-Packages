@@ -522,6 +522,9 @@ msgstr "无线"
 msgid "Cell & SIM"
 msgstr "小区与 SIM"
 
+msgid "Connection"
+msgstr "连接"
+
 msgid "Hardware"
 msgstr "硬件"
 
