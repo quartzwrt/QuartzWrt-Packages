@@ -154,10 +154,11 @@ html[data-qz-translucent] .qzd-hero {
 /* ---- 蜂窝卡 v2 样板（状态头 + KPI 带 + 四栏细节） ---- */
 .qzd-c2-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; font-size: 13px; }
 .qzd-c2-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
-.qzd-c2-op { font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); }
+.qzd-c2-op { display: inline-flex; align-items: center; gap: 6px; font-family: var(--qz-font-mono); font-size: 12.5px; color: var(--qz-text); }
+.qzd-c2-opicon { width: 18px; height: 18px; border-radius: 50%; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-family: var(--qz-font-sans, inherit); font-size: 10px; font-weight: 600; line-height: 1; }
 .qzd-c2-chip { font-size: 11.5px; color: var(--qz-text-2); background: var(--qz-bg-well); border: 1px solid var(--qz-border); border-radius: 999px; padding: 1px 8px; }
 .qzd-c2-meta { margin-left: auto; font-size: 12px; color: var(--qz-text-2); }
-.qzd-c2-kpis { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.1fr; gap: 10px; margin: 2px 0 12px; }
+.qzd-c2-kpis { display: grid; grid-template-columns: 1.5fr 1.2fr 1fr 1fr; gap: 10px; margin: 2px 0 12px; }
 .qzd-c2-kpi { display: flex; flex-direction: column; min-width: 0; padding: 8px 10px 9px; background: var(--qz-bg-well); border: 1px solid var(--qz-border); border-radius: var(--qz-radius-sm); }
 .qzd-c2-k { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--qz-text-3); }
 .qzd-c2-v { display: flex; align-items: baseline; gap: 4px; margin-top: 2px; font-family: var(--qz-font-mono); font-size: 19px; line-height: 1.25; white-space: nowrap; }
@@ -169,7 +170,11 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-c2-qual.warn { color: var(--qz-warn); }
 .qzd-c2-qual.err { color: var(--qz-err); }
 .qzd-c2-sub { margin-top: auto; padding-top: 2px; font-size: 11px; color: var(--qz-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qzd-c2-v .qzd-c2-spark-inline { flex: 0 0 110px; width: 110px; height: 34px; margin-left: auto; }
+.qzd-c2-spark-wide { width: 100%; height: 46px; margin-top: 2px; display: block; }
+.qzd-c2-ratepair { display: flex; gap: 16px; margin-top: 2px; }
+.qzd-c2-ratepair .k { font-size: 10.5px; color: var(--qz-text-3); }
+.qzd-c2-ratepair .v { font-family: var(--qz-font-mono); font-size: 17px; line-height: 1.3; white-space: nowrap; }
+.qzd-c2-ratepair .v.qzd-down { color: var(--qz-accent); }
 .qzd-c2-cols { gap: 8px 22px; }
 .qzd-c2-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; color: var(--qz-text-3); }
 .qzd-meter { display: inline-flex; gap: 3px; margin-left: auto; }
@@ -236,7 +241,7 @@ html[data-qz-translucent] .qzd-hero {
 	.qzd-sig-quality { flex: 1 1 100%; }
 	.qzd-sig-spark { flex: 1 1 100%; width: 100%; height: 42px; }
 	.qzd-c2-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.qzd-c2-kpi-signal { grid-column: 1 / -1; }
+	.qzd-c2-kpi-signal, .qzd-c2-kpi-rate { grid-column: 1 / -1; }
 }
 @media (max-width: 699px) {
 	.qzd-grid { grid-template-columns: 1fr; }

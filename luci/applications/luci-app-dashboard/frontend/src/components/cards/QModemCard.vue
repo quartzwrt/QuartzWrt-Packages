@@ -12,10 +12,17 @@ import { fmtRate, fmtBytes, fmtTemp } from '../../lib/format.js';
 const props = defineProps({ payload: { type: Object, required: true }, host: { type: Object, default: () => ({}) } });
 const t = (s) => (props.host.t ? props.host.t(s) : s);
 
+/* 运营商元数据：PLMN → 名称 / 图标字 / 品牌色（用于头部小圆标）。
+ * 图标只做品牌识别，不引入外部 logo 资源；未知 PLMN 不渲染图标。 */
+const opMeta = (name, short, color) => ({ name, short, color });
 const PLMN = {
-	'46000': '中国移动', '46002': '中国移动', '46004': '中国移动', '46007': '中国移动', '46008': '中国移动',
-	'46001': '中国联通', '46006': '中国联通', '46009': '中国联通',
-	'46003': '中国电信', '46005': '中国电信', '46011': '中国电信'
+	'46000': opMeta('中国移动', '移', '#0085D0'), '46002': opMeta('中国移动', '移', '#0085D0'),
+	'46004': opMeta('中国移动', '移', '#0085D0'), '46007': opMeta('中国移动', '移', '#0085D0'),
+	'46008': opMeta('中国移动', '移', '#0085D0'),
+	'46001': opMeta('中国联通', '联', '#E60012'), '46006': opMeta('中国联通', '联', '#E60012'),
+	'46009': opMeta('中国联通', '联', '#E60012'),
+	'46003': opMeta('中国电信', '电', '#0068B7'), '46005': opMeta('中国电信', '电', '#0068B7'),
+	'46011': opMeta('中国电信', '电', '#0068B7')
 };
 
 const c = computed(() => props.payload.cellular);
@@ -48,11 +55,15 @@ const sigSub = computed(() => {
 });
 
 /* ---- 运营商 / 制式 ---- */
-const operatorText = computed(() => {
+const operator = computed(() => {
 	const v = (m.value && m.value.operator) || (sim.value && sim.value.isp) || '';
-	if (!v) return '—';
-	return PLMN[v] ? v + ' · ' + PLMN[v] : v;
+	if (!v) return null;
+	const meta = PLMN[v];
+	return meta
+		? { plmn: v, name: meta.name, short: meta.short, color: meta.color, text: v + ' · ' + meta.name }
+		: { plmn: v, name: v, short: '', color: '', text: v };
 });
+const operatorText = computed(() => (operator.value ? operator.value.text : '—'));
 
 /* ---- KPI：速率 / 用量 ---- */
 const dialIpv4 = computed(() => {
@@ -101,6 +112,9 @@ const bandText = computed(() => {
 	if (!b) return '—';
 	return /NR/i.test(m.value && m.value.network_mode ? m.value.network_mode : '') ? 'n' + b : 'B' + b;
 });
+const bandShort = computed(() => (bandText.value === '—' ? '—' : bandText.value.replace(/^NR\s+/i, '')));
+const pciText = computed(() => cellPick('pci', 'pci'));
+const arfcnText = computed(() => cellPick('arfcn', 'channel'));
 const bwText = computed(() => cellPick('ul_bandwidth', 'ul_bandwidth') + ' / ' + cellPick('dl_bandwidth', 'dl_bandwidth') + ' MHz');
 const scsText = computed(() => {
 	const v = cellPick('scs', 'scs');
@@ -116,13 +130,17 @@ const scsText = computed(() => {
 				<Dot :state="m.registered ? 'ok' : 'err'" />
 				{{ m.registered ? t('Registered') : t('Not registered') }}
 			</span>
-			<span class="qzd-c2-op">{{ operatorText }}</span>
+			<span class="qzd-c2-op">
+				<span v-if="operator && operator.short" class="qzd-c2-opicon" :style="{ background: operator.color }"
+					:title="operator.name">{{ operator.short }}</span>
+				{{ operatorText }}
+			</span>
 			<span v-if="m.network_mode" class="qzd-c2-chip">{{ m.network_mode }}</span>
 			<span v-if="m.network_type" class="qzd-c2-chip qzd-muted">{{ m.network_type }}</span>
 			<span class="qzd-c2-meta">{{ m.model }}</span>
 		</div>
 
-		<!-- KPI 带：信号（含 RSRP 曲线）/ 下行 / 上行 / 本月用量 -->
+		<!-- KPI 带：信号（含放大的 RSRP 曲线）/ 上下行 / 本月用量 / 服务小区 -->
 		<div class="qzd-c2-kpis">
 			<div class="qzd-c2-kpi qzd-c2-kpi-signal">
 				<div class="qzd-c2-k">
@@ -135,18 +153,22 @@ const scsText = computed(() => {
 					<span class="qzd-c2-big qz-mono">{{ sig && sig.rsrp != null ? sig.rsrp : '—' }}</span>
 					<small>dBm</small>
 					<span class="qzd-c2-qual" :class="tone">{{ qualityText }}</span>
-					<Sparkline v-if="series" :values="series" fill class="qzd-c2-spark-inline" />
 				</div>
+				<Sparkline v-if="series" :values="series" fill class="qzd-c2-spark-wide" />
 				<div class="qzd-c2-sub qz-mono">{{ sigSub }}</div>
 			</div>
-			<div class="qzd-c2-kpi">
-				<div class="qzd-c2-k">{{ t('Downlink') }}</div>
-				<div class="qzd-c2-v qzd-down">{{ rxText }}</div>
-				<div class="qzd-c2-sub">{{ dial && dial.running ? t('WAN traffic') : t('Not connected') }}</div>
-			</div>
-			<div class="qzd-c2-kpi">
-				<div class="qzd-c2-k">{{ t('Uplink') }}</div>
-				<div class="qzd-c2-v">{{ txText }}</div>
+			<div class="qzd-c2-kpi qzd-c2-kpi-rate">
+				<div class="qzd-c2-k">{{ t('Rate') }}</div>
+				<div class="qzd-c2-ratepair">
+					<div>
+						<div class="k">{{ t('Downlink') }}</div>
+						<div class="v qzd-down">{{ rxText }}</div>
+					</div>
+					<div>
+						<div class="k">{{ t('Uplink') }}</div>
+						<div class="v">{{ txText }}</div>
+					</div>
+				</div>
 				<div class="qzd-c2-sub">{{ dial && dial.running ? t('WAN traffic') : t('Not connected') }}</div>
 			</div>
 			<div class="qzd-c2-kpi">
@@ -156,6 +178,11 @@ const scsText = computed(() => {
 					<div class="qzd-c2-sub">{{ usage.tx }} &uarr; &middot; {{ resetText }}</div>
 				</template>
 				<div v-else class="qzd-c2-v qzd-muted">{{ t('Not supported') }}</div>
+			</div>
+			<div class="qzd-c2-kpi qzd-c2-kpi-cell">
+				<div class="qzd-c2-k">{{ t('Serving cell') }}</div>
+				<div class="qzd-c2-v"><span class="qzd-c2-big qz-mono">{{ bandShort }}</span></div>
+				<div class="qzd-c2-sub qz-mono">PCI {{ pciText }} &middot; ARFCN {{ arfcnText }}</div>
 			</div>
 		</div>
 
