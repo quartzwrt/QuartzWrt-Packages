@@ -344,6 +344,8 @@ stage**——stage1=仅旧版 / stage2=含新版，模拟"上游发布新版本"
 | `config.apply` | `{access_token,rollback?:bool=true,timeout?:int=90}` | `{applied:true,rollback,timeout}` | 提交；rollback=true 武装回滚窗口 |
 | `config.confirm` | `{access_token}` | `{confirmed:true}` | 保留改动，取消回滚窗口 |
 | `config.rollback` | `{access_token}` | `{rolled_back:true}` | **立即回滚已 apply 未 confirm 的改动**（`uci rollback`） |
+| `config.add` | `{access_token,config,section_type,values{}}` | `{section,values}` | 新增已注册类型的 section（**暂存**；values 只收该节注册字段，`Required` 必填；返回 rpcd uci add 的 section 名） |
+| `config.delete` | `{access_token,config,section}` | `{deleted:section}` | 删除 **Deletable** 节（如 `dhcp` 的 `host` 静态租约；**暂存**，需 apply） |
 
 **会话模型（VM 实测）**：uci 写入/apply/confirm/rollback 必须携带**同一 `ubus_rpc_session`**；`session create` 是空 ACL，只有 `session login`（管理员凭据）的会话有全量 ACL。app-api 是 rpcd exec 插件、每次调用是新进程 → login 时开启保留会话（12h）并把 sid 持久化进设备记录（`store.Device.ConfigSID`），logout/revoke 销毁。
 
@@ -522,3 +524,4 @@ DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd +px5g +umdns
 *v1.2 2026-10-17 —— **ubus 转发项机制落地（§5.1）+ bandix 服务面**（WP-8 衔接项 D5，用户「把没做的做了吧」）：①默认允许集加 `bandix`（`service.start/stop/restart`；一行 + 回归测试）；②新增 `internal/ubusfwd` 转发项机制——**无任意透传**：条目逐条显式注册（object+method+参数模式表），参数结构+字符集/数值域校验、JSON 单 argv 执行 `ubus call`、bridge 信封错误码映射（`data:null` 不算失败）、logd 审计；首批 5 条目 = bandix 写面（limit_default_set / whitelist_add / whitelist_delete / whitelist_enabled / hostname_set）；③`action` 方法参数接受 JSON number/bool（整数值转十进制串）；④`info.features` 增 `bandix`。读面不经本机制（App 读走 daemon 快照 §3.7）。单测 9 例（路由/校验/包装/错误映射/审计）。PKG_RELEASE 2。*
 *v1.3 2026-10-19 —— **配置面 `config.*` 落地（§5.2，W6.10 路由器 tab 后端）**：`internal/uciconf` 注册表（network.lan|wan、wireless、dhcp、system）+ 六个方法（read/write/changes/revert/apply/confirm）+ 配置会话（login 保留 12h、sid 持久化、logout 销毁）；`methodList`/ACL 三处登记；PKG_RELEASE 8。VM 验收 17/17（`dev/vm-accept-config.sh`）。*
 *v1.4 2026-10-19 —— **路由器 tab 后端补强（W6.9/W6.10 前端落地同批）**：①新增 `config.rollback`（VM 实测 `config.revert` 不能撤销已生效配置且会解除回滚计时器 → 立即回滚必须 `uci rollback`；PKG_RELEASE 9）；②`internal/ubusfwd` 增 `luci.init_list` / `luci.init_action` / `luci.timezones` 三条转发条目（启动项页与时区选择器数据源；`init_action.name` 严格字符集 + `..` 拒绝、action 枚举）；③修复 `main_test.go` 方法面断言仍写死 9 个方法的历史遗留（配置面加入后必然失败，已扩到 16 并显式列出）。VM 验收 15/15（`dev/vm-accept-router.sh`，含 rollback 往返与 luci 负例）；App e2e 23 项 ALL PASS。*
+*v1.5 2026-10-19 —— **W6.11 静态租约切片**：①`config.add` / `config.delete`（暂存语义，同 apply/confirm 安全网；`config.add` 只收注册字段 + `Required` 必填，`config.delete` 仅允许 `Deletable` 节）；②`dhcp` 注册表增 `@host`（name/mac/ip/dns/leasetime/duid；mac 必填、格式校验；host 可删除）；③`methodList`/ACL 增两方法（18 方法面）；PKG_RELEASE 10；单测覆盖 add/delete/必填/白名单/非可删节；App 侧 DHCP 页静态租约增删（build 9）。*

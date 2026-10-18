@@ -19,7 +19,9 @@
 					"config.revert",
 					"config.apply",
 					"config.confirm",
-					"config.rollback"
+					"config.rollback",
+					"config.add",
+					"config.delete"
 				]
 			}
 		}

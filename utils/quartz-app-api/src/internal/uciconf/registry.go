@@ -43,12 +43,14 @@ type optionSpec struct {
 	MaxLen    int
 	Pattern   *regexp.Regexp
 	Sensitive bool // 读面掩码（wifi key / pppoe 口令）
+	Required  bool // config.add 时必填
 }
 
 // sectionSpec 一个 section 类型。
 type sectionSpec struct {
-	Type    string
-	Options map[string]optionSpec
+	Type      string
+	Options   map[string]optionSpec
+	Deletable bool // config.delete 允许删除的节类型（如静态租约 host）
 }
 
 // configSpec 一个配置文件。
@@ -59,6 +61,7 @@ type configSpec struct {
 
 var (
 	reHostname = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$`)
+	reMAC      = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
 	reSSID     = regexp.MustCompile(`^[\x20-\x7e]{1,32}$`)
 	reKeyStr   = regexp.MustCompile(`^[\x20-\x7e]{8,63}$`)
 	reCountry  = regexp.MustCompile(`^[A-Z]{2}$`)
@@ -157,6 +160,14 @@ var registry = []configSpec{
 				"master":        {Kind: kBool},
 				"dns_service":   {Kind: kBool},
 			}},
+			"@host": {Type: "host", Deletable: true, Options: map[string]optionSpec{
+				"name":      {Kind: kStr, Pattern: reHostname},
+				"mac":       {Kind: kStr, Pattern: reMAC, Required: true},
+				"ip":        {Kind: kIPv4},
+				"dns":       {Kind: kBool},
+				"leasetime": {Kind: kLeaseTime},
+				"duid":      {Kind: kStr, Pattern: reShort, MaxLen: 64},
+			}},
 		},
 	},
 	{
@@ -205,6 +216,16 @@ func lookupSection(spec configSpec, section, typ string) (sectionSpec, bool) {
 		}
 		// section 形如 @wifi-iface[0] 且 typ 未知时按前缀匹配
 		if typ == "" && strings.HasPrefix(section, "@"+want) {
+			return sec, true
+		}
+	}
+	return sectionSpec{}, false
+}
+
+// lookupSectionByType 按 uci 类型查找节规格（config.add 用；`@host` → Type host）。
+func lookupSectionByType(spec configSpec, typ string) (sectionSpec, bool) {
+	for _, sec := range spec.Sections {
+		if sec.Type == typ {
 			return sec, true
 		}
 	}

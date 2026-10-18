@@ -190,6 +190,63 @@ func TestApplyConfirmAndNoSession(t *testing.T) {
 	}
 }
 
+// 静态租约：config.add 暂存新增 + config.delete 删除（section 类型/必填/白名单）。
+func TestAddDeleteStaticLease(t *testing.T) {
+	c := &cap{byMeth: map[string]string{
+		"":       `host`,
+		"add":    `{"section":"cfg0a1b"}`,
+		"delete": `{}`,
+	}}
+	m := newMgr(c, "sid-le")
+	res, e := m.Add("dev1", "dhcp", "host", map[string]any{
+		"name": "printer", "mac": "02:11:22:33:44:55", "ip": "192.168.1.250",
+	})
+	if e != nil {
+		t.Fatalf("add: %+v", e)
+	}
+	if res["section"] != "cfg0a1b" {
+		t.Fatalf("add section: %+v", res)
+	}
+	got := argvFor(t, c, "add")
+	if got["ubus_rpc_session"] != "sid-le" || got["type"] != "host" {
+		t.Fatalf("add args: %v", got)
+	}
+	vals, _ := got["values"].(map[string]any)
+	if vals["mac"] != "02:11:22:33:44:55" {
+		t.Fatalf("add values: %v", got)
+	}
+
+	// 必填 mac / 未注册类型 / 未注册字段
+	if _, e := m.Add("dev1", "dhcp", "host", map[string]any{"name": "x"}); e == nil ||
+		e.Code != envelope.CodeBadRequest {
+		t.Fatalf("missing mac: %+v", e)
+	}
+	if _, e := m.Add("dev1", "dhcp", "no-such-type", map[string]any{"mac": "02:11:22:33:44:55"}); e == nil ||
+		e.Code != envelope.CodeForbiddenAction {
+		t.Fatalf("bad type: %+v", e)
+	}
+	if _, e := m.Add("dev1", "dhcp", "host", map[string]any{"mac": "02:11:22:33:44:55", "rootpw": "x"}); e == nil ||
+		e.Code != envelope.CodeForbiddenAction {
+		t.Fatalf("bad option: %+v", e)
+	}
+
+	// 删除 host（sectionType 走 uci get → host）
+	if _, e := m.Delete("dev1", "dhcp", "@host[0]"); e != nil {
+		t.Fatalf("delete: %+v", e)
+	}
+	del := argvFor(t, c, "delete")
+	if del["section"] != "@host[0]" || del["ubus_rpc_session"] != "sid-le" {
+		t.Fatalf("delete args: %v", del)
+	}
+
+	// 非 Deletable 节（network.lan）拒绝
+	c2 := &cap{byMeth: map[string]string{"": `interface`}}
+	if _, e := newMgr(c2, "sid").Delete("dev1", "network", "lan"); e == nil ||
+		e.Code != envelope.CodeForbiddenAction {
+		t.Fatalf("non-deletable: %+v", e)
+	}
+}
+
 // apply 后「立即回滚」必须走 uci rollback（revert 无法撤销已生效配置）。
 func TestRollbackUsesUciRollbackWithSession(t *testing.T) {
 	c := &cap{byMeth: map[string]string{"rollback": `{}`}}

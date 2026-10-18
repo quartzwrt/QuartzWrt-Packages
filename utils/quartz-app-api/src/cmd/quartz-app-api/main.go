@@ -89,6 +89,8 @@ func methodList() map[string]any {
 		"config.apply":    map[string]any{"access_token": "string", "rollback": "Boolean", "timeout": "Integer"},
 		"config.confirm":  map[string]any{"access_token": "string"},
 		"config.rollback": map[string]any{"access_token": "string"},
+		"config.add":      map[string]any{"access_token": "string", "config": "string", "section_type": "string", "values": map[string]any{}},
+		"config.delete":   map[string]any{"access_token": "string", "config": "string", "section": "string"},
 	}
 }
 
@@ -197,7 +199,7 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 			"option": str(args, "option"), "value": v,
 		})
 
-	case "config.write", "config.revert", "config.changes", "config.apply", "config.confirm", "config.rollback":
+	case "config.write", "config.revert", "config.changes", "config.apply", "config.confirm", "config.rollback", "config.add", "config.delete":
 		dev, e := svc.Authenticate(str(args, "access_token"))
 		if e != nil {
 			return envelope.Err(e)
@@ -226,6 +228,11 @@ func dispatch(method string, args map[string]any) (resp map[string]any) {
 			res, ce = mgr.Confirm(dev.ID)
 		case "config.rollback":
 			res, ce = mgr.Rollback(dev.ID)
+		case "config.add":
+			values, _ := args["values"].(map[string]any)
+			res, ce = mgr.Add(dev.ID, str(args, "config"), str(args, "section_type"), values)
+		case "config.delete":
+			res, ce = mgr.Delete(dev.ID, str(args, "config"), str(args, "section"))
 		}
 		if ce != nil {
 			return envelope.Err(ce)

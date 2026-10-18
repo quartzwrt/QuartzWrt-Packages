@@ -259,6 +259,83 @@ func (m *Manager) Changes(deviceID, config string) (map[string]any, *envelope.Er
 	return v, nil
 }
 
+// Add 新增一个已注册类型的 section（**会话暂存**，需 config.apply 落盘）。
+// values 只接受该节注册字段；Required 字段缺失即拒；返回新 section 名（rpcd uci add）。
+func (m *Manager) Add(deviceID, config, sectionType string, values map[string]any) (map[string]any, *envelope.Error) {
+	sid, ee := m.requireSession(deviceID)
+	if ee != nil {
+		return nil, ee
+	}
+	spec, ok := lookupConfig(config)
+	if !ok {
+		return nil, envelope.ED(envelope.CodeForbiddenAction, "config not registered", config)
+	}
+	sec, ok := lookupSectionByType(spec, sectionType)
+	if !ok {
+		return nil, envelope.ED(envelope.CodeForbiddenAction, "section type not registered", sectionType)
+	}
+	if len(values) == 0 {
+		return nil, envelope.E(envelope.CodeBadRequest, "empty values")
+	}
+	vals := map[string]any{}
+	for k, v := range values {
+		opt, ok := sec.Options[k]
+		if !ok {
+			return nil, envelope.ED(envelope.CodeForbiddenAction, "option not registered", sectionType+"."+k)
+		}
+		vv, ee := validateValue(opt, v)
+		if ee != nil {
+			return nil, ee
+		}
+		vals[k] = vv
+	}
+	for k, opt := range sec.Options {
+		if !opt.Required {
+			continue
+		}
+		if _, has := vals[k]; !has {
+			return nil, envelope.ED(envelope.CodeBadRequest, "missing required option", k)
+		}
+	}
+	raw, ee := m.uciCallSID(sid, "add", map[string]any{
+		"config": config, "type": sectionType, "values": vals,
+	})
+	if ee != nil {
+		return nil, ee
+	}
+	var res struct {
+		Section string `json:"section"`
+	}
+	_ = json.Unmarshal(raw, &res)
+	audit.Logf("config add cfg=%s type=%s section=%s device=%s", config, sectionType, res.Section, deviceID)
+	return map[string]any{"section": res.Section, "values": vals}, nil
+}
+
+// Delete 删除一个可删除类型的已注册 section（**会话暂存**，需 config.apply 落盘）。
+func (m *Manager) Delete(deviceID, config, section string) (map[string]any, *envelope.Error) {
+	sid, ee := m.requireSession(deviceID)
+	if ee != nil {
+		return nil, ee
+	}
+	spec, ok := lookupConfig(config)
+	if !ok {
+		return nil, envelope.ED(envelope.CodeForbiddenAction, "config not registered", config)
+	}
+	typ, ee := m.sectionType(spec, section)
+	if ee != nil {
+		return nil, ee
+	}
+	sec, ok := lookupSection(spec, section, typ)
+	if !ok || !sec.Deletable {
+		return nil, envelope.ED(envelope.CodeForbiddenAction, "section not deletable", section)
+	}
+	if _, ee := m.uciCallSID(sid, "delete", map[string]any{"config": config, "section": section}); ee != nil {
+		return nil, ee
+	}
+	audit.Logf("config delete cfg=%s section=%s device=%s", config, section, deviceID)
+	return map[string]any{"deleted": section}, nil
+}
+
 // Revert 丢弃某配置的待应用改动。
 func (m *Manager) Revert(deviceID, config string) (map[string]any, *envelope.Error) {
 	sid, ee := m.requireSession(deviceID)
