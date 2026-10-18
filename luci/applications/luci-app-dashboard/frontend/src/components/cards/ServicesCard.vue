@@ -8,14 +8,18 @@ const props = defineProps({ payload: { type: Object, required: true }, host: { t
 const t = (s) => (props.host.t ? props.host.t(s) : s);
 const svc = computed(() => props.payload.services);
 const meta = computed(() => props.payload);
+const docker = computed(() => props.payload.docker);
 const hasAny = computed(() => !!svc.value || (meta.value && meta.value.interval != null));
 
-/* Bandix 详情页深链：存在性判定（装 luci-app-bandix 才有该菜单，DESIGN §6.3-1 不死链） */
-const bandixHref = computed(() => {
-	if (!props.host.hasPage || !props.host.hasPage('admin/network/bandix'))
+/* 深链：存在性判定（对应菜单未装则不给链接，DESIGN §6.3-1 不死链） */
+function pageHref(page) {
+	if (!props.host.hasPage || !props.host.hasPage(page))
 		return null;
-	return props.host.url ? props.host.url('admin/network/bandix') : null;
-});
+	return props.host.url ? props.host.url(page) : null;
+}
+const bandixHref = computed(() => pageHref('admin/network/bandix'));
+const tailscaleHref = computed(() => pageHref('admin/vpn/tailscale'));
+const qmodemHref = computed(() => pageHref('admin/modem/qmodem'));
 </script>
 
 <template>
@@ -34,13 +38,29 @@ const bandixHref = computed(() => {
 			</div>
 		</div>
 
-		<!-- dockerd -->
+		<!-- dockerd（Docker 卡并入服务行：运行/总数 + 镜像 + 不健康数） -->
 		<div>
 			<div class="qzd-svc-name">
-				<Dot :state="svc && svc.dockerd ? (svc.dockerd.running ? 'ok' : 'err') : ''" />Docker
+				<Dot :state="docker && docker.available !== false ? (docker.running ? 'ok' : 'err') : (svc && svc.dockerd ? (svc.dockerd.running ? 'ok' : 'err') : '')" />Docker
 			</div>
 			<div class="qzd-stat-v qz-mono">
-				{{ svc && svc.dockerd ? (svc.dockerd.running ? t('running') : t('stopped')) : t('Not installed') }}
+				<template v-if="docker && docker.available !== false">
+					{{ docker.running }}/{{ docker.total }} <span class="qzd-muted">&middot; {{ docker.images }} {{ t('Images') }}</span>
+					<Badge v-if="docker.unhealthy && docker.unhealthy.length">{{ docker.unhealthy.length }} {{ t('Unhealthy') }}</Badge>
+				</template>
+				<template v-else-if="svc && svc.dockerd">{{ svc.dockerd.running ? t('running') : t('stopped') }}</template>
+				<template v-else>{{ t('Not installed') }}</template>
+			</div>
+		</div>
+
+		<!-- Tailscale（WP-10 探针：version/dns_name/backend_state/peers_online extras） -->
+		<div>
+			<div class="qzd-svc-name">
+				<Dot :state="svc && svc.tailscale ? (svc.tailscale.running ? 'ok' : 'err') : ''" />Tailscale
+			</div>
+			<div class="qzd-stat-v qz-mono">
+				{{ svc && svc.tailscale ? (svc.tailscale.version || (svc.tailscale.running ? t('running') : t('stopped'))) : t('Not installed') }}
+				<a v-if="tailscaleHref" class="qzd-svc-link" :href="tailscaleHref">{{ t('Details') }} <span class="qzd-arrow">&rarr;</span></a>
 			</div>
 		</div>
 
@@ -52,6 +72,17 @@ const bandixHref = computed(() => {
 			<div class="qzd-stat-v qz-mono">
 				{{ svc && svc.bandix ? (svc.bandix.core || t('running')) : t('Not installed') }}
 				<a v-if="bandixHref" class="qzd-svc-link" :href="bandixHref">{{ t('Details') }} <span class="qzd-arrow">&rarr;</span></a>
+			</div>
+		</div>
+
+		<!-- QModem（探针只给运行态；型号/固件/信号在蜂窝卡） -->
+		<div>
+			<div class="qzd-svc-name">
+				<Dot :state="svc && svc.qmodem ? (svc.qmodem.running ? 'ok' : 'err') : ''" />QModem
+			</div>
+			<div class="qzd-stat-v qz-mono">
+				{{ svc && svc.qmodem ? (svc.qmodem.running ? t('running') : t('stopped')) : t('Not installed') }}
+				<a v-if="qmodemHref" class="qzd-svc-link" :href="qmodemHref">{{ t('Details') }} <span class="qzd-arrow">&rarr;</span></a>
 			</div>
 		</div>
 

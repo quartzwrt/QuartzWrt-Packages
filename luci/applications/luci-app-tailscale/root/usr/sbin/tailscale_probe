@@ -1,0 +1,33 @@
+#!/bin/sh
+# tailscale_probe — 为 quartz-daemon 的 services.tailscale 探针提取 dashboard extras
+# （WP-10/WP-3；零 daemon 改动：probes.d 只声明 exec + 本脚本）。
+#
+# 用法：tailscale_probe {dns_name|backend_state|peers_online}
+# 输出：单行值；失败静默退出 1（探针据此省略该字段）。
+#
+# 不依赖 jq（busybox 镜像不一定有）：只从 `tailscale status --json` 的稳定字段做
+# 定向提取。Self 在 Peer 之前，因此第一个 DNSName 即本机 MagicDNS 名。
+set -u
+TS_BIN="${TAILSCALE_BIN:-/usr/sbin/tailscale}"
+[ -x "$TS_BIN" ] || exit 1
+json=$("$TS_BIN" status --json 2>/dev/null) || exit 1
+
+case "${1:-}" in
+dns_name)
+	# 去掉 FQDN 尾点（与 tailscale status 人类可读形态一致）
+	printf '%s\n' "$json" | sed -n 's/.*"DNSName"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1 | sed 's/\.$//'
+	;;
+backend_state)
+	printf '%s\n' "$json" | sed -n 's/.*"BackendState"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+	;;
+peers_online)
+	# Peer 对象内的 "Online": true 计数；Self 在 Peer 之前，不计入。
+	printf '%s\n' "$json" | awk '
+		/"Peer"[[:space:]]*:[[:space:]]*\{/ { inpeer=1 }
+		inpeer && /"Online"[[:space:]]*:[[:space:]]*true/ { n++ }
+		END { print n+0 }'
+	;;
+*)
+	exit 1
+	;;
+esac

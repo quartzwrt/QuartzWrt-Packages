@@ -253,6 +253,17 @@
     "bandix": {
       "running": true,
       "core": "0.12.11"
+    },
+    "tailscale": {
+      "running": true,
+      "ip": "100.118.170.8",
+      "version": "1.98.3",
+      "dns_name": "quartzwrt-r4s.tailff6386.ts.net",
+      "backend_state": "Running",
+      "peers_online": "3"
+    },
+    "qmodem": {
+      "running": true
     }
   },
   "bandix": {
@@ -315,5 +326,124 @@
       "quota_count": 1
     }
   },
-  "errors": []
+  "errors": [],
+  "cellular": {
+    "available": true,
+    "updated": 1760000000,
+    "capabilities": {
+      "at": true,
+      "sms": true,
+      "sim_switch": true,
+      "stats": true,
+      "temp": true
+    },
+    "modems": [
+      {
+        "id": "modem1",
+        "model": "RM500U-CN",
+        "vendor": "Quectel",
+        "firmware": "RM500UCNCAR03A09M4G",
+        "temp_c": 42.5,
+        "registered": true,
+        "operator": "中国联通",
+        "network_mode": "5G NSA",
+        "signal": {
+          "rsrp": -78,
+          "rsrq": -11,
+          "sinr": 22,
+          "rssi": -51,
+          "quality_pct": 78,
+          "series": {
+            "step": 10,
+            "rsrp": [
+              -80,
+              -79,
+              -78,
+              -79,
+              -77,
+              -78,
+              -76,
+              -79,
+              -78,
+              -77,
+              -80,
+              -79,
+              -78,
+              -77,
+              -79,
+              -78,
+              -76,
+              -78,
+              -79,
+              -78,
+              -77,
+              -78,
+              -76,
+              -78
+            ]
+          }
+        },
+        "serving_cells": [
+          {
+            "role": "PCC",
+            "rat": "LTE",
+            "band": "B3",
+            "channel": "1300",
+            "channel_type": "ARFCN",
+            "pci": "293",
+            "dl_bandwidth": "20",
+            "ul_bandwidth": "20",
+            "scs": "15"
+          },
+          {
+            "role": "NSA",
+            "rat": "NR",
+            "band": "n78",
+            "channel": "627264",
+            "channel_type": "ARFCN",
+            "pci": "293",
+            "dl_bandwidth": "100",
+            "ul_bandwidth": "100",
+            "scs": "30"
+          }
+        ],
+        "dial": {
+          "running": true,
+          "ipv4": "10.42.7.23",
+          "rx_bps": 18200000,
+          "tx_bps": 2400000
+        },
+        "traffic": {
+          "available": true,
+          "updated_at": 1760000000,
+          "rx_bytes": 49600000000,
+          "tx_bytes": 3330000000,
+          "reset": {
+            "enabled": true,
+            "type": "monthly",
+            "hour": 0,
+            "day": 1
+          }
+        },
+        "sim": {
+          "status": "ready",
+          "slot": "1",
+          "switchable": true
+        },
+        "settings": {
+          "usb_mode": "qmi",
+          "prefer": "5G",
+          "lockband": []
+        },
+        "capabilities": {
+          "at": true,
+          "sms": true,
+          "sim_switch": true,
+          "stats": true,
+          "current_band": true,
+          "temp": true
+        }
+      }
+    ]
+  }
 }

@@ -278,3 +278,109 @@ msgstr "默认"
 
 msgid "Bandix per-device traffic (WAN rates; totals & share of cumulative bytes; policy = whitelist/schedule/quota)"
 msgstr "bandix 设备流量（WAN 速率；累计 = 总流量；策略 = 白名单/时段限速/配额；完整规则见网页 Bandix 页）"
+
+# ===== 蜂窝卡 / Tailscale 卡（IA v2，2026-10-19） =====
+msgid "Cellular"
+msgstr "蜂窝"
+
+msgid "Tailscale"
+msgstr "Tailscale"
+
+msgid "QModem"
+msgstr "QModem"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Signal quality"
+msgstr "信号质量"
+
+msgid "RSRP history"
+msgstr "RSRP 历史"
+
+msgid "last 10 min"
+msgstr "最近 10 分钟"
+
+msgid "Good"
+msgstr "良"
+
+msgid "Fair"
+msgstr "中"
+
+msgid "Poor"
+msgstr "差"
+
+msgid "Registration"
+msgstr "注册状态"
+
+msgid "Registered"
+msgstr "已注册"
+
+msgid "Not registered"
+msgstr "未注册"
+
+msgid "Bandwidth · SCS"
+msgstr "带宽 · SCS"
+
+msgid "Preference"
+msgstr "网络偏好"
+
+msgid "Dial"
+msgstr "拨号"
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "Disconnected"
+msgstr "未连接"
+
+msgid "IPv4"
+msgstr "IPv4"
+
+msgid "Rate"
+msgstr "速率"
+
+msgid "USB mode"
+msgstr "USB 模式"
+
+msgid "This month"
+msgstr "本月流量"
+
+msgid "Reset plan"
+msgstr "重置计划"
+
+msgid "SIM"
+msgstr "SIM"
+
+msgid "slot"
+msgstr "槽位"
+
+msgid "Monthly"
+msgstr "每月"
+
+msgid "Weekly"
+msgstr "每周"
+
+msgid "Daily"
+msgstr "每日"
+
+msgid "Not supported"
+msgstr "不支持"
+
+msgid "No cellular modem"
+msgstr "未检测到蜂窝模组"
+
+msgid "Cellular data from QModem (10s slow lane; page-level reads stay on the QModem page)"
+msgstr "蜂窝数据来自 QModem（10 秒慢车道；页面级读仍在 QModem 页面）"
+
+msgid "tailnet address"
+msgstr "tailnet 地址"
+
+msgid "MagicDNS"
+msgstr "MagicDNS"
+
+msgid "Peers online"
+msgstr "对端在线"
+
+msgid "Backend state"
+msgstr "后端状态"

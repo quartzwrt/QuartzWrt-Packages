@@ -46,12 +46,13 @@
 | 值校验 | 无 | hostname/token/CIDR 字符集校验；非法值拒用并记 logd | 参数安全 |
 | `config_path` 选项 | UI 可改（驱动 state 位置） | 移除（state 位置归基座 `state_file`） | 与基座 config 单一来源 |
 | ACL | ip/logread/tailscale 三命令 exec + uci | 同款 + `tailscale_helper apply/cleanup` 白名单 | 最小新增面 |
-| 联动 | 无 | `probes.d/tailscale.json` 投放（procd: tailscale；extras.ip=`tailscale ip -4`） | daemon 零重编可见（WP-4 §13 机制） |
+| 联动 | 无 | `probes.d/tailscale.json` 投放（procd: tailscale；extras：`ip`=`tailscale ip -4`、`version`、`dns_name`/`backend_state`/`peers_online` 经 `tailscale_probe` 从 `tailscale status --json` 提取） | daemon 零重编可见（WP-4 §13 机制）；Dashboard Tailscale 卡消费 |
 
 ## 4. 与 QuartzWrt 的集成
 
 - **主题**：三视图在 `luci-theme-quartz` 下逐页测试（复用 WP-2 `dev/vm-test/` 工具链）。
 - **App 联动**：App 远程引导（W6.5）指到本页；App 应用页经快照 `services.tailscale` 显示状态。
+- **Dashboard 联动（2026-10-19，IA v2）**：`TailscaleCard.vue` 读 `services.tailscale`；extras 由 `/usr/sbin/tailscale_probe` 提取（`dns_name`/`backend_state`/`peers_online`；无 jq 依赖，busybox sed/awk），`version` 取 `tailscale version` 首行。探针仍是声明式 `exec` + 固定参数，daemon 零改动。
 - **默认集**：**不预装**（用户拍板）；经 App 引导或 `apk add`。
 
 ## 5. 验收（VM；真 tailnet 归真机阶段）
@@ -98,3 +99,4 @@
 *v0.1.1 2026-10-13 —— 实施与 VM 验收：见 §6 两项修复；验收结果（三页渲染/菜单/日志 17KB 真日志/接口真数据/enabled 语义/幂等/真实 auth URL/probe 联动）见 WORKPLAN WP-10 行。*
 *v0.1.2 2026-10-13 —— **Running 态胶水验收（用户提供一次性 auth key）**：登录成功（节点 `quartzwrt-vm`，真 IP 100.118.170.8）；network/防火墙 zone+forwarding/MagicDNS dnsmasq 条目全部 reconcile 正确；cleanup↔apply 往返干净（daemon/登录保持）；probe 取到真实 tailnet IP（`services.tailscale.ip`）；子网路由分支实测（peer 宣告 10.0.0.0/24：创建 `network.ts_subnet1` + 真路由安装；**缩配置 reconcile 清除**——上游只增不减的缺陷点）；追加 §6 两项（uci 静默失败家族 #3；exit-node 回退改进 #4）。exit-node 桥接因 tailnet 内无 exit-node peer 未做端到端（回退逻辑已按 #4 实现）。authkey 用后即从 uci 清除。*
 *v0.1.3 2026-10-14 —— **#36 修复（address=→server= + rebind_domain 豁免 + uci_list_has）**：VM A/B/迁移/幂等/零残留全验证（28/28 PASS，证据 `dev/shots/vm/fix36-magicdns-e2e-20261014.log`）；`PKG_RELEASE=2`（同版本 apk 不可升级）。*
+*v0.1.4 2026-10-19 —— **Dashboard Tailscale 卡探针 extras（IA v2 R8）**：新增 `/usr/sbin/tailscale_probe`（`dns_name`/`backend_state`/`peers_online`，从 `tailscale status --json` 定向提取，无 jq）；`probes.d/tailscale.json` 增 `version`/`dns_name`/`backend_state`/`peers_online` 四项（exec + 固定参数 + cache）；daemon 零改动。本机以假 JSON fixture 验证三个提取值（dns 去尾点 / Running / peer 计数），真 tailnet 字段待真机复核。*

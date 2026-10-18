@@ -111,6 +111,36 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-rate .v { font-family: var(--qz-font-mono); font-size: 19px; }
 .qzd-rate .v.qzd-down { color: var(--qz-accent); }
 .qzd-spark { width: 100%; height: 66px; display: block; }
+.qzd-spark-mini { height: 36px; margin-top: 8px; }
+
+/* ---- 蜂窝卡（四栏：信号 / 服务小区 / 拨号 / 流量与 SIM） ---- */
+.qzd-cellular-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+.qzd-cellular-meta { margin-left: auto; font-size: 12px; }
+.qzd-cols4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 22px; }
+.qzd-cols4 .qzd-kv { flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
+.qzd-cols4 .qzd-kv-k { flex: 0 0 auto; }
+.qzd-cols4 .qzd-kv-v { margin-left: auto; white-space: normal; text-align: right; }
+.qzd-cellular-quality { margin-top: 2px; }
+.qzd-meter { display: inline-flex; gap: 3px; margin-left: auto; }
+.qzd-meter i { width: 14px; height: 7px; border-radius: 2px; background: var(--qz-text-3); opacity: .22; }
+.qzd-meter i.on { opacity: 1; background: var(--qz-ok); }
+.qzd-meter.warn i.on { background: var(--qz-warn); }
+.qzd-meter.err i.on { background: var(--qz-err); }
+.qzd-mstrip {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1px;
+	background: var(--qz-border);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius-sm);
+	margin-top: 8px;
+	overflow: hidden;
+}
+.qzd-mcell { background: var(--qz-bg-panel); padding: 6px 8px; }
+.qzd-mcell .k { font-size: 10.5px; color: var(--qz-text-3); }
+.qzd-mcell .v { font-size: 13px; font-weight: 600; }
+.qzd-mcell small { font-size: 9.5px; color: var(--qz-text-3); margin-left: 2px; font-weight: 400; }
+.qzd-legendline { display: flex; justify-content: space-between; font-size: 11px; color: var(--qz-text-3); margin-top: 4px; }
 
 /* ---- 设备表（固定布局 + 列宽百分比，避免宽屏下列距失衡） ---- */
 .qzd-table { width: 100%; table-layout: fixed; font-size: 12.5px; border-collapse: collapse; }
@@ -128,8 +158,9 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-w-br   { width: 16%; }
 .qzd-w-bp   { width: 26%; }
 
-/* ---- 服务卡 ---- */
-.qzd-svc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 26px; }
+/* ---- 服务卡（与 Docker/Tailscale 同排时 span 4，收紧间距） ---- */
+.qzd-svc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 26px; }
+#services .qzd-svc { gap: 14px 18px; }
 .qzd-svc-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-bottom: 5px; }
 .qzd-svc-extra { margin-top: 6px; }
 .qzd-svc-link { margin-left: 8px; font-size: 12.5px; font-weight: 400; font-family: var(--qz-font-sans, inherit); }
@@ -149,13 +180,18 @@ html[data-qz-translucent] .qzd-hero {
 /* ---- 响应式：中屏 2 卡/行；手机单列（顺序按注册表 order 语义） ---- */
 @media (max-width: 1119px) {
 	.qzd-sp-4, .qzd-sp-8 { grid-column: span 6; }
+	.qzd-cols4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 699px) {
 	.qzd-grid { grid-template-columns: 1fr; }
 	.qzd-sp-4, .qzd-sp-6, .qzd-sp-8, .qzd-sp-12 { grid-column: auto; }
+	.qzd-cols4 { grid-template-columns: 1fr; }
+	.qzd-cellular-meta { margin-left: 0; }
+	#cellular { order: 3; }   /* 蜂窝是 5G CPE 的主 WAN，提前 */
 	#clients  { order: 4; }    /* 手机：设备列表提前到服务之前 */
 	#bandix   { order: 5; }    /* 流量明细跟随设备列表 */
-	#services { order: 6; }
+	#tailscale { order: 6; }
+	#services { order: 7; }
 	.qzd-table th:nth-child(3), .qzd-table td:nth-child(3),
 	.qzd-table th:nth-child(4), .qzd-table td:nth-child(4) { display: none; }
 	.qzd-summary { margin-left: 0; flex-wrap: wrap; gap: 18px 26px; }

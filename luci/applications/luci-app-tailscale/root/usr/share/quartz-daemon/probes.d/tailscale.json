@@ -3,6 +3,10 @@
   "title": "Tailscale",
   "running": { "type": "procd", "name": "tailscale" },
   "extras": {
-    "ip": { "type": "exec", "path": "/usr/sbin/tailscale", "args": ["ip", "-4"], "regex": "([0-9.]+)" }
+    "ip": { "type": "exec", "path": "/usr/sbin/tailscale", "args": ["ip", "-4"], "regex": "([0-9.]+)" },
+    "version": { "type": "exec", "path": "/usr/sbin/tailscale", "args": ["version"], "cache": 3600 },
+    "dns_name": { "type": "exec", "path": "/usr/sbin/tailscale_probe", "args": ["dns_name"], "cache": 300 },
+    "backend_state": { "type": "exec", "path": "/usr/sbin/tailscale_probe", "args": ["backend_state"], "cache": 300 },
+    "peers_online": { "type": "exec", "path": "/usr/sbin/tailscale_probe", "args": ["peers_online"], "cache": 300 }
   }
 }

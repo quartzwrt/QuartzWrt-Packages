@@ -6,7 +6,8 @@
  */
 import SystemCard from '../components/cards/SystemCard.vue';
 import NetworkCard from '../components/cards/NetworkCard.vue';
-import DockerCard from '../components/cards/DockerCard.vue';
+import QModemCard from '../components/cards/QModemCard.vue';
+import TailscaleCard from '../components/cards/TailscaleCard.vue';
 import ServicesCard from '../components/cards/ServicesCard.vue';
 import ClientsCard from '../components/cards/ClientsCard.vue';
 import BandixCard from '../components/cards/BandixCard.vue';
@@ -18,11 +19,19 @@ export default [
 		link: 'admin/status/realtime', linkLabel: 'Realtime traffic'
 	},
 	{
-		id: 'docker', title: 'Docker', span: 4, component: DockerCard,
-		link: 'admin/services/dockerman/containers', linkLabel: 'Containers',
-		/* 契约 §3.4：available=false（未安装 dockerd）→ 整卡隐藏 */
-		visible: (p) => !(p.docker && p.docker.available === false)
+		id: 'cellular', title: 'Cellular', span: 12, component: QModemCard,
+		link: 'admin/modem/qmodem', linkLabel: 'QModem',
+		/* 契约 §3.9：available!==true / 无模组 → 整卡隐藏（与 Docker/Bandix 同款） */
+		visible: (p) => !!(p.cellular && p.cellular.available === true
+			&& Array.isArray(p.cellular.modems) && p.cellular.modems.length)
 	},
+	{
+		id: 'tailscale', title: 'Tailscale', span: 4, component: TailscaleCard,
+		link: 'admin/vpn/tailscale', linkLabel: 'Settings',
+		/* services 开放映射：未装 → 键缺省 → 整卡隐藏；装了但停止 → 显示 stopped */
+		visible: (p) => !!(p.services && p.services.tailscale)
+	},
+	/* Docker 信息并入服务卡（运行/总数/镜像/不健康），与 IA v2 dashboard v2 对齐 */
 	{ id: 'services', title: 'Services & cores', span: 8, component: ServicesCard },
 	{
 		id: 'bandix', title: 'Traffic detail', span: 12, component: BandixCard,

@@ -147,9 +147,13 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 ├──────────────────────────┬──────────────────────────────────┤
 │ 系统资源 (4)              │ 网络吞吐 (8)                      │
 │ 负载/CPU/内存/交换/存储/温度│ WAN + 实时上下行 + 60 点 sparkline  │
-├──────────────────────────┼──────────────────────────────────┤
-│ Docker (4)               │ 服务与核心 (8)                    │
-│ 运行/总数/镜像/不健康      │ OpenClash / Docker / Bandix / daemon │
+├──────────────────────────┴──────────────────────────────────┤
+│ 蜂窝 (12，cellular.available && modems 有值；否则整卡隐藏)：      │
+│ 信号（质量条+四指标+RSRP 曲线）/ 服务小区 / 拨号 / 流量与 SIM      │
+├──────────────────────────┬──────────────────────────────────┤
+│ Tailscale (4)            │ 服务与核心 (8)                    │
+│ 状态/地址/MagicDNS/对端   │ OpenClash / Docker / Tailscale /  │
+│                          │ Bandix / QModem / daemon          │
 ├──────────────────────────┴──────────────────────────────────┤
 │ 流量明细 (12，bandix；available=false 时整卡隐藏)：在线设备 + WAN 合计 │
 │ + 连接/DNS 摘要 + Top≤8 设备表（设备/下行/上行/占比）              │
@@ -158,8 +162,8 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **排布原则（预览实测确定）**：同一行内卡片的内容高度应相近——**矮卡配矮卡**（Docker 与"服务与核心"同行，两条大卡各占一行），行内按最高卡对齐、行尾不留大片空白；**不采用 masonry**（CSS 原生 masonry 未标准化，JS 重排对其余场景是负债）。行序 = 注册表顺序，占位由每卡声明（§5.3 `span`）——新增卡时按此原则选行配对。
-- 断点：宽屏（≥1120px）如上图；中屏（<1120px）2 卡/行；手机（<700px）单列，顺序为 `#clients 4 → #bandix 5 → #services 6`（设备列表与流量明细提前到"服务与核心"之前）。
+- **排布原则（预览实测确定）**：同一行内卡片的内容高度应相近——**矮卡配矮卡**（Tailscale 与"服务与核心"同行，两条大卡各占一行），行内按最高卡对齐、行尾不留大片空白；**不采用 masonry**（CSS 原生 masonry 未标准化，JS 重排对其余场景是负债）。行序 = 注册表顺序，占位由每卡声明（§5.3 `span`）——新增卡时按此原则选行配对。**Docker 信息并入服务卡**（运行/总数/镜像/不健康），不再单卡（与 IA v2 dashboard v2 对齐）。
+- 断点：宽屏（≥1120px）如上图；中屏（<1120px）2 卡/行；手机（<700px）单列，顺序为 `#cellular 3 → #clients 4 → #bandix 5 → #tailscale 6 → #services 7`（蜂窝是 5G CPE 主 WAN，提前；设备列表与流量明细仍先于服务）。
 - **移动端细则**：设备表窄屏隐藏 MAC 与接口列；卡片 `min-width: 0`（表格等最小内容宽度不得撑破页面）；Hero 摘要换行左对齐；悬浮控制条类元素左右贴边。
 - 宽屏设备表用固定布局 + 列宽百分比（24/18/22/14/20），避免自动布局在超宽下列距失衡；超长内容省略号截断。
 - 卡片 = 主题 `--qz-bg-panel` + 1px 描边 + 12px 圆角（复用 token，不另起色板）；半透明状态下的毛玻璃需主题提供通用面板类（见附 A）。
@@ -169,7 +173,7 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 - 禁渐变/发光/装饰性动画；过渡仅颜色 200ms；按压 = opacity .8。
 - 彩色只用于文字高亮/状态色：状态圆点（ok/warn/err）+ 等宽数值；**不做彩色背景块**。
 - 技术数值（IP/MAC/速率/负载）一律 `--qz-font-mono`；Hero hostname 用衬线（品牌时刻，与登录页一致）。
-- sparkline：手写 inline SVG（`polyline`，≤60 点，stroke 1.6 与图标一致，accent 色），**零图表库**、无动画。
+- sparkline：手写 inline SVG（`<path>`，≤60 点，stroke 1.6/1.8 与图标一致），**零图表库**、无动画。平滑口径（IA v2 R3）：**EMA(α=0.3) → 等距降采样（~13 点）→ Catmull-Rom 转三次贝塞尔 → round linecap/linejoin**；负值序列（蜂窝 RSRP）按 min/max + 15% 边距归一，不能按 0..max（否则曲线贴顶、面积铺满）。单序列（RSRP 历史）用 `values` 入口 + 可选淡色面积。
 - 数值刷新不做跳动/滚动动画；异常状态（daemon 未运行、节不可用）用主题的告警样式，不用红色铺底。
 - 空态/降级态是设计的一部分（§2.2 四态在 preview 页可切换评审）。
 
@@ -179,13 +183,28 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 
 ```js
 // src/cards/index.js —— 唯一的卡片清单（新增卡 = 加一个模块 + 加一行）
-import system  from './system.js';
-import network from './network.js';
-import docker  from './docker.js';
-import clients from './clients.js';
-import services from './services.js';
-export default [ system, network, docker, clients, services ];
+import SystemCard from '../components/cards/SystemCard.vue';
+import NetworkCard from '../components/cards/NetworkCard.vue';
+import QModemCard from '../components/cards/QModemCard.vue';
+import TailscaleCard from '../components/cards/TailscaleCard.vue';
+import ServicesCard from '../components/cards/ServicesCard.vue';
+import BandixCard from '../components/cards/BandixCard.vue';
+import ClientsCard from '../components/cards/ClientsCard.vue';
+
+export default [
+	{ id: 'system', title: 'System', span: 4, component: SystemCard },
+	{ id: 'network', title: 'Network', span: 8, component: NetworkCard, link: 'admin/status/realtime' },
+	{ id: 'cellular', title: 'Cellular', span: 12, component: QModemCard,
+	  link: 'admin/modem/qmodem', visible: (p) => !!(p.cellular?.available && p.cellular.modems?.length) },
+	{ id: 'tailscale', title: 'Tailscale', span: 4, component: TailscaleCard,
+	  link: 'admin/vpn/tailscale', visible: (p) => !!p.services?.tailscale },
+	{ id: 'services', title: 'Services & cores', span: 8, component: ServicesCard }, // 含 Docker 行
+	{ id: 'bandix', title: 'Traffic detail', span: 12, component: BandixCard,
+	  visible: (p) => p.bandix?.available === true },
+	{ id: 'clients', title: 'Clients', span: 12, component: ClientsCard }
+];
 ```
+> 条件卡（Docker 已并入服务卡；蜂窝/Tailscale/Bandix 仍是整卡隐藏语义）：`visible(payload)` 为 false 时不渲染，避免"0 值/空卡"误导。
 
 ```js
 // src/cards/network.js —— 一张卡的完整声明（声明式优先，纯展示，不取数）
@@ -405,3 +424,4 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v1.2 2026-10-12 —— W3.5/W3.6 固件集成验收（登录落地页即 Dashboard、真数据联调、四态降级、深链存在性、i18n）+ 打包三坑（i18n 撞名 `LUCI_BASENAME:=qdashboard` / 源码目录不得为 `src/` / CSS 走 `root/www/` 绕开 csstidy），W3.7 扩展手册成文。*
 *v1.3 2026-10-14 —— **W3.8 R1 用户实测反馈轮**（用户实测三条现象，两条归本包）：①只读页"保存并应用"操作条抑制（`handle*` 置空，§1.3）；②中文名"概览"→"仪表盘"（与基座 `status/overview` 撞名，§1.3）。第三条（主题 chrome 不跟随 `panel_opacity`）归 WP-2，见其 DESIGN v1.3 / 坑位 #48。VM 热更复验 + 包级核验（新 lmo 词条、壳层字节）证据 `dev/shots/vm-r1/`。*
 *v1.4 2026-10-17 —— **WP-8 P2（bandix 流量明细卡，契约 §3.7 加法）**：新增 `BandixCard.vue`（在线设备/WAN 合计/连接与 DNS 摘要/Top≤8 表）+ 注册表一行（span 12，`available!==true` 整卡隐藏）；`app.css` 增列宽类与移动端 order（clients 4 → bandix 5 → services 6）；mock/po/产物/基线同步（`dev/shots/*` 重出）；preview.html 同步（补 Bandix 服务行 + 流量明细卡；预览页样式无层，规则成对改，见 §服务卡 注）。数据面 = WP-4 daemon `bandix` 节（慢刷 10s 经 `quartz.bandix`）。*
+*v1.5 2026-10-19 —— **IA v2 dashboard 卡补齐（WP-3）**：①新增 `QModemCard.vue`（span 12 四栏：信号〔质量条+四指标+RSRP 曲线〕/ 服务小区〔PCC/NSA 的 ARFCN·PCI·带宽·SCS〕/ 拨号〔状态·IPv4 打码·速率·USB 模式〕/ 流量与 SIM〔本月·重置计划·SIM·温度〕；`cellular.available && modems` 才显示；数据面 = daemon `cellular` 10s 慢车道节 §3.9）；②新增 `TailscaleCard.vue`（span 4：运行态/版本、tailnet 地址打码、MagicDNS、对端在线、后端状态；`services.tailscale` 存在才显示；探针 extras 由 WP-10 的 `tailscale_probe` 提供）；③**Docker 卡并入服务卡**（运行/总数/镜像/不健康），服务卡改为 Tailscale 同行 span 8；④`primitives.js` Sparkline 改 EMA(α=0.3)+等距降采样(~13)+Catmull-Rom `<path>`+round 端点，新增 `values` 单序列与负值域；⑤mock/po/产物/`app-*` 基线同步（Bundle 32.0KB gzip / CSS 2.8KB gzip）。字段口径：蜂窝只用快照已有字段（APN/DNS/MTU/短信存储属页面级读，v1 不上卡）。*

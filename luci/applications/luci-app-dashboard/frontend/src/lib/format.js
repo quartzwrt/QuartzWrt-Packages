@@ -26,6 +26,17 @@ export function fmtTemp(v) {
 	return v == null ? '—' : Number(v).toFixed(1) + ' °C';
 }
 
+/* 地址打码（仪表盘默认隐藏末段；点击展开的交互留给 App） */
+export function maskIp(ip) {
+	if (!ip) return '—';
+	if (ip.indexOf(':') >= 0) {
+		const p = ip.split(':');
+		return p.length > 2 ? p.slice(0, 2).join(':') + ':…:' + p[p.length - 1] : ip;
+	}
+	const p = ip.split('.');
+	return p.length === 4 ? p.slice(0, 3).join('.') + '.…' : ip;
+}
+
 /* 相对时间（t = 壳层翻译函数） */
 export function fmtAgo(sec, t) {
 	const tr = t || ((x) => x);
