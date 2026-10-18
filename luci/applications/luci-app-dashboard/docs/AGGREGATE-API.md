@@ -63,6 +63,7 @@
 | :--- | :--- | :--- |
 | `wan.up` | bool | 在线状态 |
 | `wan.ifname` / `wan.proto` / `wan.ipv4` | string | 接口名 / 协议 / IPv4（无地址时可为空串） |
+| `wan.ipv6` | string\|省略 | 首个**公网 GUA**（跳过 fe80/ULA/temporary/deprecated；2026-10-19 加法，IA v2 D9′）；无 GUA 时省略 |
 | `wan.rx_bps` / `wan.tx_bps` | int | 瞬时速率（字节/秒，按 `interval` 窗口计） |
 | `series` | object | 可空。`{ step, rx[], tx[] }`：环形缓冲，各 ≤60 点，`step` 秒/点；缺失时前端自累积（§5） |
 

@@ -24,6 +24,20 @@ func TestParseDefaultRoute(t *testing.T) {
 	}
 }
 
+func TestParseIPv6GUA(t *testing.T) {
+	in := `2: wwan0_1    inet6 fe80::1/64 scope link
+2: wwan0_1    inet6 fd5b:d858:a07b::1/64 scope global
+2: wwan0_1    inet6 2408:8459:1930:4e9a:549c:1ef9:780e:6166/64 scope global dynamic
+2: wwan0_1    inet6 2408:8459:1930:4e9a:aaaa:bbbb:cccc:dddd/64 scope global temporary dynamic
+`
+	if got := parseIPv6GUA(in); got != "2408:8459:1930:4e9a:549c:1ef9:780e:6166" {
+		t.Fatalf("GUA = %q", got)
+	}
+	if got := parseIPv6GUA("2: br-lan inet6 fe80::1/64 scope link\n"); got != "" {
+		t.Fatalf("link-local must be skipped: %q", got)
+	}
+}
+
 func TestDeltaBps(t *testing.T) {
 	if got := deltaBps(1000, 3000, 2.0); got != 1000 {
 		t.Fatalf("bps = %d, want 1000", got)

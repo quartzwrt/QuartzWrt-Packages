@@ -482,5 +482,8 @@ msgstr "SIM 槽位"
 msgid "Image"
 msgstr "镜像"
 
+msgid "IPv6"
+msgstr "IPv6"
+
 msgid "IMEI / IMSI / ICCID stay on the QModem page"
 msgstr "敏感信息（IMEI/IMSI/ICCID）仅在 QModem 页面显示"

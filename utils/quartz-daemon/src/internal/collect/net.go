@@ -28,6 +28,7 @@ func (c *Collector) netFast(now time.Time, proto string) snapshot.Net {
 		// pppoe/wireguard 等隧道接口 operstate 常为 "unknown"：仅 "down" 视为离线
 		n.WAN.Up = oper != "down"
 		n.WAN.IPv4 = ifaceIPv4(ifname)
+		n.WAN.IPv6 = ifaceIPv6GUA(ifname)
 
 		rx, tx := readCounters(ifname)
 		var rxb, txb int64
@@ -89,6 +90,58 @@ func deltaBps(prev, cur uint64, dt float64) int64 {
 		return 0
 	}
 	return int64(float64(cur-prev) / dt)
+}
+
+// ifaceIPv6GUA 取接口首个公网 GUA（跳过 fe80/link-local、ULA、temporary/deprecated）。
+// 优先 `ip -6 -o addr … scope global`（能识别 temporary/deprecated 标志），
+// 失败时回退 Go 原生地址枚举（无法识别 temporary，仅保证非 ULA/非链路本地）。
+func ifaceIPv6GUA(name string) string {
+	if out, err := execTimeout(2*time.Second, "ip", "-6", "-o", "addr", "show", "dev", name, "scope", "global"); err == nil {
+		if v := parseIPv6GUA(string(out)); v != "" {
+			return v
+		}
+	}
+	ifi, err := net.InterfaceByName(name)
+	if err != nil {
+		return ""
+	}
+	addrs, _ := ifi.Addrs()
+	for _, a := range addrs {
+		var ip net.IP
+		switch v := a.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip == nil || ip.To4() != nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			continue
+		}
+		return ip.String()
+	}
+	return ""
+}
+
+// parseIPv6GUA 从 `ip -6 -o addr` 输出挑选首个公网 GUA；跳过 temporary/deprecated 行。
+func parseIPv6GUA(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "temporary") || strings.Contains(line, "deprecated") {
+			continue
+		}
+		f := strings.Fields(line)
+		for i, tok := range f {
+			if tok != "inet6" || i+1 >= len(f) {
+				continue
+			}
+			addr := strings.SplitN(f[i+1], "/", 2)[0]
+			ip := net.ParseIP(addr)
+			if ip == nil || ip.To4() != nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+				continue
+			}
+			return ip.String()
+		}
+	}
+	return ""
 }
 
 // ifaceIPv4 取接口首个 IPv4 地址（Go 原生，不 exec）。

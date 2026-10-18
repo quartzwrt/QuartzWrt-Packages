@@ -82,8 +82,10 @@ type WAN struct {
 	Ifname string `json:"ifname"`
 	Proto  string `json:"proto"`
 	IPv4   string `json:"ipv4"`
-	RxBps  int64  `json:"rx_bps"`
-	TxBps  int64  `json:"tx_bps"`
+	// IPv6 首个公网 GUA（跳过 fe80/ULA/temporary/deprecated；2026-10-19 加法）。
+	IPv6  string `json:"ipv6,omitempty"`
+	RxBps int64  `json:"rx_bps"`
+	TxBps int64  `json:"tx_bps"`
 }
 
 // Series 吞吐环形缓冲（契约 §3.3；step 秒/点，各数组 ≤60 点）。

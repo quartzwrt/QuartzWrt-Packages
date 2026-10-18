@@ -1,8 +1,8 @@
 <script setup>
 /* 网络吞吐卡：WAN 状态 + 实时上下行 + 60 点 sparkline（契约 §3.3） */
 import { computed } from 'vue';
-import { Dot, Sparkline } from '../primitives.js';
-import { fmtRate } from '../../lib/format.js';
+import { Dot, KV, Sparkline } from '../primitives.js';
+import { fmtRate, maskIp } from '../../lib/format.js';
 
 const props = defineProps({ payload: { type: Object, required: true }, host: { type: Object, default: () => ({}) } });
 const t = (s) => (props.host.t ? props.host.t(s) : s);
@@ -15,8 +15,9 @@ const net = computed(() => props.payload.net);
 			<Dot :state="net.wan.up ? 'ok' : 'err'" />
 			<span>{{ t(net.wan.up ? 'online' : 'offline') }}</span>
 			<span class="qzd-muted">{{ net.wan.ifname }} &middot; {{ net.wan.proto }}</span>
-			<span class="qz-mono">{{ net.wan.ipv4 }}</span>
 		</div>
+		<KV :k="t('IPv4')" :v="net.wan.ipv4 ? maskIp(net.wan.ipv4) : '—'" />
+		<KV v-if="net.wan.ipv6" :k="t('IPv6')" :v="maskIp(net.wan.ipv6)" />
 		<div class="qzd-rate">
 			<div>
 				<div class="k">{{ t('Download') }}</div>

@@ -23,7 +23,7 @@
 /* 产物入口与构建标识：dev/build.sh 构建后以产物哈希改写 BUILD（配合 L.env.resource_version 破缓存） */
 var BUNDLE = 'quartz-dashboard/app.js';
 var STYLES = 'quartz-dashboard/app.css';
-var BUILD = '7e46f03e';
+var BUILD = 'df8e0a3c';
 
 return view.extend({
 	load() {
