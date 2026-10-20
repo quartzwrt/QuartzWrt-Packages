@@ -78,6 +78,13 @@ const dialIpv4 = computed(() => {
 });
 const rxText = computed(() => (dial.value && dial.value.running ? fmtRate(dial.value.rx_bps || 0) : '—'));
 const txText = computed(() => (dial.value && dial.value.running ? fmtRate(dial.value.tx_bps || 0) : '—'));
+const usbModeText = computed(() => (settings.value.usb_mode ? String(settings.value.usb_mode).toUpperCase() : '—'));
+const usbSpeedText = computed(() => {
+	const mm = m.value;
+	if (!mm || !mm.usb_speed_mbps) return '—';
+	const ver = mm.usb_version ? 'USB ' + mm.usb_version + ' · ' : '';
+	return ver + mm.usb_speed_mbps + ' Mbps';
+});
 const usage = computed(() => (traffic.value && traffic.value.available
 	? { rx: fmtBytes(traffic.value.rx_bytes), tx: fmtBytes(traffic.value.tx_bytes) }
 	: null));
@@ -219,7 +226,8 @@ const scsText = computed(() => {
 				</KV>
 				<KV :k="t('CQI UL / DL')" :v="cqiText" />
 				<KV :k="t('AMBR UL / DL')" :v="ambrText" />
-				<KV :k="t('USB mode')" :v="settings.usb_mode || '—'" />
+				<KV :k="t('USB mode')" :v="usbModeText" />
+				<KV :k="t('USB speed')" :v="usbSpeedText" />
 				<KV :k="t('Preference')" :v="settings.prefer || '—'" />
 			</div>
 			<div>

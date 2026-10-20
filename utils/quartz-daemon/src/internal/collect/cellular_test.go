@@ -3,6 +3,7 @@ package collect
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -65,7 +66,8 @@ func quectelFixture(section string) fixtureFetch {
 		{"role":"pcc","rat":"LTE","band":"3","band_name":"LTE B3","channel":"1300","channel_type":"EARFCN","pci":"293","ul_bandwidth":"20","dl_bandwidth":"20","scs":""},
 		{"role":"nsa","rat":"NR","band":"78","band_name":"NR n78","channel":"627264","channel_type":"NR-ARFCN","pci":"293","ul_bandwidth":"","dl_bandwidth":"100","scs":"30kHz"}]}}`)
 	put("dial_status", `{"running":"true"}`)
-	put("get_stats", `{"available":true,"updated_at":1760000000,"total_rx_bytes":46180000000,"total_tx_bytes":3832000000}`)
+	// 上游 Quectel/QGDNRCNT 为模组视角：total_rx≈宿主上行、total_tx≈宿主下行
+	put("get_stats", `{"available":true,"updated_at":1760000000,"total_rx_bytes":3832000000,"total_tx_bytes":46180000000}`)
 	put("get_traffic_reset_schedule", `{"enabled":true,"reset_type":"monthly","hour":0,"day":1,"minute":0,"line":null}`)
 	put("sim_info", `{"modem_info":[{"key":"SIM Status","value":"ready"},{"key":"ISP","value":"46001"},{"key":"SIM Slot","value":"1"}]}`)
 	put("get_sim_switch_capabilities", `{"supportSwitch":"0"}`)
@@ -557,5 +559,66 @@ qmodem.bad-name=modem-device`
 	want := "2_1,3_1"
 	if strings.Join(got, ",") != want {
 		t.Fatalf("enabled modem sections = %v, want %s", got, want)
+	}
+}
+
+func TestParseUSBMode(t *testing.T) {
+	cases := []struct{ raw, want string }{
+		{`{"mode":{"qmi":"1","mbim":"0","ecm":"0"}}`, "qmi"},
+		{`{"mode":{"qmi":"0","ecm":"1"}}`, "ecm"},
+		{`{"mode":"mbim"}`, "mbim"},
+		{`{"mode":{}}`, ""},
+	}
+	for _, c := range cases {
+		if got := parseUSBMode([]byte(c.raw)); got != c.want {
+			t.Fatalf("parseUSBMode(%s) = %q, want %q", c.raw, got, c.want)
+		}
+	}
+}
+
+func TestReadUSBSpeed(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/speed", []byte("5000\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"/version", []byte("3.20\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	mbps, ver := readUSBSpeed(dir)
+	if mbps != 5000 || ver != "3.20" {
+		t.Fatalf("readUSBSpeed = %d/%q, want 5000/3.20", mbps, ver)
+	}
+	if mbps, ver := readUSBSpeed(t.TempDir()); mbps != 0 || ver != "" {
+		t.Fatalf("empty dir = %d/%q, want 0/empty", mbps, ver)
+	}
+}
+
+func TestQuectelTrafficHostPerspective(t *testing.T) {
+	f := quectelFixture("modem1")
+	// Quectel/QGDNRCNT 的 total_rx/total_tx 是模组视角；快照需按宿主视角交换。
+	f["modem1.get_stats"] = `{"available":true,"updated_at":1,"total_rx_bytes":100,"total_tx_bytes":1000}`
+	out, _ := buildCellular([]string{"modem1"}, f.fetch, newCellularSeriesStore(), time.Now())
+	if len(out.Modems) != 1 || out.Modems[0].Traffic == nil {
+		t.Fatalf("traffic missing: %+v", out.Modems)
+	}
+	tr := out.Modems[0].Traffic
+	if tr.RxBytes != 1000 || tr.TxBytes != 100 {
+		t.Fatalf("host perspective rx/tx = %d/%d, want 1000/100", tr.RxBytes, tr.TxBytes)
+	}
+}
+
+func TestEnrichUSBSpeedsValueSlice(t *testing.T) {
+	modems := []snapshot.CellularModem{{ID: "2_1"}, {ID: "3_1"}}
+	enrichUSBSpeeds(modems, func(sec string) (int, string) {
+		if sec == "2_1" {
+			return 5000, "3.20"
+		}
+		return 0, ""
+	})
+	if modems[0].USBSpeedMbps != 5000 || modems[0].USBVersion != "3.20" {
+		t.Fatalf("usb speed not written: %+v", modems[0])
+	}
+	if modems[1].USBSpeedMbps != 0 || modems[1].USBVersion != "" {
+		t.Fatalf("unexpected usb speed: %+v", modems[1])
 	}
 }

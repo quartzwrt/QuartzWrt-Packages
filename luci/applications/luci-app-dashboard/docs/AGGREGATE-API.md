@@ -142,9 +142,10 @@
 | `signal` | object\|省略 | `{rsrp, rsrq, sinr, rssi, quality_pct, series}`——四指标取上游 `progress_bar` 条目的值；`quality_pct` 用**同一条目的 min/max** 归一并 clamp 0–100（无标尺时回退 RSRP -140…-44）；`series{step,rsrp[]}` = **daemon 侧累积**的 RSRP 环形（≤60 点，10s/点 → 10 分钟窗口，三端同源曲线） |
 | `serving_cells` | array\|省略 | **≤4 条**，源自 `get_current_band.cells`：`{role, rat, band, channel, channel_type, pci, dl_bandwidth, ul_bandwidth, scs}` |
 | `dial` | object\|省略 | `{running, ipv4?, rx_bps?, tx_bps?}`；`running` 由上游**字符串布尔** `"true"/"false"` 归一；速率字符串（`"18.2 MB/s"`/`"150 Mbps"`）解析为 Byte/s（bit/byte 按大小写区分） |
-| `traffic` | object\|省略 | `{available, updated_at, rx_bytes, tx_bytes, reset{enabled,type,hour,day}}`；`available=false` = 本模组不支持统计（上游 generic 桩恒 `0`）→ 消费方**不得展示 0 值** |
+| `traffic` | object\|省略 | `{available, updated_at, rx_bytes, tx_bytes, reset{enabled,type,hour,day}}`；**宿主视角**：`rx_bytes`=下行、`tx_bytes`=上行。`available=false` = 本模组不支持统计（上游 generic 桩恒 `0`）→ 消费方**不得展示 0 值**。Quectel/QGDNRCNT 上游为模组视角（`total_rx≈宿主上行`），daemon 已交换归一 |
 | `sim` | object\|省略 | `{status, slot, switchable, isp?}`；`switchable` 来自 `get_sim_switch_capabilities.supportSwitch`（字符串 `"0"/"1"`）；`isp` = `sim_info.ISP`（如 `46001`；2026-10-19 加法）。存储容量、未读数、IMEI/IMSI/ICCID **不在本节**（页面级读/敏感值） |
-| `settings` | object\|省略 | `{usb_mode?, prefer?, lockband[]?}` 当前设置回显（尽力取，取不到即省略）。**语义**（读上游源码核实）：`usb_mode` = `get_mode` 的 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm，AT+QCFG="usbnet"）——**不是** 5G/4G 网络模式；网络偏好在 `prefer`（`get_network_prefer` 的 3G/4G/5G 标志位归一，如 `"4G+5G"`）；`lockband` 为条目串（如 `"NR:41,78,79"`） |
+| `settings` | object\|省略 | `{usb_mode?, prefer?, lockband[]?}` 当前设置回显（尽力取，取不到即省略）。**语义**（读上游源码核实）：`usb_mode` = `get_mode` 的 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm，AT+QCFG="usbnet"）——**不是** 5G/4G 网络模式；`get_mode` 的对象形态（`{"mode":{"qmi":"1",...}}`）已解析为字符串；网络偏好在 `prefer`（`get_network_prefer` 的 3G/4G/5G 标志位归一，如 `"4G+5G"`）；`lockband` 为条目串（如 `"NR:41,78,79"`） |
+| `usb_speed_mbps` / `usb_version` | int / string（可选） | USB 链路速率（Mbps）与版本（如 `5000` / `"3.20"`），来自 `qmodem.<id>.path` 的 sysfs `speed`/`version`；PCIe 模组或无 sysfs 时省略（2026-10-21 加法） |
 | `capabilities` | object | 单模组能力：`{at, sms, sim_switch, stats, current_band, temp}`——不支持项由消费方**灰显并注明原因** |
 
 - 整节缺失（`null`）= 慢刷异常（errors 记一条）；`available=false` 时除 `available` 外字段省略。

@@ -3,6 +3,7 @@ package collect
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -152,7 +153,18 @@ func collectCellular(now time.Time, series *cellularSeriesStore) (*snapshot.Cell
 		// 网页端此时同样无可见数据，报错只会污染 errors 面板）
 		return &snapshot.Cellular{Available: false}, nil
 	}
+	// USB 链路速率/版本（生产路径；不注入 buildCellular，单测保持纯函数）
+	enrichUSBSpeeds(out.Modems, usbLinkInfo)
 	return out, nil
+}
+
+// enrichUSBSpeeds 按索引写入 USB 链路信息（Modems 是值切片，range 副本写不回）。
+func enrichUSBSpeeds(modems []snapshot.CellularModem, lookup func(string) (int, string)) {
+	for i := range modems {
+		if mbps, ver := lookup(modems[i].ID); mbps > 0 {
+			modems[i].USBSpeedMbps, modems[i].USBVersion = mbps, ver
+		}
+	}
 }
 
 // buildCellular 由取数结果构造本节（纯函数，单测直插 fetch）。
@@ -387,6 +399,13 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 			tr := &snapshot.CellularTraffic{Available: avail, UpdatedAt: v.UpdatedAt}
 			if avail {
 				tr.RxBytes, tr.TxBytes = v.RxBytes, v.TxBytes
+				// Quectel/Qualcomm 的 get_stats（QGDNRCNT）是模组视角：
+				// total_rx_bytes ≈ 宿主 tx（上行），total_tx_bytes ≈ 宿主 rx（下行）。
+				// H5000M 实测 total_tx_bytes≈wwan0_1 rx_bytes、total_rx_bytes≈tx_bytes；
+				// 归一为宿主视角，Dashboard/App 的“下/上行”才与接口计数一致。
+				if strings.EqualFold(m.Vendor, "quectel") {
+					tr.RxBytes, tr.TxBytes = tr.TxBytes, tr.RxBytes
+				}
 				m.Capabilities.Stats = true
 			}
 			if m.Traffic == nil {
@@ -443,7 +462,7 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 	// 设置回显（尽力：形状随厂商，失败即省略）
 	if raw := callOpt("get_mode"); raw != nil {
 		// 注意：这是 **USB 拨号模式**（qmi/ecm/mbim/rndis/ncm），不是网络模式
-		if v := stringField(raw, "mode"); v != "" {
+		if v := parseUSBMode(raw); v != "" {
 			m.Settings = ensureSettings(m.Settings)
 			m.Settings.USBMode = v
 		}
@@ -792,6 +811,66 @@ func jsonBool(raw json.RawMessage) (bool, bool) {
 		return false, true
 	}
 	return false, false
+}
+
+// parseUSBMode 解析 get_mode 的两种形态：
+//   - {"mode":{"qmi":"1","mbim":"0",...}}（H5000M 实测；取值为 "1" 的键）
+//   - {"mode":"qmi"}（旧/其他厂商形态）
+func parseUSBMode(raw []byte) string {
+	var v struct {
+		Mode json.RawMessage `json:"mode"`
+	}
+	if json.Unmarshal(raw, &v) == nil && len(v.Mode) > 0 {
+		var s string
+		if json.Unmarshal(v.Mode, &s) == nil {
+			if s = strings.TrimSpace(s); s != "" {
+				return s
+			}
+		}
+		var modes map[string]json.RawMessage
+		if json.Unmarshal(v.Mode, &modes) == nil {
+			for _, k := range []string{"qmi", "mbim", "ecm", "rndis", "ncm", "gobinet"} {
+				if b, ok := modes[k]; ok {
+					if on, ok := jsonBool(b); ok && on {
+						return k
+					}
+				}
+			}
+		}
+	}
+	return stringField(raw, "mode")
+}
+
+// usbLinkInfo 读取模组 USB 链路速率/版本（PCIe 或路径不可用时返回 0/空）。
+// 路径来自 qmodem UCI `path`（如 /sys/bus/usb/devices/2-1/），前缀白名单防任意读。
+func usbLinkInfo(section string) (int, string) {
+	out, err := execTimeout(1*time.Second, "uci", "-q", "get", "qmodem."+section+".path")
+	if err != nil {
+		return 0, ""
+	}
+	path := strings.TrimSpace(string(out))
+	if path == "" || !strings.HasPrefix(path, "/sys/bus/usb/devices/") {
+		return 0, ""
+	}
+	return readUSBSpeed(path)
+}
+
+// readUSBSpeed 从 sysfs 读取 speed（Mbps）/version（如 3.20）。
+func readUSBSpeed(path string) (int, string) {
+	path = strings.TrimRight(path, "/")
+	raw, err := os.ReadFile(path + "/speed")
+	if err != nil {
+		return 0, ""
+	}
+	mbps, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil || mbps <= 0 {
+		return 0, ""
+	}
+	ver := ""
+	if b, err := os.ReadFile(path + "/version"); err == nil {
+		ver = strings.TrimSpace(string(b))
+	}
+	return mbps, ver
 }
 
 // stringField 取 JSON 对象里的首个非空字符串字段。

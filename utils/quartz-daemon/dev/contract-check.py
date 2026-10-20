@@ -327,6 +327,12 @@ def main() -> int:
                                 v = tr.get(k)
                                 if v is not None and (not is_int(v) or v < 0):
                                     err(f"cellular.modems[{i}].traffic.{k}: not non-negative int/absent")
+                    us = m.get("usb_speed_mbps")
+                    if us is not None and (not is_int(us) or us < 0):
+                        err(f"cellular.modems[{i}].usb_speed_mbps: not non-negative int/absent")
+                    uv = m.get("usb_version")
+                    if uv is not None and not isinstance(uv, str):
+                        err(f"cellular.modems[{i}].usb_version: not string/absent")
 
     # errors
     er = s.get("errors")

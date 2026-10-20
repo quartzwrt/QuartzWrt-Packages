@@ -253,22 +253,25 @@ type CellularModem struct {
 	Operator    string   `json:"operator,omitempty"`
 	NetworkMode string   `json:"network_mode,omitempty"`
 	// 2026-10-19 加法（对齐 qmodem 首页 Base/Network Information；全部可选）：
-	ATPort        string             `json:"at_port,omitempty"`
-	VoltageMV     int                `json:"voltage_mv,omitempty"`
-	ConnectStatus string             `json:"connect_status,omitempty"`
-	NetworkType   string             `json:"network_type,omitempty"`
-	CQIUL         int                `json:"cqi_ul,omitempty"`
-	CQIDL         int                `json:"cqi_dl,omitempty"`
-	AMBRUL        int                `json:"ambr_ul,omitempty"`
-	AMBRDL        int                `json:"ambr_dl,omitempty"`
-	CellInfo      *CellularCellInfo  `json:"cell_info,omitempty"`
-	Signal        *CellularSignal    `json:"signal,omitempty"`
-	ServingCells  []CellularCell     `json:"serving_cells,omitempty"`
-	Dial          *CellularDial      `json:"dial,omitempty"`
-	Traffic       *CellularTraffic   `json:"traffic,omitempty"`
-	SIM           *CellularSIM       `json:"sim,omitempty"`
-	Settings      *CellularSettings  `json:"settings,omitempty"`
-	Capabilities  *CellularModemCaps `json:"capabilities,omitempty"`
+	ATPort        string `json:"at_port,omitempty"`
+	VoltageMV     int    `json:"voltage_mv,omitempty"`
+	ConnectStatus string `json:"connect_status,omitempty"`
+	// 2026-10-21 加法：USB 链路速率/版本（USB 模组；PCIe 或无 sysfs 时省略）
+	USBSpeedMbps int                `json:"usb_speed_mbps,omitempty"`
+	USBVersion   string             `json:"usb_version,omitempty"`
+	NetworkType  string             `json:"network_type,omitempty"`
+	CQIUL        int                `json:"cqi_ul,omitempty"`
+	CQIDL        int                `json:"cqi_dl,omitempty"`
+	AMBRUL       int                `json:"ambr_ul,omitempty"`
+	AMBRDL       int                `json:"ambr_dl,omitempty"`
+	CellInfo     *CellularCellInfo  `json:"cell_info,omitempty"`
+	Signal       *CellularSignal    `json:"signal,omitempty"`
+	ServingCells []CellularCell     `json:"serving_cells,omitempty"`
+	Dial         *CellularDial      `json:"dial,omitempty"`
+	Traffic      *CellularTraffic   `json:"traffic,omitempty"`
+	SIM          *CellularSIM       `json:"sim,omitempty"`
+	Settings     *CellularSettings  `json:"settings,omitempty"`
+	Capabilities *CellularModemCaps `json:"capabilities,omitempty"`
 }
 
 // CellularCellInfo qmodem 首页 Cell Information 段（单服务小区；MCC/MNC/TAC/

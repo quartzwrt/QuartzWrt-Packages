@@ -343,6 +343,9 @@ msgstr "速率"
 msgid "USB mode"
 msgstr "USB 模式"
 
+msgid "USB speed"
+msgstr "USB 速率"
+
 msgid "This month"
 msgstr "本月流量"
 

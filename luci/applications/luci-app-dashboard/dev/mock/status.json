@@ -458,6 +458,8 @@
           "switchable": true,
           "isp": "46001"
         },
+        "usb_speed_mbps": 5000,
+        "usb_version": "3.20",
         "settings": {
           "usb_mode": "qmi",
           "prefer": "5G",
