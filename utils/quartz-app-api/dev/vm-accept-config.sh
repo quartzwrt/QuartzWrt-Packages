@@ -53,8 +53,8 @@ EXP_IP=$(vmv 'uci -q get network.lan.ipaddr')
 EXP_IP_BASE=${EXP_IP%%/*}
 OUT=$(call quartz-app-api config.read "{\"access_token\":\"$TOK\",\"config\":\"network\",\"section\":\"lan\",\"option\":\"ipaddr\"}")
 ck "读 network.lan.ipaddr（含真实值 $EXP_IP_BASE）" $(printf '%s' "$OUT" | grep -q "$EXP_IP_BASE" && echo 0 || echo 1)
-OUT=$(call quartz-app-api config.read "{\"access_token\":\"$TOK\",\"config\":\"firewall\"}")
-ck "未注册配置 firewall → forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden_action' && echo 0 || echo 1)
+OUT=$(call quartz-app-api config.read "{\"access_token\":\"$TOK\",\"config\":\"openclash\"}")
+ck "未注册配置 openclash → forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden_action' && echo 0 || echo 1)
 OUT=$(call quartz-app-api config.read "{\"access_token\":\"$TOK\",\"config\":\"system\",\"section\":\"@system[0]\",\"option\":\"rootpw\"}")
 ck "未注册选项 → forbidden_action" $(printf '%s' "$OUT" | grep -q 'forbidden_action' && echo 0 || echo 1)
 
