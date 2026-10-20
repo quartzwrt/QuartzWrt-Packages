@@ -21,7 +21,16 @@ if ! uci -q get uhttpd.app >/dev/null; then
 	uci set uhttpd.app.script_timeout='60'
 	uci set uhttpd.app.max_requests='16'
 	uci set uhttpd.app.rfc1918_filter='0'
+	# 本实例只提供 /ubus；不设 home 时 uhttpd 默认 `/`，会把文件系统根
+	# 以目录列表形式暴露在 443。固定到 LuCI 静态根（目录必须存在）。
+	uci set uhttpd.app.home='/www'
 	uci commit uhttpd || exit 1
+	/etc/init.d/uhttpd restart >/dev/null 2>&1
+fi
+# 修复已存在设备（升级/首启前旧配置无 home 或为 `/`）
+if [ "$(uci -q get uhttpd.app.home)" = "/" ] || [ -z "$(uci -q get uhttpd.app.home)" ]; then
+	uci set uhttpd.app.home='/www'
+	uci commit uhttpd
 	/etc/init.d/uhttpd restart >/dev/null 2>&1
 fi
 

@@ -17,7 +17,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-daemon
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=7
+PKG_RELEASE:=9
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=QuartzWrt
@@ -55,6 +55,15 @@ endef
 
 define Package/quartz-daemon/conffiles
 /etc/config/quartz-daemon
+endef
+
+# 运行时安装/升级：立即启用并重启，避免进程继续跑旧二进制（H5000M 热升级实测）
+define Package/quartz-daemon/postinst
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+/etc/init.d/quartz-daemon enable >/dev/null 2>&1
+/etc/init.d/quartz-daemon restart >/dev/null 2>&1
+exit 0
 endef
 
 # in-tree 源码：直接拷贝工作副本（不走自我引用 git 下载），改动即编译

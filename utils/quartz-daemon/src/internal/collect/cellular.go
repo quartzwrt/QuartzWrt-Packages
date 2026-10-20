@@ -76,17 +76,45 @@ func modemSections() []string {
 	if err != nil {
 		return nil
 	}
-	var secs []string
-	for _, line := range strings.Split(string(out), "\n") {
+	return parseModemSections(string(out))
+}
+
+// parseModemSections 从 `uci show qmodem` 输出提取**启用**的 modem-device section。
+// qmodem 在 USB 重新枚举后会保留旧 path 的 section 并置 state=disabled（H5000M
+// 重启实测 1_1/2_1 并存）；disabled 段进快照会让 App/Dashboard 出现两个模组
+// （其中一个 dial.running=false）。无 state 字段的 section 保持旧行为（视为启用）。
+func parseModemSections(raw string) []string {
+	type secInfo struct {
+		modem bool
+		state string
+	}
+	infos := map[string]*secInfo{}
+	for _, line := range strings.Split(raw, "\n") {
 		key, val, ok := strings.Cut(strings.TrimSpace(line), "=")
-		if !ok || unquote(val) != "modem-device" {
+		if !ok {
 			continue
 		}
 		parts := strings.Split(key, ".")
-		if len(parts) != 2 || parts[0] != "qmodem" || !validModemSection(parts[1]) {
+		if len(parts) < 2 || parts[0] != "qmodem" || !validModemSection(parts[1]) {
 			continue
 		}
-		secs = append(secs, parts[1])
+		info := infos[parts[1]]
+		if info == nil {
+			info = &secInfo{}
+			infos[parts[1]] = info
+		}
+		switch {
+		case len(parts) == 2 && unquote(val) == "modem-device":
+			info.modem = true
+		case len(parts) == 3 && parts[2] == "state":
+			info.state = strings.ToLower(unquote(val))
+		}
+	}
+	var secs []string
+	for sec, info := range infos {
+		if info.modem && info.state != "disabled" {
+			secs = append(secs, sec)
+		}
 	}
 	sort.Strings(secs)
 	if len(secs) > cellularMaxModems {

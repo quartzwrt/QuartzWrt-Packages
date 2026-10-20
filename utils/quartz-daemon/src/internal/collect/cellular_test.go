@@ -540,3 +540,22 @@ func TestCellularActiveModemMissingCritical(t *testing.T) {
 		}
 	}
 }
+
+func TestParseModemSectionsSkipsDisabled(t *testing.T) {
+	raw := `qmodem.main=main
+qmodem.main.modem_count='2'
+qmodem.1_1=modem-device
+qmodem.1_1.path='/sys/bus/usb/devices/1-1/'
+qmodem.1_1.state='disabled'
+qmodem.2_1=modem-device
+qmodem.2_1.path='/sys/bus/usb/devices/2-1/'
+qmodem.2_1.state='enabled'
+qmodem.3_1=modem-device
+qmodem.usb0=modem-slot
+qmodem.bad-name=modem-device`
+	got := parseModemSections(raw)
+	want := "2_1,3_1"
+	if strings.Join(got, ",") != want {
+		t.Fatalf("enabled modem sections = %v, want %s", got, want)
+	}
+}

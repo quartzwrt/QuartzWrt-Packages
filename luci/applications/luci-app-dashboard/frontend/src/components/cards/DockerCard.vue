@@ -17,8 +17,8 @@ const tone = (state) => (state === 'running' ? 'ok' : state === 'paused' ? 'warn
 <template>
 	<template v-if="d && d.available !== false">
 		<div class="qzd-docker-head">
-			<Dot :state="d.running ? 'ok' : 'warn'" />
-			<span>{{ d.running ? t('running') : t('stopped') }}</span>
+			<Dot :state="d.available ? 'ok' : 'warn'" />
+			<span>{{ d.available ? t('running') : t('stopped') }}</span>
 			<span v-if="d.version" class="qzd-mono">{{ d.version }}</span>
 			<span v-if="d.driver" class="qzd-muted">&middot; {{ d.driver }}</span>
 			<span v-if="d.root_dir" class="qzd-muted qzd-docker-root">{{ d.root_dir }}</span>
