@@ -1,8 +1,8 @@
 # luci-theme-quartz 设计规范
 
-**版本**: v1.5
-**日期**: 2026-10-12（v1.3：2026-10-14）
-**状态**: 设计定案 + 实现完成（W2.0–W2.12 全量关闭）；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验、W2.11 页脚材质 + W2.12 页底钉底 VM 复验（含 60 页全量回归）；进度与剩余项见 §10、§12
+**版本**: v1.6
+**日期**: 2026-10-25（v1.6：2026-10-25；v1.3：2026-10-14）
+**状态**: 设计定案 + 实现完成（W2.0–W2.13 全量关闭）；W2.7 锁定固件复核、W2.9 壁纸管理面 VM 验收 15/15、W2.10 R1 反馈轮 VM 复验、W2.11 页脚材质 + W2.12 页底钉底 VM 复验（含 60 页全量回归）、W2.13 实机巡检优化（顶层区段卡片化 / 壁纸内容面 / 移动端表格卡片化 / 抽屉透明度跟随配置 / 下拉显隐 / 小字号状态色）；进度与剩余项见 §10、§12
 **依据**: TDD §3.3（`QuartzWrt-Builder/docs/TDD.md`）；视觉参照 [macOS Vibrancy · StyleKit](https://www.stylekit.top/zh/styles/macos-vibrancy)（2026-10-12 抓取提取）
 
 ---
@@ -41,7 +41,8 @@
 | `--qz-bg-raised` | `#3a3a3c` | `#ffffff` + 描边 | 按钮等抬升元素（保持不透明） |
 | `--qz-bg-well` | `rgba(28,28,30,α)` | `rgba(242,242,247,α)` | 输入框、代码块等"下沉"面 |
 | `--qz-chrome` | `rgba(28,28,30,α×.80)` | `rgba(242,242,247,α×.72)` | 侧边栏 / 顶栏 / 页面操作条 / 页脚（版本行） / 模态遮罩，叠加 `blur(20px)`；**透明度与内容面板同源**（`.72`/`.80` 是 `α=1` 时的基准值，配置调低时整界面同步变透，chrome 恒比面板更透） |
-| `--qz-scrim` | `rgba(28,28,30,.45)` | `rgba(242,242,247,.55)` | 壁纸与内容之间的压暗/提亮层（保证对比度） |
+| `--qz-scrim` | `rgba(28,28,30,.45)`（壁纸模式 .62） | `rgba(242,242,247,.55)` | 壁纸与内容之间的压暗/提亮层（保证对比度） |
+| `--qz-content-bg` | = `--qz-bg-panel` | = `--qz-bg-panel` | **壁纸模式内容面**：严格跟随 `panel_opacity`（= `rgba(var(--qz-bg-panel-rgb), α)`），不是独立透明度；仅作为命名 hook |
 
 暗色三级灰直接取自参考稿。浅色不反相：macOS 亮色下"抬升"是白、面板也是白（靠描边区分），"下沉"面用灰（systemGray6 系）。
 
@@ -66,6 +67,9 @@
 | `--qz-warn` | `#ff9f0a` | `#ff9500` | macOS 系统橙配对 |
 | `--qz-err` | `#ff453a` | `#ff3b30` | macOS 系统红配对 |
 | `--qz-focus` | `rgba(10,132,255,.30)` | `rgba(0,122,255,.30)` | 焦点环：`0 0 0 2px`，用于输入框/按钮/链接 |
+| `--qz-accent-text` | `#64b5ff` | `#0066cc` | 小字号链接/文本型按钮专用（≈5.2:1 / 4.7:1）；填充仍用 `--qz-accent` |
+| `--qz-err-text` | `#ff8a80` | `#d70015` | 小字号危险操作文字（≈5.0:1 / 4.6:1）；填充仍用 `--qz-err` |
+| `--qz-warn-text` | `#ffb340` | `#a34f00` | 顶栏 Refreshing 等警告文字（≈7.8:1 / 5.1:1） |
 | hover 叠加 | `rgba(255,255,255,.05)` | `rgba(0,0,0,.04)` | 列表项/侧边栏项/普通按钮 |
 | active 叠加 | `rgba(255,255,255,.10)` | `rgba(0,0,0,.08)` | 选中态 |
 
@@ -98,11 +102,12 @@
 | :--- | :--- |
 | 侧边栏 mainmenu / 顶栏 | `--qz-chrome` + blur，固定定位；激活项 active 叠加 + `--qz-text`；hover 用 hover 叠加 |
 | 侧边栏开合（顶栏汉堡） | 窄屏(≤900px)：抽屉式（`html.qz-nav-open` + 遮罩，默认收起）；桌面(>900px)：收起切换（`html.qz-nav-collapsed`，侧边栏左移 + 顶栏/内容列让位），选择存 localStorage、header 首绘前恢复 |
-| 内容区背景 | `--qz-bg-base` |
+| 内容区背景 | `--qz-bg-base`；顶层 `.cbi-section` 始终按面板卡片处理（`--qz-bg-panel` + padding/描边/圆角）；壁纸模式：`#view > .cbi-section` / `.cbi-map` / `.cbi-map-tabbed` 区段改用 `--qz-content-bg`，正文不再直接压在壁纸上 |
 | 字段集 fieldset / cbi-section / 卡片 | `--qz-bg-panel` + 1px `--qz-border` + `--qz-radius` |
 | 输入类（cbi-input-*、下拉、textarea） | `--qz-bg-well` + `--qz-border`；focus 时边框提亮 + `--qz-focus` 环 |
 | 按钮（cbi-button） | 普通 = `--qz-bg-raised`（浅色配描边）；主按钮（-apply/-save/-action）= accent 实心白字；危险操作 = `--qz-err` |
-| 表格（cbi-table / table） | 容器 panel；表头 `--qz-text-2`；行分隔 1px border；行 hover 叠加 |
+| 表格（cbi-table / table） | 容器 panel；表头 `--qz-text-2`；行分隔 1px border；行 hover 叠加；长值 `overflow-wrap:anywhere`；≤900px 时区段卡片横向滚动（排除含 `.cbi-dropdown` 的区段，避免裁剪浮层） |
+| 高频列表（≤600px） | 网络接口 / 防火墙 zone / 软件包三张表卡片化：一行一卡，字段纵向排列，操作按钮底部右对齐；软件包描述单行省略 |
 | Tabs（cbi-tabmenu） | 选中项用 active 叠加 + 文字提亮，不用彩色底 |
 | 模态（cbi-modal） | 遮罩 = scrim + blur；面板 = `--qz-bg-panel` + `--qz-radius` + 2px 阴影（阴影唯一使用点） |
 | 通知（LuCI ui.js） | 深/浅面板 + 左侧 2px 状态色条（彩色仅作提示条，不作底） |
@@ -110,6 +115,10 @@
 | 页脚（版本行） | **页底 chrome**：`--qz-chrome` + blur；与贴底操作条相邻时由操作条的上边框承担分隔、两者合并为一条 chrome 面（`:has(.cbi-page-actions)` 抑制自身描边），独处页底时自己画 1px 描边；`--qz-text-3` + 12px 保持"页脚注脚"层级 |
 | 布局（视口高度链，W2.12） | `body:has(#maincontent)` → `#maincontent` → `#view:has(> .cbi-page-actions)` 依次 flex 列 + `flex:1`，操作条 `margin-top: auto` 吃掉余量 → **「贴底操作条 + 页脚」在短页也钉在窗口底**；长页余量为 0、`auto` 归零，滚动贴底行为与旧版一致。限定在「有内容区/有操作条」的页面 → 登录页（空白页）与只读视图（仪表盘等无操作条）布局零变化 |
 | 登录页 | 品牌时刻：壁纸直出 + chrome 材质卡片浮层 + wordmark（SVG） |
+| 移动端抽屉 | ≤900px 覆盖式抽屉与桌面侧边栏同源使用 `--qz-chrome`；透明度严格跟随 `panel_opacity`（50% 时允许透出下层，建议移动端提高到 80–100%） |
+| 下拉控件 | 带描述的 ListValue：`.hide-open` 收起显示标题、`.hide-close` 展开显示描述（与 bootstrap 同款），避免标题/描述重叠 |
+| 表格行内操作 | `.table` / `.cbi-section-table` 内的 `-action` 改为描边 + `--qz-accent-text`，仅页面级 `-apply/-save` 保持 accent 实心 |
+| 第三方容器区段 | `.cbi-map` 内任意非区段 div 直接包裹的 `.cbi-section`（排除嵌套在区段内的）按面板卡片处理，覆盖 qmodem `#modem_info_container`、自定义 tab 内容、SIM 卡短信外层容器；qmodem 自定义内容容器 `#at_interface_container` / `#sms-list-content` / `#sim_switch_container` 也按内容面卡片处理；`.copyright-section` 在未分层兜底中统一为内容面；自定义 tab 条 `#maincontent > #tabmenu` 在壁纸模式下也套内容面 |
 
 **版式密度**：参考稿是 hero 大标题、大间距的展示型页面；LuCI 是高密度管理界面。风格 DNA 全盘保留，版式按管理界面重设——正文基准 14px（text-sm），大标题体系仅登录页与 Dashboard hero 使用。
 
@@ -283,6 +292,7 @@ luci/applications/luci-app-quartz-config/
   证据：本节命令行记录 + `dev/shots/vm-test-{dark,light}/`（此前 59 页×双模全量截图）。
 - ✅ **W2.11 页脚页底 chrome（2026-10-14，R1 反馈补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）**：`footer` 由裸文本改为 `--qz-chrome` + `blur(var(--qz-blur))` 的页底 chrome 面，padding 调整为 `8px 24px 10px`；有页面操作条时 `body:has(.cbi-page-actions) footer{border-top:none}` 抑制描边、两者合并为一条 chrome 面（分隔线由操作条上边框承担），无操作条时保留 1px 描边；`@supports not (backdrop-filter)` 与 `prefers-reduced-transparency` 兜底列表同步纳入 `footer`（此时 chrome 退化为实心、去模糊）。**VM 复验**（用户壁纸 + 不透明度 50% 的实机态）：computed `background-color: rgba(28,28,30,.4)`/`rgba(242,242,247,.36)` + `blur(20px)`；有操作条页 `border-top-width: 0px`、无操作条页 `1px rgba(255,255,255,.08)`；页脚盒 [864,900] 紧接操作条 [806,864]（视口 900）连成一条带。证据 `dev/shots/footer-r1/`（长页×双模×壁纸/无壁纸 + 无操作条 + 短页）。
 - ✅ **W2.12 页底钉底（2026-10-14，R1 反馈补充 2，用户实测「版本栏和操作条在其他页面测试是没有贴底的」）**：把「页底 chrome 贴窗口底」从「长页成立、短页落在内容末尾」补成**全页成立**——视觉链 `body:has(#maincontent)`（flex 列）→ `#maincontent`（flex:1 + flex 列）→ `#view:has(> .cbi-page-actions)`（flex:1 + flex 列）→ `.cbi-page-actions { margin-top: auto }`（吃掉余量后落到容器底，其 −24px 下边距贴齐 `#maincontent` 的 padding-box 底 = 页脚上缘）。两处 `:has()` 限定把改动圈在「有内容区 / 有操作条」的页面：**登录页（空白页）`body` 仍是块级、只读视图与仪表盘 `#view` 仍是块级**（子元素 margin 折叠行为不变）。**VM 实测（before/after 同口径 8 页 + 登录页几何）**：短页（管理权/关于/重启/启动项）页脚由内容末尾（348/417/…）→ **视口底 900**；带操作条的短页（管理权）操作条由 [528,586] → **[806,864]，紧接页脚 [864,900]**；长页（Quartz 主题/防火墙/DHCP/概览）行为不变（滚动贴底、文档末尾落位）；横幅→内容间距 14px 保持不变；末卡→操作条间距 24px → 20px（flex 不再折叠 margin，末段自带的 20px 下边距直接生效，差值 4px 不可感）；登录页模态几何逐项一致（`body` display: block、模态 [570,132,360,475]）。证据 `dev/shots/sticky-bottom/`（短页有/无操作条、长页末尾、仪表盘 × 双模）。
+- ✅ **W2.13 实机巡检优化（2026-10-25，Hiveton H5000M / QuartzWrt v0.2.0）**：按用户确认的预览落地——①顶层 `#view > .cbi-section` 始终卡片化（`--qz-bg-panel` + padding/描边/圆角）；壁纸模式下 `#view > .cbi-section` / `.cbi-map` / `.cbi-map-tabbed` 区段改用内容面（`--qz-content-bg` = `--qz-bg-panel`，严格跟随 `panel_opacity`）并加深色 scrim .62；②补 `.cbi-map-tabbed > .cbi-section` 与 `.cbi-map div > .cbi-section` 面板选择器（网络→接口、qmodem 信息区段/自定义 tab/SIM 卡短信此前无卡片底），qmodem 自定义内容容器 `#at_interface_container` / `#sms-list-content` / `#sim_switch_container` 与 `.copyright-section` 统一为内容面；③≤600px 把网络接口 / 防火墙 zone / 软件包三张高频表卡片化，390px 视口下页面宽度由 711/575/1031 收到 390；④移动端抽屉恢复与桌面侧边栏同源 `--qz-chrome`，透明度严格跟随 `panel_opacity`（不再覆盖为实底）；⑤补 `.hide-open` / `.hide-close` 四条规则，修复防火墙“流量卸载类型”标题/描述重叠；⑥新增 `--qz-{accent,err,warn}-text` 文字色变体并用于链接、危险操作、Refreshing；表格行内 `-action` 降级为描边；⑦长值 `overflow-wrap:anywhere` 把 Dockerman 概览文档宽从 6063px 收到 1440px；≤900px 区段横向滚动兜底（不含自绘下拉的区段）。真机热更复验：桌面 1440 与手机 390 双模均无页面级横向溢出；设备 CSS md5 与仓库一致。证据与前后对照见 `~/qz-theme-review-20261025/REPORT.md` 与 `preview/index.html`。
 - ✅ **单包编译验证（随每次全量构建持续复核）**：`luci-theme-quartz` apk 每次固件构建产出并在 manifest 在列（x86_64 与 rockchip/armv8 双目标；镜像级三层验证见 WORKPLAN §7 日志 2026-10-12 条目）。
 - ✅ **W2.9 壁纸管理面（2026-10-14，本对话，用户指令「WP-2 的壁纸功能没加上，在 config 软件包里加进去」）**：把 DESIGN §4「机制先行、上传 UI 后置」的欠账补进 `luci-app-quartz-config`——配置页新增壁纸区块（预览 + 体积/尺寸/更新时间 + 上传/替换/移除），客户端收敛（源图 ≤25MB 护栏、最长边 ≤1920px、转 JPEG 压平透明、逐档降质至 ≤2MB），上传走 `cgi-upload`（同请求 `filemode=644`）、移除走 rpcd `file remove`；ACL 只逐字授权单一路径 + 所需方法；投放目录随包创建、`/lib/upgrade/keep.d` 保 sysupgrade 后保留。**验收 15/15**（VM 预览台 Playwright：初始/上传/跨页探测/替换/移除 + 服务端 200/JPEG 魔数 + mode=644 + 无 JS 异常），证据 `dev/shots/vm-wallpaper/`，工具 `dev/wallpaper-e2e.py`。全程**零主题改动**（机制与探测路径原样复用）。
 
@@ -297,7 +307,7 @@ luci/applications/luci-app-quartz-config/
 
 - **Logo**：方向 B「切面宝石」暂定（2026-10-12，用户选定）并已入库——结构为六边形外廓 + 顶部切面折线 + 中轴（顶点网格 2/4/12/20/22，stroke 1.6），四处同源：`logo.svg`（favicon）、`header.ut`（侧边栏内联）、`view/quartz/sysauth.js`（登录页内联）、预览页。候选页（A–D）保留在 `dev/logo-candidates.html` 供日后回看；如需再迭代在此方向上细化。
 - **机制核实结果（原"检出后验证"项，已通过基座源码核实并落入实现）**：`luci.mk` 收集并安装 `ucode/` 至 `/usr/share/ucode/luci`；模板解析 = `themes/$(basename mediaurlbase)/*`；双模 = `html[data-darkmode]`；主题注册 = `luci.themes.*` uci 项。**已在锁定固件上逐项复核通过（W2.7，2026-10-14）**：模板落点 `/usr/share/ucode/luci/template/themes/quartz/*.ut`、`luci.themes.Quartz` 注册、`data-qz-*` 首绘前生效均实测。
-- **可选增强（后置）**：~~短页粘底布局~~ → W2.12 已实现（视口高度链 + 两处 `:has()` 限定，登录页/只读视图零影响；见 §3 布局行）、强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
+- **可选增强（后置）**：~~短页粘底布局~~ → W2.12 已实现、~~移动端表格~~ → W2.13 已实现（高频三表卡片化 + 区段滚动兜底）、~~Dockerman 横向溢出~~ → W2.13 已用 `overflow-wrap:anywhere` 收敛、强调色可换（macOS 本身允许）、跨设备主题持久化（uci）、**壁纸层缓存失效的彻底方案**（把文件 mtime 经 `header.ut` 的 ucode `stat()` 注入为 `data-qz-wallpaper-ver` / `--qz-wallpaper-url`，取代固定 URL；现状见 §4 缓存语义）、**暗色下实时图表白底**（LuCI 上游 `view/status/*` 内联 `background:#fff` + 为白底设计的轴颜色；如需主题内覆盖需连同轴/网格线着色一起处理，评估后再定）。
 - **已完成（原后置项）**：~~壁纸上传 UI~~ → W2.9（见 §5.1；壁纸上传/替换/移除已在配置包落地）。
 - **测试工具（dev/vm-test/）**：VM 逐页截图套件（Playwright + 页面清单 + run-log）；续测/回归直接 `python3 shoot.py --mode dark|light`，说明见该目录 README。
 
@@ -309,3 +319,4 @@ luci/applications/luci-app-quartz-config/
 *2026-10-14 v1.3 —— W2.10 R1 用户实测反馈轮（三条现象中的两条属主题）：①**`panel_opacity` 语义扩为全界面**——`--qz-chrome` 改为 `rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)))`（§2.1 token 表 / §5.1），侧边栏/顶栏/页面操作条/登录卡随面板同步变透，`α=1` 时与旧值逐字节等价；②**修 `header.ut` ucode 整除**——`panel_opacity / 100` 两侧皆 int 时为整除，`50/100 → 0` 使 `--qz-panel-alpha: 0`（面板全透明），改 `/ 100.0`（坑位 #48）；③配置页选项文案随语义更新（"内容面板不透明度"→"界面不透明度"，zh 同步）。VM 热更复验：50% → 面板 .5 / chrome .36，100% → 面板 1 / chrome .72（默认观感零变化）。*
 *2026-10-14 v1.4 —— W2.11（R1 反馈轮补充，用户实测「页脚版本行透明、与上方半透明操作条不协调」）：**页脚改为页底 chrome**——`--qz-chrome` + `blur()`，版本行不再直接压在壁纸/噪点上（`--qz-text-3` 在杂背景上可读性不足），且与贴底操作条连成一条 chrome 面；有操作条时用 `body:has(.cbi-page-actions) footer { border-top: none }` 抑制页脚描边（分隔线由操作条上边框承担），无操作条（只读视图/仪表盘）时保留 1px 描边；`@supports`/`prefers-reduced-transparency` 兜底列表同步纳入 `footer`。padding `0 24px 24px` → `8px 24px 10px`（成条后文字垂直居中）。§2.1/§3 同步。*
 *2026-10-14 v1.5 —— W2.12（R1 反馈补充 2，用户实测「版本栏和操作条在其他页面测试是没有贴底的」）：**页底钉底**——视口高度链 `body:has(#maincontent)` → `#maincontent`（flex 列 + flex:1）→ `#view:has(> .cbi-page-actions)`（flex 列 + flex:1）→ `.cbi-page-actions{margin-top:auto}`；短页（内容 < 视口）时「操作条 + 页脚」钉在窗口底，长页余量 0 行为不变；两处 `:has()` 把改动限定在有内容区/有操作条的页面（登录页与只读视图不受影响）。§3 增布局行、§12 勾销短页粘底候选。*
+*2026-10-25 v1.6 —— W2.13 实机巡检优化：顶层区段始终卡片化 + 第三方容器区段/版权条卡片化 + 壁纸内容面（严格跟随 panel_opacity）+ 暗色 scrim .62、`.cbi-map-tabbed` 面板选择器、≤600px 接口/zone/软件包卡片化、移动端抽屉透明度跟随配置、`.hide-open/.hide-close` 四条规则、`--qz-{accent,err,warn}-text` 文字色变体、行内 `-action` 描边、长值 `overflow-wrap:anywhere`。§2.1/§2.3/§3/§10/§12 同步。*

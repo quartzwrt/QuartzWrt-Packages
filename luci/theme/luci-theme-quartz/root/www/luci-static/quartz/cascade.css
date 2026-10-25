@@ -46,6 +46,9 @@
 	--qz-chrome: rgba(var(--qz-chrome-rgb), calc(var(--qz-panel-alpha) * var(--qz-chrome-base-alpha)));
 	--qz-chrome-solid: #f2f2f7;
 	--qz-scrim: rgba(242, 242, 247, .55);
+	/* 内容面：严格跟随 panel_opacity（= --qz-bg-panel），作为壁纸模式的命名 hook；
+	 * 不做透明度下限，避免与 luci-app-quartz-config 的“界面不透明度”脱钩。 */
+	--qz-content-bg: var(--qz-bg-panel);
 
 	/* 描边（浅色） */
 	--qz-border: rgba(0, 0, 0, .08);
@@ -62,6 +65,10 @@
 	--qz-warn: #ff9500;
 	--qz-err: #ff3b30;
 	--qz-focus: rgba(0, 122, 255, .30);
+	/* 文字专用状态色（填充仍用 --qz-accent/--qz-err/--qz-warn；小字号文字用这些变体） */
+	--qz-accent-text: #0066cc;
+	--qz-err-text: #d70015;
+	--qz-warn-text: #a34f00;
 
 	/* 交互叠加（用于 background-image: linear-gradient(var(--qz-hover), var(--qz-hover))
 	 * 的平铺覆盖技法，兼容所有浏览器，视觉上无渐变） */
@@ -154,6 +161,9 @@
 	--qz-warn: #ff9f0a;
 	--qz-err: #ff453a;
 	--qz-focus: rgba(10, 132, 255, .30);
+	--qz-accent-text: #64b5ff;
+	--qz-err-text: #ff8a80;
+	--qz-warn-text: #ffb340;
 
 	/* 交互叠加（暗色） */
 	--qz-hover: rgba(255, 255, 255, .05);
@@ -172,6 +182,11 @@
 	--error-color-high-rgb: 255, 69, 58;
 	--success-color-high-rgb: 48, 209, 88;
 	--on-warn-color: var(--qz-text);
+}
+
+/* 壁纸启用时加深暗色 scrim，补偿亮图对正文对比度的影响（不影响模态遮罩默认值） */
+:root[data-darkmode="true"][data-qz-wallpaper] {
+	--qz-scrim: rgba(28, 28, 30, .62);
 }
 
 /* ==========================================================================
@@ -240,7 +255,7 @@ body::before {
 }
 
 a {
-	color: var(--qz-accent);
+	color: var(--qz-accent-text);
 	text-decoration: none;
 	transition: color .2s ease-out;
 }
@@ -582,7 +597,7 @@ footer a {
 }
 
 #indicators span[data-indicator][data-style="active"] {
-	color: var(--qz-warn);
+	color: var(--qz-warn-text);
 	border-color: var(--qz-border-strong);
 }
 
@@ -690,12 +705,59 @@ footer a {
 	margin-bottom: 20px;
 }
 
-/* 顶层区段 = 面板卡片 */
-.cbi-map > .cbi-section {
+/* 顶层区段 = 面板卡片（含 tabbed map；后者此前未命中，接口页因此没有卡片底） */
+.cbi-map > .cbi-section,
+.cbi-map-tabbed > .cbi-section,
+.cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section) {
 	background: var(--qz-bg-panel);
 	border: 1px solid var(--qz-border);
 	border-radius: var(--qz-radius);
 	padding: 16px 18px;
+}
+
+/* 顶层扁平区段 = 面板卡片：与 .cbi-map > .cbi-section 一致，不依赖壁纸。
+ * 壁纸模式只把底色换成带可读下限的内容面（--qz-content-bg）。 */
+#view > .cbi-section {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 14px 18px;
+}
+
+:root[data-qz-wallpaper] #view > .cbi-section,
+:root[data-qz-wallpaper] .cbi-map > .cbi-section,
+:root[data-qz-wallpaper] .cbi-map-tabbed > .cbi-section,
+:root[data-qz-wallpaper] .cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section) {
+	background: var(--qz-content-bg);
+}
+
+/* 壁纸模式：内容页签也放到内容面上，避免标签直接压在亮图上 */
+:root[data-qz-wallpaper] #view > .cbi-tabmenu,
+:root[data-qz-wallpaper] .cbi-map > .cbi-tabmenu,
+:root[data-qz-wallpaper] .cbi-map-tabbed > .cbi-tabmenu,
+:root[data-qz-wallpaper] #maincontent > #tabmenu {
+	background: var(--qz-content-bg);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 6px 12px;
+	margin-bottom: 12px;
+}
+
+/* qmodem 自定义内容容器（不在 .cbi-section 结构内）：AT Debug / SMS 列表 / SIM Switch */
+#at_interface_container,
+#sms-list-content,
+#sim_switch_container {
+	background: var(--qz-content-bg);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 16px 18px;
+}
+
+html[data-qz-translucent] #at_interface_container,
+html[data-qz-translucent] #sms-list-content,
+html[data-qz-translucent] #sim_switch_container {
+	-webkit-backdrop-filter: blur(var(--qz-blur));
+	backdrop-filter: blur(var(--qz-blur));
 }
 
 /* 嵌套区段 = 下沉块 */
@@ -1042,6 +1104,13 @@ input[type="radio"] {
 	display: flex;
 }
 
+/* 带描述的选项（LuCI ListValue + description）：收起只显标题，展开才显描述。
+ * 缺失时防火墙“流量卸载类型”等下拉会把标题与描述叠在一起。 */
+.cbi-dropdown > ul > li .hide-open { display: initial; }
+.cbi-dropdown > ul > li .hide-close { display: none; }
+.cbi-dropdown[open] > ul.dropdown > li .hide-open { display: none; }
+.cbi-dropdown[open] > ul.dropdown > li .hide-close { display: initial; }
+
 .cbi-dynlist {
 	display: flex;
 	flex-wrap: wrap;
@@ -1079,6 +1148,14 @@ input[type="radio"] {
  * /etc/config/quartz 输出）。不透明状态下不挂 backdrop-filter，避免弱机型上
  * 无谓的合成开销（性能护栏见 DESIGN.md §6）。 */
 html[data-qz-translucent] .cbi-map > .cbi-section,
+html[data-qz-translucent] .cbi-map-tabbed > .cbi-section,
+html[data-qz-translucent] .cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section),
+html[data-qz-translucent] #view > .cbi-section,
+html[data-qz-translucent][data-qz-wallpaper] #view > .cbi-section,
+html[data-qz-translucent][data-qz-wallpaper] #view > .cbi-tabmenu,
+html[data-qz-translucent][data-qz-wallpaper] .cbi-map > .cbi-tabmenu,
+html[data-qz-translucent][data-qz-wallpaper] #maincontent > #tabmenu,
+html[data-qz-translucent][data-qz-wallpaper] .cbi-map-tabbed > .cbi-tabmenu,
 html[data-qz-translucent] .cbi-section .cbi-section,
 html[data-qz-translucent] .alert-message,
 html[data-qz-translucent] .cbi-section-error,
@@ -1170,7 +1247,7 @@ input[type="submit"]:hover,
 .cbi-button-negative,
 .cbi-button-remove,
 .btn.danger {
-	color: var(--qz-err);
+	color: var(--qz-err-text);
 	background-color: transparent;
 	border-color: var(--qz-border-strong);
 }
@@ -1182,9 +1259,29 @@ input[type="submit"]:hover,
 	border-color: transparent;
 }
 
+/* 表格/列表内的重复操作（Install/Kill/Revoke 等）不用 accent 实心，
+ * 避免整页蓝色按钮墙；页面级 -apply/-save 仍是 accent。 */
+.table .cbi-button-action,
+.table .cbi-button-positive,
+.cbi-section-table .cbi-button-action,
+.cbi-section-table .cbi-button-positive {
+	color: var(--qz-accent-text);
+	background-color: transparent;
+	border-color: var(--qz-border-strong);
+}
+
+.table .cbi-button-action:hover,
+.table .cbi-button-positive:hover,
+.cbi-section-table .cbi-button-action:hover,
+.cbi-section-table .cbi-button-positive:hover {
+	color: #ffffff;
+	background-color: var(--qz-accent);
+	border-color: transparent;
+}
+
 /* 链接型按钮 */
 .cbi-button-link {
-	color: var(--qz-accent);
+	color: var(--qz-accent-text);
 	background: transparent;
 	border-color: transparent;
 	padding-left: 4px;
@@ -1270,6 +1367,15 @@ div.cbi-section-table-titles {
 	padding: 9px 10px;
 	border-bottom: 1px solid var(--qz-border);
 	vertical-align: top;
+}
+
+/* 长值（IPv6 / MAC / JSON / URL）不撑破表格与页面。
+ * 只作用于 .nowrap 值（状态页 IPv6/MAC）与 .cbi-section-table（Dockerman 等），
+ * 避免把软件包名等普通文本在任意字符处拆行。 */
+.cbi-section-table .cbi-value-field,
+.cbi-section-table td,
+.table .nowrap {
+	overflow-wrap: anywhere;
 }
 
 .table tr:last-child td {
@@ -1403,9 +1509,9 @@ div.cbi-section-table-titles {
 }
 
 .label.success { color: var(--qz-ok); }
-.label.warning, .label.important { color: var(--qz-warn); }
-.label.notice { color: var(--qz-accent); }
-.label.danger, .label.error { color: var(--qz-err); }
+.label.warning, .label.important { color: var(--qz-warn-text); }
+.label.notice { color: var(--qz-accent-text); }
+.label.danger, .label.error { color: var(--qz-err-text); }
 
 .cbi-progressbar {
 	position: relative;
@@ -1461,7 +1567,7 @@ div.cbi-section-table-titles {
 }
 
 .cbi-tooltip.error {
-	color: var(--qz-err);
+	color: var(--qz-err-text);
 }
 
 .cbi-tooltip-container,
@@ -1786,6 +1892,7 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 	html.qz-nav-open #qz-sidebar {
 		transform: none;
 		box-shadow: var(--qz-shadow-modal);
+		/* 透明度与桌面侧边栏同源，严格跟随 panel_opacity；不强制实底 */
 	}
 
 	html.qz-nav-open #qz-nav-veil {
@@ -1829,6 +1936,284 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 	}
 }
 
+/* --- 移动端/平板：表格区段横向滚动 ---
+ * 让区段卡片自身成为滚动容器，保留表格已有列布局（表头与表体不会各自成表而错位）。
+ * 排除含自绘下拉（.cbi-dropdown）的区段，避免 overflow 裁剪下拉浮层。
+ * 顶部只读区段（状态概览/软件包/Associations 等）与 .cbi-tblsection 覆盖了
+ * 本次实机巡检中所有超宽表格。 */
+@media (max-width: 900px) {
+	#view > .cbi-section:not(:has(.cbi-dropdown)),
+	.cbi-tblsection:not(:has(.cbi-dropdown)),
+	.cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section):not(:has(.cbi-dropdown)),
+	#at_interface_container:not(:has(.cbi-dropdown)),
+	#sms-list-content:not(:has(.cbi-dropdown)),
+	#sim_switch_container:not(:has(.cbi-dropdown)) {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	/* 软件包等页面的筛选行：标签独占一行，控件组可换行 */
+	#view .controls {
+		display: block;
+	}
+
+	#view .controls > div {
+		display: flex;
+		flex-wrap: wrap;
+		min-width: 0;
+		max-width: 100%;
+		width: 100%;
+	}
+
+	#view .controls > div > label {
+		flex: 0 0 100%;
+	}
+
+	.control-group {
+		flex-wrap: wrap;
+		max-width: 100%;
+	}
+
+	/* Dashboard Traffic detail 统计行不换行导致的 37px 溢出 */
+	.qzd-kv-v,
+	.qzd-muted {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+}
+
+/* --- 手机：高频表格卡片化 ---
+ * 只覆盖接口 / zone / 软件包三个高频列表；其余只读表格由上面的区段滚动兜底。 */
+@media (max-width: 600px) {
+	/* 防火墙 zone 表：一行一个 zone 卡，字段纵向排列 */
+	#cbi-firewall-zone .cbi-section-table thead {
+		display: none;
+	}
+
+	#cbi-firewall-zone .cbi-section-table,
+	#cbi-firewall-zone .cbi-section-table > tbody,
+	#cbi-firewall-zone .cbi-section-table > tbody > tr {
+		display: block;
+		width: auto;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr {
+		background: var(--qz-bg-well);
+		border: 1px solid var(--qz-border);
+		border-radius: var(--qz-radius-sm);
+		padding: 10px 12px;
+		margin-bottom: 10px;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		width: auto;
+		padding: 6px 0;
+		border: 0;
+		white-space: normal;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td + td {
+		border-top: 1px solid var(--qz-border);
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td::before {
+		content: attr(data-title);
+		flex: 0 0 42%;
+		color: var(--qz-text-2);
+		font-size: 12.5px;
+		font-weight: 400;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td:first-child {
+		display: block;
+		padding-top: 0;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td:first-child::before {
+		display: none;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td.cbi-section-actions {
+		display: block;
+		width: 100% !important;
+		min-width: 0 !important;
+		border-top: 1px solid var(--qz-border);
+		padding-top: 8px;
+		margin-top: 2px;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td.cbi-section-actions > div {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+		width: 100%;
+	}
+
+	#cbi-firewall-zone .cbi-section-table > tbody > tr > td.cbi-section-actions::before {
+		display: none;
+	}
+
+	#cbi-firewall-zone .cbi-section-table td .cbi-dropdown,
+	#cbi-firewall-zone .cbi-section-table td .cbi-select {
+		max-width: 56%;
+	}
+
+	#cbi-firewall-zone .cbi-section-table td .zone-forwards {
+		flex-wrap: wrap;
+		gap: 4px 8px;
+	}
+
+	/* 网络接口：一行一个接口卡（徽标 / 详情 / 操作） */
+	#cbi-network-interface .cbi-section-table,
+	#cbi-network-interface .cbi-section-table > tbody,
+	#cbi-network-interface .cbi-section-table > tbody > tr {
+		display: block;
+		width: auto;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas: "box" "details" "actions";
+		gap: 8px;
+		background: var(--qz-bg-well);
+		border: 1px solid var(--qz-border);
+		border-radius: var(--qz-radius-sm);
+		padding: 10px 12px;
+		margin-bottom: 10px;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr > td {
+		display: block;
+		width: auto;
+		padding: 0;
+		border: 0;
+		white-space: normal;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr > td:nth-child(1) {
+		grid-area: box;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr > td:nth-child(2) {
+		grid-area: details;
+		min-width: 0;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr > td:nth-child(3) {
+		grid-area: actions;
+		display: block;
+		width: 100% !important;
+		min-width: 0 !important;
+		border-top: 1px solid var(--qz-border);
+		padding-top: 8px;
+		margin-top: 2px;
+	}
+
+	#cbi-network-interface .cbi-section-table > tbody > tr > td:nth-child(3) > div {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+		width: 100%;
+	}
+
+	#cbi-network-interface .cbi-section-table .nowrap {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	/* 软件包表：一行一个包卡（名称 / 版本 / 大小 / 描述 / 安装） */
+	#packages {
+		display: block;
+		width: auto;
+		overflow: visible;
+	}
+
+	#packages > tbody {
+		display: block;
+		width: auto;
+		min-width: 0;
+	}
+
+	#packages .tr.cbi-section-table-titles {
+		display: none;
+	}
+
+	#packages .tr.cbi-rowstyle-1,
+	#packages .tr.cbi-rowstyle-2 {
+		display: block;
+		background: var(--qz-bg-well);
+		border: 1px solid var(--qz-border);
+		border-radius: var(--qz-radius-sm);
+		padding: 10px 12px;
+		margin-bottom: 10px;
+	}
+
+	#packages .td {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 5px 0;
+		border: 0;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	#packages .td::before {
+		content: attr(data-title);
+		flex: 0 0 34%;
+		color: var(--qz-text-2);
+		font-size: 12.5px;
+	}
+
+	#packages .td:nth-child(1) {
+		display: block;
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	#packages .td:nth-child(1)::before {
+		display: none;
+	}
+
+	#packages .td:nth-child(4) {
+		display: block;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		color: var(--qz-text-2);
+		font-size: 12.5px;
+		padding-top: 2px;
+	}
+
+	#packages .td:nth-child(4)::before {
+		display: none;
+	}
+
+	#packages .td.cbi-section-actions {
+		display: flex;
+		justify-content: flex-end;
+		border-top: 1px solid var(--qz-border);
+		padding-top: 8px;
+		margin-top: 2px;
+	}
+
+	#packages .td.cbi-section-actions::before {
+		display: none;
+	}
+
+	#packages .td.cbi-section-actions .btn {
+		min-width: 96px;
+	}
+}
+
 /* ==========================================================================
  * 13. 无障碍与降级
  * ========================================================================== */
@@ -1842,7 +2227,8 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 
 /* 减少透明度（Safari 等支持）：去壁纸、去模糊、chrome 实心 */
 @media (prefers-reduced-transparency: reduce) {
-	:root {
+	:root,
+	:root[data-darkmode="true"][data-qz-wallpaper] {
 		--qz-chrome: var(--qz-chrome-solid);
 		--qz-wallpaper-on: none;
 		--qz-scrim: transparent;
@@ -1894,5 +2280,15 @@ html *::before,
 html *::after {
 	margin: revert-layer;
 	padding: revert-layer;
+}
+
+/* 第三方组件兜底：qmodem 的版权条用 bootstrap base 色（--background-color-medium），
+ * 与面板卡片不一致；这里统一成内容面，并继续跟随 panel_opacity。
+ * 必须放在未分层区域，才能压过 qmodem 自带的无分层 .copyright-section 规则。 */
+.cbi-map > .copyright-section {
+	background-color: var(--qz-content-bg) !important;
+	border-color: var(--qz-border) !important;
+	border-radius: var(--qz-radius-sm) !important;
+	color: var(--qz-text-2) !important;
 }
 
