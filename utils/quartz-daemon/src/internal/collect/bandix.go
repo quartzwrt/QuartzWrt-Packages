@@ -290,17 +290,31 @@ func parseBandixConn(raw []byte) *snapshot.BandixConn {
 	return &snapshot.BandixConn{Total: d.G.Total, TCP: d.G.TCP, UDP: d.G.UDP}
 }
 
-// parseBandixDNS 解析 `dns_stats` 应答（信封 → data.total_queries）。
+// parseBandixDNS 解析 `dns_stats` 应答（信封 → data.stats.total_queries）。
+//
+// 上游 /api/dns/stats 的实际形态是 {status:"success",data:{stats:{total_queries:…}}}；
+// 桥 normalize() 剥掉 status 外层后为 {stats:{…}}。旧实现直接读 data.total_queries，
+// 字段缺失时 encoding/json 静默给 0，导致 Dashboard 恒显示 0（2026-11-02 实机定位）。
+// 平铺形态作为兼容保留（旧夹具/旧 bridge）。
 func parseBandixDNS(raw []byte) (int64, bool) {
 	var env bandixEnvelope
 	if json.Unmarshal(raw, &env) != nil || !env.OK {
 		return 0, false
 	}
 	var d struct {
-		TotalQueries int64 `json:"total_queries"`
+		Stats *struct {
+			TotalQueries *int64 `json:"total_queries"`
+		} `json:"stats"`
+		TotalQueries *int64 `json:"total_queries"`
 	}
 	if json.Unmarshal(env.Data, &d) != nil {
 		return 0, false
 	}
-	return d.TotalQueries, true
+	if d.Stats != nil && d.Stats.TotalQueries != nil {
+		return *d.Stats.TotalQueries, true
+	}
+	if d.TotalQueries != nil {
+		return *d.TotalQueries, true
+	}
+	return 0, false
 }

@@ -156,6 +156,7 @@
   - `wan` = Σ `w_rx_r` / `w_tx_r`（设备侧 WAN 速率合计，与上游 "WAN Traffic" 卡同式）；
   - `top` = 按累计 `t_rx_b+t_tx_b` 降序 ≤8（契约上限），`pct` = 占全部设备累计流量比；
 - **可选摘要**：`connections` / `dns` 模块启用时（同一份 uci）各多一次 `quartz.bandix connections|dns_stats`；未启用不调用、调用失败字段省略（`null` 语义，不阻塞本节）；
+  - **`dns_stats` 形状（2026-11-02 实机定位）**：上游实际返回 `{status:"success",data:{stats:{total_queries:…}}}`，bridge normalize 后为 `data.stats.total_queries`；旧实现只读 `data.total_queries`，缺字段时 encoding/json 静默给 0 → Dashboard 恒显示 0。改为优先读 `stats.total_queries`、平铺形态兼容，字段缺失返回 `ok=false`（不再伪造 0）；
 - **限速策略（2026-10-17 加法）**：每慢刷周期固定多一次 `quartz.bandix limits`（聚合限速/白名单/配额；≈285ms，失败则 `limits` 省略不阻塞）——产出 ①总体策略摘要 `limits`（默认限速/白名单开关与数量/规则数/配额数）②`top[]` 每设备：`rx_r/tx_r`（设备侧 WAN 速率，同网页设备表 WAN 列）+ 策略标记 `wl/sch/q`（白名单/时段限速条数/有无配额；MAC 大小写归一）；
 - **`wan` 字段保留但不再展示**（内置卡片与 App 删显示：与网络卡的接口级吞吐重复，2026-10-17 用户指令）；
 - **开销**：仅 traffic 时每慢刷周期 +1 次 ubus exec（+1 次 uci exec）。**VM 实测（x86_64，2026-10-17）**：traffic-only RSS 4.5MB / CPU 0.17%；traffic+connections+dns RSS 5.1MB / **CPU 3.27%**（connections 的 3s 全量 conntrack 读是 CPU 大头——D2「只开 traffic」由此获得数据支撑）；真机（RK3399）traffic-only 4.6MB / 0.1%。

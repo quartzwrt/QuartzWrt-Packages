@@ -162,6 +162,54 @@ func TestBuildBandixTopCap(t *testing.T) {
 	}
 }
 
+// parseBandixDNS：上游实际形态 data.stats.total_queries（2026-11-02 实机定位，
+// 旧实现直接读 data.total_queries → 缺字段静默为 0）。平铺形态保留兼容。
+func TestParseBandixDNSShapes(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want int64
+		ok   bool
+	}{
+		{
+			name: "upstream nested stats",
+			raw:  `{"ok":true,"api":1,"data":{"stats":{"total_queries":276,"total_responses":260}}}`,
+			want: 276,
+			ok:   true,
+		},
+		{
+			name: "legacy flat",
+			raw:  `{"ok":true,"api":1,"data":{"total_queries":100}}`,
+			want: 100,
+			ok:   true,
+		},
+		{
+			name: "zero is valid",
+			raw:  `{"ok":true,"api":1,"data":{"stats":{"total_queries":0}}}`,
+			want: 0,
+			ok:   true,
+		},
+		{
+			name: "missing field must not fake zero",
+			raw:  `{"ok":true,"api":1,"data":{"stats":{"total_responses":9}}}`,
+			ok:   false,
+		},
+		{
+			name: "upstream error",
+			raw:  `{"ok":false,"api":1,"error":{"code":"data_unavailable","message":"DNS monitoring is not enabled"}}`,
+			ok:   false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := parseBandixDNS([]byte(tc.raw))
+			if ok != tc.ok || got != tc.want {
+				t.Fatalf("parseBandixDNS = (%d,%v), want (%d,%v)", got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}
+
 // 降级：上游信封 ok=false → error（collector 层会转成 null + errors 条目）。
 func TestBuildBandixUpstreamError(t *testing.T) {
 	raw := []byte(`{"ok":false,"api":1,"error":{"code":"data_unavailable","message":"Traffic monitoring is not enabled"}}`)

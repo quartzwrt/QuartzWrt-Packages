@@ -627,8 +627,12 @@ footer a {
  * 4. 内容区与页签
  * ========================================================================== */
 
+/* 单一内容轨（2026-11-02）：宽屏时页签、视图和所有卡片同宽。
+ * 此前只有 .cbi-map 有 1400 上限，1920 视口下 #tabmenu 会长到 1624，
+ * 而 .cbi-map 内的卡片停在 1400，导致页签比卡片明显更宽。 */
 #view {
 	min-height: 200px;
+	max-width: 1400px;
 }
 
 .spinning {
@@ -656,6 +660,7 @@ footer a {
 
 /* 页签（menu-quartz.js 渲染到 #tabmenu） */
 #tabmenu {
+	max-width: 1400px;
 	margin-bottom: 16px;
 }
 
@@ -705,34 +710,27 @@ footer a {
 	margin-bottom: 20px;
 }
 
-/* 顶层区段 = 面板卡片（含 tabbed map；后者此前未命中，接口页因此没有卡片底） */
-.cbi-map > .cbi-section,
-.cbi-map-tabbed > .cbi-section,
-.cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section) {
+/* 顶层区段 = 面板卡片。2026-11-02：从“仅 .cbi-map / #view 直接子级”放宽到
+ * #view 内任意非嵌套 .cbi-section——覆盖 bandix 自绘容器、状态→路由/防火墙、
+ * 系统→启动项、qmodem 自定义 tab 等此前选择器落空的结构。
+ * `.nft-table > .cbi-section` 是纯标题行（IPv4/IPv6 traffic table fw4），
+ * 保持无底色，避免变成一张只有标题的小卡片。 */
+#view .cbi-section:not(.cbi-section .cbi-section):not(.nft-table > .cbi-section) {
 	background: var(--qz-bg-panel);
 	border: 1px solid var(--qz-border);
 	border-radius: var(--qz-radius);
 	padding: 16px 18px;
+	box-shadow: none;
 }
 
-/* 顶层扁平区段 = 面板卡片：与 .cbi-map > .cbi-section 一致，不依赖壁纸。
- * 壁纸模式只把底色换成带可读下限的内容面（--qz-content-bg）。 */
-#view > .cbi-section {
-	background: var(--qz-bg-panel);
-	border: 1px solid var(--qz-border);
-	border-radius: var(--qz-radius);
-	padding: 14px 18px;
-}
-
-:root[data-qz-wallpaper] #view > .cbi-section,
-:root[data-qz-wallpaper] .cbi-map > .cbi-section,
-:root[data-qz-wallpaper] .cbi-map-tabbed > .cbi-section,
-:root[data-qz-wallpaper] .cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section) {
+:root[data-qz-wallpaper] #view .cbi-section:not(.cbi-section .cbi-section):not(.nft-table > .cbi-section) {
 	background: var(--qz-content-bg);
 }
 
-/* 壁纸模式：内容页签也放到内容面上，避免标签直接压在亮图上 */
+/* 壁纸模式：内容页签也放到内容面上，避免标签直接压在亮图上。
+ * 2026-11-02：补顶层/根 div 直属的 .cbi-tabmenu（状态→路由、系统→启动项）。 */
 :root[data-qz-wallpaper] #view > .cbi-tabmenu,
+:root[data-qz-wallpaper] #view > div > .cbi-tabmenu,
 :root[data-qz-wallpaper] .cbi-map > .cbi-tabmenu,
 :root[data-qz-wallpaper] .cbi-map-tabbed > .cbi-tabmenu,
 :root[data-qz-wallpaper] #maincontent > #tabmenu {
@@ -741,6 +739,86 @@ footer a {
 	border-radius: var(--qz-radius);
 	padding: 6px 12px;
 	margin-bottom: 12px;
+}
+
+/* 自绘页面：没有 .cbi-section 可挂，按页面结构补内容面。
+ * 状态→信道分析（整页：标题 + radio 页签 + 图表 + 表格）。 */
+#view > div:has(> .cbi-title-section) {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 16px 18px;
+}
+
+:root[data-qz-wallpaper] #view > div:has(> .cbi-title-section) {
+	background: var(--qz-content-bg);
+}
+
+/* 信道图表是上游内联 background:#fff;border:1px solid #000；只柔化边框，
+ * 白底保留（SVG 坐标轴/网格线按白底设计，暗色适配是独立议题）。 */
+#channel_graph {
+	border-color: var(--qz-border) !important;
+	border-radius: var(--qz-radius-sm);
+}
+
+/* 系统→计划任务：textarea 外层是裸 <p>，给一个内容面。 */
+#view > p:has(> textarea) {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 14px 16px;
+}
+
+:root[data-qz-wallpaper] #view > p:has(> textarea) {
+	background: var(--qz-content-bg);
+}
+
+/* 网络→诊断：命令输入区是 .cbi-map 直属 <table>，不在任何区段内。 */
+#view > .cbi-map > table.table {
+	background: var(--qz-bg-panel);
+	border: 1px solid var(--qz-border);
+	border-radius: var(--qz-radius);
+	padding: 14px 18px;
+}
+
+:root[data-qz-wallpaper] #view > .cbi-map > table.table {
+	background: var(--qz-content-bg);
+}
+
+/* bandix 自绘视图：dns.js / connection.js 的 applyThemeColors() 会把 body 底色
+ * 内联写到容器/统计卡/表头/输入框上；主题选择器需要 !important 才能压过内联。
+ * 容器本身归零，卡片统一用主题面板色，表头/徽标改回输入井。 */
+.bandix-container,
+.bandix-dns-container,
+.bandix-connection-container {
+	background: transparent !important;
+}
+
+.bandix-container .cbi-section:not(.cbi-section .cbi-section),
+.bandix-dns-container .cbi-section:not(.cbi-section .cbi-section),
+.bandix-connection-container .cbi-section:not(.cbi-section .cbi-section) {
+	background: var(--qz-bg-panel) !important;
+	border-color: var(--qz-border) !important;
+	border-radius: var(--qz-radius) !important;
+	box-shadow: none !important;
+}
+
+:root[data-qz-wallpaper] .bandix-container .cbi-section:not(.cbi-section .cbi-section),
+:root[data-qz-wallpaper] .bandix-dns-container .cbi-section:not(.cbi-section .cbi-section),
+:root[data-qz-wallpaper] .bandix-connection-container .cbi-section:not(.cbi-section .cbi-section) {
+	background: var(--qz-content-bg) !important;
+}
+
+.bandix-container th,
+.bandix-dns-container th,
+.bandix-connection-container th {
+	background: transparent !important;
+}
+
+.bandix-dns-container .filter-input,
+.bandix-dns-container .response-ip-badge,
+.bandix-connection-container .filter-input {
+	background: var(--qz-bg-well) !important;
 }
 
 /* qmodem 自定义内容容器（不在 .cbi-section 结构内）：AT Debug / SMS 列表 / SIM Switch */
@@ -1150,9 +1228,14 @@ input[type="radio"] {
 html[data-qz-translucent] .cbi-map > .cbi-section,
 html[data-qz-translucent] .cbi-map-tabbed > .cbi-section,
 html[data-qz-translucent] .cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section),
+html[data-qz-translucent] #view .cbi-section:not(.cbi-section .cbi-section):not(.nft-table > .cbi-section),
+html[data-qz-translucent] #view > div:has(> .cbi-title-section),
+html[data-qz-translucent] #view > p:has(> textarea),
+html[data-qz-translucent] #view > .cbi-map > table.table,
 html[data-qz-translucent] #view > .cbi-section,
 html[data-qz-translucent][data-qz-wallpaper] #view > .cbi-section,
 html[data-qz-translucent][data-qz-wallpaper] #view > .cbi-tabmenu,
+html[data-qz-translucent][data-qz-wallpaper] #view > div > .cbi-tabmenu,
 html[data-qz-translucent][data-qz-wallpaper] .cbi-map > .cbi-tabmenu,
 html[data-qz-translucent][data-qz-wallpaper] #maincontent > #tabmenu,
 html[data-qz-translucent][data-qz-wallpaper] .cbi-map-tabbed > .cbi-tabmenu,
@@ -1943,6 +2026,7 @@ body.qz-blank.modal-overlay-active #modal_overlay {
  * 本次实机巡检中所有超宽表格。 */
 @media (max-width: 900px) {
 	#view > .cbi-section:not(:has(.cbi-dropdown)),
+	#view .cbi-section:not(.cbi-section .cbi-section):not(.nft-table > .cbi-section):not(:has(.cbi-dropdown)),
 	.cbi-tblsection:not(:has(.cbi-dropdown)),
 	.cbi-map div:not(.cbi-section):not(.cbi-map-tabbed) > .cbi-section:not(.cbi-section .cbi-section):not(:has(.cbi-dropdown)),
 	#at_interface_container:not(:has(.cbi-dropdown)),
@@ -1955,6 +2039,20 @@ body.qz-blank.modal-overlay-active #modal_overlay {
 	/* 软件包等页面的筛选行：标签独占一行，控件组可换行 */
 	#view .controls {
 		display: block;
+	}
+
+	/* 信道分析：自绘页没有 .cbi-section，扫描表单独横向滚动
+	 * （卡片本身不滚，避免图表跟着一起横移）。 */
+	#view > div:has(> .cbi-title-section) [data-tab] {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	/* 诊断：命令输入表是 .cbi-map 直属 <table>，窄屏改为块级滚动。 */
+	#view > .cbi-map > table.table {
+		display: block;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	#view .controls > div {
