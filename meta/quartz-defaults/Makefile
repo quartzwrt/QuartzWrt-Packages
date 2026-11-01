@@ -8,9 +8,11 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 # r4（2026-10-16）：files/quartz-release 改为兜底文案——实际版本串由 Builder 构建期写入
 # （覆盖本包文件，见 QuartzWrt-Builder scripts/build-local.sh 步骤 5d）。
+# r5（2026-11-01）：新增 /etc/uci-defaults/99-quartz-hostname——把 base-files 的默认
+# hostname（ImmortalWrt）改为 quartzwrt；仅替换发行版默认值，保留用户自定义主机名。
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -69,6 +71,10 @@ define Package/quartz-defaults/install
 	# 发行版标识：quartz-daemon 读取为 host.release（WP-4 DESIGN §9-D7；
 	# 缺失时 daemon 回退 /etc/openwrt_release 的 DISTRIB_DESCRIPTION）
 	$(INSTALL_DATA) ./files/quartz-release $(1)/etc/quartz-release
+	# 默认主机名：base-files 的 config_generate 用 ImmortalWrt，这里改为 quartzwrt
+	# （仅替换发行版默认值；用户自定义 hostname 保留）
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/etc/uci-defaults/99-quartz-hostname $(1)/etc/uci-defaults/99-quartz-hostname
 	# WP-9：稳定签名公钥随固件预置（feed 索引签名信任根；apk 按内容 id 匹配，
 	# 文件名任意，与 base-files 自动投放的 public-key.pem 并存）
 	$(INSTALL_DIR) $(1)/etc/apk/keys

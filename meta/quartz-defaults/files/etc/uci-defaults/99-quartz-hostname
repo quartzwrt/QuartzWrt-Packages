@@ -1,0 +1,15 @@
+#!/bin/sh
+# QuartzWrt: default hostname.
+# base-files/config_generate uses "ImmortalWrt"; only replace the distro
+# defaults and keep a user-customized hostname.
+[ -f /etc/config/system ] || exit 0
+
+cur="$(uci -q get system.@system[0].hostname)"
+case "$cur" in
+	''|'ImmortalWrt'|'OpenWrt')
+		uci -q set system.@system[0].hostname='quartzwrt'
+		uci -q commit system
+		[ -x /etc/init.d/system ] && /etc/init.d/system reload
+		;;
+esac
+exit 0
