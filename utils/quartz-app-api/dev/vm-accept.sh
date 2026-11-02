@@ -59,9 +59,22 @@ ck "根口令已设置（password_set=true）" $([ "$PWSET" = "True" ] && echo 0
 OUT=$($VM_SSH 'ls -l /etc/uhttpd.crt /etc/umdns/quartz-app.json 2>&1; sha256sum /etc/uhttpd.crt 2>/dev/null; cat /etc/umdns/quartz-app.json 2>/dev/null; pgrep -x umdns >/dev/null && echo umdns-running')
 FP_SHA=$(printf '%s\n' "$OUT" | sed -n 's/^\([0-9a-f]\{64\}\) .*/\1/p' | head -1)
 ck "umdns 服务文件存在且含 _quartz-app._tcp" $(printf '%s' "$OUT" | grep -q '_quartz-app._tcp.local' && echo 0 || echo 1)
+ck "服务文件为 umdns 嵌套 schema（实例 id 顶层）" $(printf '%s' "$OUT" | grep -q '"quartz-app"[[:space:]]*:' && echo 0 || echo 1)
 ck "umdns 进程运行中" $(printf '%s' "$OUT" | grep -q 'umdns-running' && echo 0 || echo 1)
 ck "TXT fp 与 sha256(DER 证书) 一致" $(printf '%s' "$OUT" | grep -q "fp=$FP_SHA" && [ -n "$FP_SHA" ] && echo 0 || echo 1)
 echo "      pin=$FP_SHA"
+
+# 宣告面不能只看文件：umdns 的 `update` 只刷主机缓存，不重读 /etc/umdns/*.json。
+OUT=$($VM_SSH 'ubus call umdns announcements 2>/dev/null')
+ck "umdns 已宣告 _quartz-app（announcements）" $(printf '%s' "$OUT" | grep -q '_quartz-app._tcp.local' && echo 0 || echo 1)
+
+# 回归：服务文件在 umdns 启动后才生成（首启/热装场景）→ 必须由 reload 生效。
+$VM_SSH 'rm -f /etc/umdns/quartz-app.json; /etc/init.d/umdns restart >/dev/null 2>&1; sleep 1' >/dev/null 2>&1
+OUT=$($VM_SSH 'ubus call umdns announcements 2>/dev/null')
+ck "移除文件并重启 umdns 后无宣告（前置）" $(printf '%s' "$OUT" | grep -q '_quartz-app._tcp.local' && echo 1 || echo 0)
+$VM_SSH '/etc/init.d/quartz-app-api reload >/dev/null 2>&1; sleep 1' >/dev/null 2>&1
+OUT=$($VM_SSH 'ubus call umdns announcements 2>/dev/null')
+ck "quartz-app-api reload 后恢复宣告（update→reload）" $(printf '%s' "$OUT" | grep -q '_quartz-app._tcp.local' && echo 0 || echo 1)
 
 echo "== 1. ACL 权限边界（未授权对象必须被 rpcd 拒绝） =="
 OUT=$(call "$SID0" file read '{"path":"/etc/openwrt_release"}')

@@ -387,11 +387,17 @@ config uhttpd 'app'
 `/etc/umdns/quartz-app.json`（本包 init 脚本在启动与证书变化时生成）：
 
 ```json
-{ "service": "_quartz-app._tcp.local", "port": 443,
-  "txt": ["v=1", "path=/ubus", "fp=<sha256>", "rel=<release>", "name=<hostname>"] }
+{ "quartz-app": {
+    "service": "_quartz-app._tcp.local", "port": 443,
+    "txt": ["v=1", "path=/ubus", "fp=<sha256>", "rel=<release>", "name=<hostname>"] } }
 ```
 
-- init 流程（START=99，uhttpd 之后）：确保 `secret`/状态目录 → 证书存在则算 fp 写入（缺失则触发一次 uhttpd restart 后重试）→ `ubus call umdns update`（umdns 运行时）。
+> **schema 要点**：umdns 的 `/etc/umdns/*.json` 顶层必须是「实例 id → 服务定义」的表
+> （对照 umdns 源码 `json/ssh.json`）。扁平 `{"service":…}` 会被 `service_load_blob()`
+> 当作无 `port`/`service` 的顶层属性直接跳过，文件存在也不会宣告。
+
+- init 流程（START=99，uhttpd 之后）：确保 `secret`/状态目录 → 证书存在则算 fp 写入（缺失则触发一次 uhttpd restart 后重试）→ `ubus call umdns reload`（umdns 运行时；**`update` 只刷新主机缓存，不会重读 `/etc/umdns/*.json`**，新增/删除宣告必须用 `reload`）。
+- **umdns jail**：umdns 启动时只挂载已存在的 `/etc/umdns`；本包安装阶段创建该目录，保证首启/热装时 jail 能看到随后生成的服务文件（若目录晚于 umdns 启动才创建，需 `/etc/init.d/umdns restart`）。
 - umdns 未装/未运行时：**静默跳过**——App 仍有手动地址兜底（D5）。
 
 ### 6.4 暴露面与残余风险（明示）

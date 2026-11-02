@@ -25,6 +25,16 @@ reload() {
 	advertise
 }
 
+# 刷新 umdns 宣告。
+#
+# 注意：umdns 的 `update` 只刷新已发现主机缓存（cache_update），
+# **不会重读 /etc/umdns/*.json 服务文件**；新增/删除本包的服务宣告
+# 必须走 `reload`（service_init(1) 重新加载并宣告）。
+umdns_refresh() {
+	ubus -t 5 wait_for umdns >/dev/null 2>&1 || return 0
+	ubus -t 5 call umdns reload >/dev/null 2>&1 || true
+}
+
 advertise() {
 	[ "$(uci -q get quartz-app-api.main.mdns)" = "0" ] && return 0
 
@@ -43,20 +53,27 @@ advertise() {
 	rel=$(printf '%s' "$rel" | tr -d '"\\\n')
 
 	mkdir -p /etc/umdns
+	# umdns 服务文件 schema：顶层是「实例 id → 服务定义」的表
+	# （见 umdns 源码 json/ssh.json：{"ssh_22":{"service":...}}）。
+	# 扁平 {"service":...} 会被 service_load_blob() 当作无 port/service 的属性跳过。
 	{
 		printf '{\n'
-		printf '  "service": "_quartz-app._tcp.local",\n'
-		printf '  "port": %s,\n' "$port"
-		printf '  "txt": ["v=1", "path=/ubus", "name=%s"' "$name"
+		printf '  "quartz-app": {\n'
+		printf '    "service": "_quartz-app._tcp.local",\n'
+		printf '    "port": %s,\n' "$port"
+		printf '    "txt": ["v=1", "path=/ubus", "name=%s"' "$name"
 		[ -n "$fp" ] && printf ', "fp=%s"' "$fp"
 		[ -n "$rel" ] && printf ', "rel=%s"' "$rel"
-		printf ']\n}\n'
+		printf ']\n'
+		printf '  }\n'
+		printf '}\n'
 	} > /etc/umdns/quartz-app.json
 
-	ubus -t 5 call umdns update >/dev/null 2>&1
+	umdns_refresh
 }
 
 stop() {
 	rm -f /etc/umdns/quartz-app.json
-	ubus -t 5 call umdns update >/dev/null 2>&1
+	# 关机/重启时 umdns 可能已先退出：不做 wait_for，避免白等 5 秒。
+	ubus -t 2 call umdns reload >/dev/null 2>&1 || true
 }

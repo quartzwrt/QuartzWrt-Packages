@@ -19,7 +19,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-app-api
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=15
+PKG_RELEASE:=16
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=QuartzWrt
@@ -81,7 +81,8 @@ endef
 define Package/quartz-app-api/install
 	$(INSTALL_DIR) $(1)/usr/libexec/rpcd
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/quartz-app-api $(1)/usr/libexec/rpcd/quartz-app-api
-	$(INSTALL_DIR) $(1)/etc/init.d $(1)/etc/config $(1)/etc/uci-defaults
+	$(INSTALL_DIR) $(1)/etc/init.d $(1)/etc/config $(1)/etc/uci-defaults \
+		$(1)/etc/umdns
 	$(INSTALL_BIN) ./files/quartz-app-api.init $(1)/etc/init.d/quartz-app-api
 	$(INSTALL_CONF) ./files/quartz-app-api.conf $(1)/etc/config/quartz-app-api
 	$(INSTALL_BIN) ./files/uci-defaults/99-quartz-app-api $(1)/etc/uci-defaults/99-quartz-app-api

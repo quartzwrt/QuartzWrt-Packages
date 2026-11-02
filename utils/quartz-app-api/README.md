@@ -101,4 +101,6 @@ dev/vm-accept-packages.sh
 - 改了插件二进制/新装包后：`/etc/init.d/rpcd reload`（SIGHUP 重扫；会话不丢）。
 - `Access denied`：核对该方法的 acl.d 授权与 rpcd 版本（≥2026.10.04 行为）。
 - 证书/pin：`sha256sum /etc/uhttpd.crt`；重刷固件会重新生成 → App 应提示重配对。
-- mDNS 不可见：`ubus call umdns update`；确认 `/etc/umdns/quartz-app.json` 已生成（本包 init）。
+- mDNS 不可见：`ubus call umdns reload`（`update` 只刷主机缓存，不重读服务文件）；
+  确认 `/etc/umdns/quartz-app.json` 已生成（本包 init），且 `/etc/umdns` 在 umdns
+  启动前已存在（本包包内目录；手工创建目录后需 `/etc/init.d/umdns restart` 让 jail 挂载）。
