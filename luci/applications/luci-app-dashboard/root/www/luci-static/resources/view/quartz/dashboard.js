@@ -23,7 +23,7 @@
 /* 产物入口与构建标识：dev/build.sh 构建后以产物哈希改写 BUILD（配合 L.env.resource_version 破缓存） */
 var BUNDLE = 'quartz-dashboard/app.js';
 var STYLES = 'quartz-dashboard/app.css';
-var BUILD = '0dbaef44';
+var BUILD = '2a87690f';
 
 return view.extend({
 	load() {
@@ -44,6 +44,13 @@ return view.extend({
 			/* 读聚合快照：区分"未运行"与"数据损坏"（DESIGN.md §2.2 四态） */
 			readStatus: function () {
 				return fs.read('/var/run/quartz/status.json').then(function (raw) {
+					/* 空闲模式活跃信号：web Dashboard 不走 daemon HTTP，touch 标记文件 */
+					try {
+						var p = fs.write('/var/run/quartz/client.active', '');
+						if (p && p.catch)
+							p.catch(function () {});
+					} catch (e) {}
+
 					try {
 						return JSON.parse(raw);
 					} catch (e) {

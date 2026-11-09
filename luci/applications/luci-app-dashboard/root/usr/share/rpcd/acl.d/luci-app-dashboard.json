@@ -12,6 +12,14 @@
 				"file": [ "list", "read" ],
 				"luci": [ "getUnixtime" ]
 			}
+		},
+		"write": {
+			"file": {
+				"/var/run/quartz/client.active": [ "write" ]
+			},
+			"ubus": {
+				"file": [ "write" ]
+			}
 		}
 	}
 }

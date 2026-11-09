@@ -134,6 +134,10 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-w-image { width: 32%; }
 .qzd-w-state { width: 16%; }
 
+/* ---- 电池卡（Photonicat 一代） ---- */
+.qzd-batt-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+.qzd-batt-meta { margin-left: auto; font-size: 12px; }
+
 /* ---- 蜂窝信号带（横排，避免单列留白） ---- */
 .qzd-sigstrip { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
 .qzd-sig-quality { flex: 0 0 205px; }

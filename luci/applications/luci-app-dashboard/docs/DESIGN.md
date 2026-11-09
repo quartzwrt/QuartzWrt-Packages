@@ -166,9 +166,10 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 ```
 
 - **排布原则（预览实测确定）**：同一行内卡片的内容高度应相近——**矮卡配矮卡**（Docker/Tailscale 与"服务与核心"按行配对，两条大卡各占一行），行内按最高卡对齐、行尾不留大片空白；**不采用 masonry**（CSS 原生 masonry 未标准化，JS 重排对其余场景是负债）。行序 = 注册表顺序，占位由每卡声明（§5.3 `span`）——新增卡时按此原则选行配对。
-- **Docker 卡（2026-10-19 真机反馈轮）**：恢复独立卡并**全宽**（span 12）——引擎版本/驱动/根目录 + 容器/镜像/网络/卷摘要 + 容器表（名称/镜像/状态/详情，≤8）；服务卡不再重复 Docker 行。**无 Tailscale 时服务卡自动 span 12**（`App.vue` 动态），有 Tailscale 时 Tailscale(4)+服务(8) 同行，避免留白。Docker 菜单标题由本包 `menu.d/zz-quartz-docker.json` 覆盖为「Docker」（上游默认「Dockerman JS」）。
+- **Docker 卡（2026-10-19 真机反馈轮）**：恢复独立卡并**全宽**（span 12）——引擎版本/驱动/根目录 + 容器/镜像/网络/卷摘要 + 容器表（名称/镜像/状态/详情，≤8）；服务卡不再重复 Docker 行。**无 Tailscale 时服务卡自动 span 12**（`App.vue` 动态），有 Tailscale 时 Tailscale(4)+服务(8) 同行，避免留白。Docker 菜单标题由本包 `menu.d/zz-quartz-docker.json` 覆盖为「Docker」（上游默认「Dockerman JS」）；该 override 同时声明 dockerman 的 ACL/二进制/uci 依赖，非 docker 镜像不会注册菜单（避免 Services → Docker 死链）。
 - **网络卡地址交互（2026-10-19）**：IPv4/IPv6 默认**前半段 + `*`**（IPv4 保留前两段、IPv6 保留前两组），点击/回车切换完整地址，再点恢复打码；Hero 的 WAN 地址同规则。展开状态只存在组件实例内，刷新即重新打码；纯前端切换，不新增 API。Sparkline 左侧增加 y 轴速率刻度（顶部/中点/0，`Kbps`/`Mbps` 自动换算）。
 - **系统卡（2026-10-19）**：顶部一行 CPU 摘要（型号 · 核数 · 当前/最大频率），信息行新增「进程数」；数据来自 daemon `system` 节加法字段 `cpu_model/cores/cpu_mhz/cpu_max_mhz/procs`（契约 §3.2，全部可选），无 cpufreq 的平台自动省略频率。
+- **电池卡（2026-11-09，Photonicat 一代）**：条件卡（`battery.available === true`，span 8）——状态头（充电/放电/充满 + 充电器在线 + 化学/厂商）+ 电量进度条 + 电压 + 能量（Wh）。有电池时 System(4)+Battery(8) 同行，Network 自动顺延全宽（`App.vue` 动态）；无电池设备整卡不渲染。数据来自 daemon `battery` 节（契约 §3.10，pcat-mgr/FUSE）。
 - **蜂窝卡 v2（2026-10-19，用户已确认设计并反馈微调）**：三层结构 —— ①状态头（注册态 / **运营商官方 logo 符号**（移动/联通/电信；仅符号、不带文字商标，商标声明见 `frontend/src/assets/operators/README.md`）/ 运营商 PLMN / 网络模式 / 网络类型 / 模组名）；②KPI 带（**信号**：RSRP+质量标签+RSRQ/SINR/RSSI+**右下角放大的 RSRP 曲线**（170×46，带 y 轴数值，不拉满整行）；**速率**：下行/上行合并为一格；**本月用量**+重置计划；**服务小区**：Band + PCI/ARFCN）；③四栏细节（Radio：Band/ARFCN/PCI/带宽/SCS/双工；Cell & SIM：MCC·MNC/TAC/Cell ID/SIM 状态/槽位/可切换；Connection：IPv4〔打码可展开〕/CQI/AMBR/USB 模式/偏好；Hardware：厂商/固件/AT 端口/电压/温度/连接态）。每栏 5–6 行，首屏先回答「信号/速率/用量/小区」，硬件参数退到第二层。**IMEI/IMSI/ICCID 不加快照**，仅在 QModem 页面显示。
 - 断点：宽屏（≥1120px）如上图；中屏（<1120px）2 卡/行；手机（<700px）单列，顺序为 `#cellular 3 → #clients 4 → #bandix 5 → #tailscale 6 → #docker 7 → #services 8`（蜂窝是 5G CPE 主 WAN，提前；设备列表与流量明细仍先于服务）。
 - **移动端细则**：设备表窄屏隐藏 MAC 与接口列；卡片 `min-width: 0`（表格等最小内容宽度不得撑破页面）；Hero 摘要换行左对齐；悬浮控制条类元素左右贴边。
@@ -191,6 +192,7 @@ quartz-daemon (WP-4)                    浏览器（登录会话）
 ```js
 // src/cards/index.js —— 唯一的卡片清单（新增卡 = 加一个模块 + 加一行）
 import SystemCard from '../components/cards/SystemCard.vue';
+import BatteryCard from '../components/cards/BatteryCard.vue';
 import NetworkCard from '../components/cards/NetworkCard.vue';
 import QModemCard from '../components/cards/QModemCard.vue';
 import TailscaleCard from '../components/cards/TailscaleCard.vue';
@@ -200,6 +202,8 @@ import ClientsCard from '../components/cards/ClientsCard.vue';
 
 export default [
 	{ id: 'system', title: 'System', span: 4, component: SystemCard },
+	{ id: 'battery', title: 'Battery', span: 8, component: BatteryCard,
+	  visible: (p) => p.battery?.available === true },
 	{ id: 'network', title: 'Network', span: 8, component: NetworkCard, link: 'admin/status/realtime' },
 	{ id: 'cellular', title: 'Cellular', span: 12, component: QModemCard,
 	  link: 'admin/modem/qmodem', visible: (p) => !!(p.cellular?.available && p.cellular.modems?.length) },
@@ -441,3 +445,4 @@ W3.1–W3.5、W3.7 全程可在 WP-4 缺位下推进（mock 先行）。
 *v1.10 2026-10-19 —— **蜂窝卡 v2 微调（用户确认「做的不错」+ 三点反馈）**：①运营商文字前加品牌色圆标（中国移动蓝「移」/ 中国联通红「联」/ 中国电信蓝「电」；未知 PLMN 不渲染）；②KPI 带下行/上行合并为「速率」一格，空出的格子放「服务小区」（Band + PCI/ARFCN）；③RSRP 曲线从 110×34 行内小图改为全宽 46px，信号格宽度提到 1.5fr；④真机热部署 + 中文 lmo，证据 `fnet-20261019-cell-v3-{dark,light}.png` / `fnet-20261019-live-cellular-v3.png`；Bundle 33.9KB gzip / CSS 3.6KB gzip。*
 *v1.11 2026-10-19 —— **蜂窝卡 v4 收尾（用户：只要补右下留白，不要拉长；y 轴要数值；要真 logo；n78 字体）**：①RSRP 曲线改为**信号格右下角 170×46**（不拉满整行），左侧读数，正好补右下空白；②`Sparkline` 新增 `axis`/`axisFormat`/`height`：网络卡显示速率 y 轴（顶部/中点/0，Kbps/Mbps），蜂窝卡显示 RSRP y 轴（dBm 数值），标签用独立 HTML 列（避免 SVG 横向压扁文字）；③运营商图标改为**官方 logo 符号**（移动菱形/联通中国结/电信 e；`?raw` 内联，仅符号不带文字商标，见 `assets/operators/README.md`）；④服务小区频段号改 `qzd-c2-cellband`（等宽、19px、字重 500），不再是 KPI 大数字的粗体；⑤真机热部署，Bundle 36.2KB gzip / CSS 3.7KB gzip。*
 *v1.12 2026-10-19 —— **v4 两处真机修正**：①联通图标右侧缺块——裁剪 viewBox 从 330 宽扩到 **393×295**，中国结右瓣完整；图标容器改为**固定 20px 高、宽度随 logo 比例自适应**（移动 20px / 联通 26.6px / 电信 20.6px）；②RSRQ/SINR/RSSI 回到**同一行通栏**（放在读数+曲线行下方，占满信号格宽度），不再拆两行；证据 `fnet-20261019-cell-v4-{dark,light}.png` / `live-cellular-v4.png` / `operator-logos.png` 已用最终版覆盖。*
+*v1.13 2026-10-28 —— **VM 联调缺陷修复**：①服务卡 OpenClash 状态与 App 口径对齐——装而未跑显示 `stopped`、未装显示 `Not installed`，不再一律 `Unavailable`；②`menu.d/zz-quartz-docker.json` 增加 dockerman 依赖（ACL + `/etc/init.d/dockerd` + `/usr/bin/dockerd` + uci `dockerd`），修复非 docker 镜像 Services → Docker 菜单 404；x86 VM 上以“有/无 dockerman 前置条件”双向往返验证菜单显隐，服务卡文案同步复验。*

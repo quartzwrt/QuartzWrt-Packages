@@ -177,6 +177,18 @@
       ]
     }
   },
+  "battery": {
+    "available": true,
+    "present": true,
+    "charger_online": true,
+    "capacity": 82,
+    "status": "Charging",
+    "voltage_mv": 3980,
+    "energy_now_wh": 21.2,
+    "energy_full_wh": 25.9,
+    "technology": "Li-ion",
+    "manufacturer": "Ariaboard"
+  },
   "docker": {
     "available": true,
     "running": 3,

@@ -34,6 +34,7 @@
 | `services` | object | 是 | §3.6（**开放映射**，键 = 服务/包 id） |
 | `bandix` | object | 是 | §3.7（WP-8 bridge 链路，慢刷 10s）；整节缺失 = 上游不可用（errors 记一条）；`available=false` = 未装/未开（卡片隐藏） |
 | `cellular` | object | 是 | §3.9（W6.12 蜂窝轮，慢刷 10s）；整节缺失 = 采集异常；`available=false` = 未装 qmodem/无模组（tab 与卡片一起隐藏） |
+| `battery` | object | 是 | §3.10（2026-11-09 加法，Photonicat 电池轮）；`available=false` = 无电池/pcat-mgr 未运行 → 电池卡隐藏 |
 | `errors` | array\<string\> | 否（可为空数组） | 采集失败项，机器可读短串，如 `"docker: socket unavailable"` |
 
 ## 3. 各节字段
@@ -155,6 +156,29 @@
 
 - 机器可读短串数组，建议格式 `"<组件>: <原因>"`。消费方以弱化提示展示，不做解析。
 
+### 3.10 `battery`（可空；2026-11-09 加法，Photonicat 电池轮）
+
+数据源：Photonicat 一代的 `pcat-mgr` 通过 FUSE 暴露的
+`/sys/class/power_supply/pcat-battery` 与 `/sys/class/power_supply/pcat-charger`
+（与 `luci-mod-battstatus` 的 rpcd 同源）。无 pcat-mgr/无电池时
+`available=false`，消费方隐藏电池卡；本节为可选加法，不升契约版本。
+
+| 字段 | 类型 | 说明 |
+| :--- | :--- | :--- |
+| `available` | bool | `true` = `pcat-battery` 与 `pcat-charger` 均可读；`false` = 无电池/服务未运行 |
+| `present` | bool | 电池在位（`pcat-battery/present`） |
+| `charger_online` | bool | 充电器在线（`pcat-charger/online`） |
+| `capacity` | int | 电量百分比 0–100（`pcat-battery/capacity`） |
+| `status` | string | `Full` / `Charging` / `Discharging` / `Unknown`（上游英文枚举，展示层本地化） |
+| `voltage_mv` | int | 电池电压（mV；由 sysfs `voltage_now` µV 换算） |
+| `energy_now_wh` | number | 当前能量（Wh，1 位小数；由 `energy_now` µWh 换算） |
+| `energy_full_wh` | number | 满电能量（Wh，1 位小数；由 `energy_full` µWh 换算） |
+| `technology` | string（可选） | 电池化学，如 `Li-ion` |
+| `manufacturer` | string（可选） | 厂商，如 `Ariaboard` |
+
+- `available=false` 时除 `available` 外的字段可为零值/空串，消费方不得据此展示数值。
+- 消费方义务：`available !== true` 或整节缺失 → 不渲染电池卡。
+
 ## 4. 完整示例（基准，同时见 `dev/mock/status.json`）
 
 ```json
@@ -173,6 +197,12 @@
     "wan": { "up": true, "ifname": "eth0", "proto": "dhcp", "ipv4": "100.64.7.23",
              "rx_bps": 1312000, "tx_bps": 343000 },
     "series": { "step": 2, "rx": [0], "tx": [0] }
+  },
+  "battery": {
+    "available": true, "present": true, "charger_online": true,
+    "capacity": 82, "status": "Charging", "voltage_mv": 3980,
+    "energy_now_wh": 21.2, "energy_full_wh": 25.9,
+    "technology": "Li-ion", "manufacturer": "Ariaboard"
   },
   "docker": { "available": true, "running": 3, "total": 5, "images": 7, "unhealthy": ["nextcloud"] },
   "clients": { "total": 12, "items": [
@@ -204,6 +234,7 @@
 3. **未知容忍**：忽略未知字段/未知节；未知 `v` 显示"客户端需升级"提示。老前端对新版 daemon 不得报错。
 4. **轮询**：默认 5s；`document.hidden` 时**不取数**（LuCI `Poll` 自身不判断可见性——壳层自行实现），恢复可见时立即补取一次。
 5. **series 缺失**时：前端自行从轮询累积（开页后逐点成形），不报错。
+6. **battery 可选**：`battery.available !== true` 或整节缺失 → 不渲染电池卡；`status` 为上游英文枚举，展示层负责本地化。
 
 ## 6. 生产者义务（WP-4）
 
@@ -212,6 +243,7 @@
 3. **上限自守**：≤32KB / `clients.items` ≤32 / `series` ≤60（超出时截断，不超发）。
 4. **字段一致**：`interval`、`series.step` 与实际采集周期一致；`ts` 为采样完成时刻。
 5. **契约只增**：改契约走 §0 的变更流程并同步 `dev/mock/` 基准样例。
+6. **battery 采集失败不阻塞**：pcat-mgr 未运行/节点缺失时输出 `available=false`，不记 `errors`（属正常无电池态）。
 
 ---
 
@@ -219,3 +251,4 @@
 *2026-10-17 加法（不升版）：新增可选节 `bandix`（§3.7，WP-8 bridge 链路 P2——daemon 慢刷经 `quartz.bandix`；`available` 隐藏谓词 + `top ≤8`；`errors` 顺延为 §3.8）；§4 示例与 `dev/mock/` 同步。*
 *2026-10-18 加法三（W6.12 蜂窝轮，IA v2 定案）：新增可选节 `cellular`（§3.9——qmodem 读面经 daemon 慢车道，三端〔Dashboard 卡 / App 概览卡 / App 蜂窝 tab〕同源；含 daemon 侧累积的 RSRP 环形序列 `signal.series`）；`errors` 顺延为 §3.8、`cellular` 为 §3.9。*
 *2026-10-17 加法二（限速策略轮，用户指令）：`bandix.limits`（总体限速策略摘要）+ `top[]` 增 `rx_r/tx_r/wl/sch/q`；`wan` 保留但内置卡片/App 不再展示（与网络卡重复）。*
+*2026-11-09 加法（不升版）：新增可选节 `battery`（§3.10，Photonicat 一代 pcat-mgr/FUSE 电池数据；`available` 隐藏谓词）；§4 示例与 `dev/mock/` 同步。*

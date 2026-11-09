@@ -1,5 +1,13 @@
 {
 	"admin/services/dockerman": {
-		"title": "Docker"
+		"title": "Docker",
+		"depends": {
+			"acl": [ "luci-app-dockerman" ],
+			"fs": {
+				"/etc/init.d/dockerd": "executable",
+				"/usr/bin/dockerd": "executable"
+			},
+			"uci": { "dockerd": true }
+		}
 	}
 }

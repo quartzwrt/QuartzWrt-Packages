@@ -24,13 +24,13 @@ const qmodemHref = computed(() => pageHref('admin/modem/qmodem'));
 <template>
 	<EmptyState v-if="!hasAny" :msg="t('Unavailable')" />
 	<div v-else class="qzd-svc">
-		<!-- OpenClash（开放映射键；未装/未返回时显示不可用） -->
+		<!-- OpenClash（开放映射键；未装=Not installed，装而未跑=stopped，与 App 口径一致） -->
 		<div>
 			<div class="qzd-svc-name">
 				<Dot :state="svc && svc.openclash ? (svc.openclash.running ? 'ok' : 'err') : ''" />OpenClash
 			</div>
 			<div class="qzd-stat-v qz-mono">
-				{{ svc && svc.openclash && svc.openclash.core ? svc.openclash.core : t('Unavailable') }}
+				{{ svc && svc.openclash ? (svc.openclash.core || (svc.openclash.running ? t('running') : t('stopped'))) : t('Not installed') }}
 			</div>
 			<div v-if="svc && svc.openclash && svc.openclash.core_update" class="qzd-svc-extra">
 				<Badge tone="notice">{{ t('Core update available') }} {{ svc.openclash.core_update }}</Badge>

@@ -536,3 +536,34 @@ msgstr "硬件"
 
 msgid "QModem slow lane · 10s"
 msgstr "QModem 慢车道 · 10 秒"
+
+# ===== 电池卡（契约 §3.10，Photonicat 一代） =====
+msgid "Battery"
+msgstr "电池"
+
+msgid "Charge"
+msgstr "电量"
+
+msgid "Energy"
+msgstr "能量"
+
+msgid "Plugged in"
+msgstr "充电器已连接"
+
+msgid "Not plugged in"
+msgstr "充电器未连接"
+
+msgid "Charging"
+msgstr "充电中"
+
+msgid "Discharging"
+msgstr "放电中"
+
+msgid "Full"
+msgstr "已充满"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Battery not present"
+msgstr "未检测到电池"

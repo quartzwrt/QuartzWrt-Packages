@@ -5,6 +5,7 @@
  * 硬规则：卡片不得自行取数；需要新数据先扩契约（§6.2）
  */
 import SystemCard from '../components/cards/SystemCard.vue';
+import BatteryCard from '../components/cards/BatteryCard.vue';
 import NetworkCard from '../components/cards/NetworkCard.vue';
 import QModemCard from '../components/cards/QModemCard.vue';
 import DockerCard from '../components/cards/DockerCard.vue';
@@ -15,6 +16,11 @@ import BandixCard from '../components/cards/BandixCard.vue';
 
 export default [
 	{ id: 'system', title: 'System', span: 4, component: SystemCard },
+	{
+		id: 'battery', title: 'Battery', span: 8, component: BatteryCard,
+		/* 契约 §3.10：available!==true（无电池/pcat-mgr 未运行）→ 整卡隐藏 */
+		visible: (p) => !!(p.battery && p.battery.available === true)
+	},
 	{
 		id: 'network', title: 'Network', span: 8, component: NetworkCard,
 		link: 'admin/status/realtime', linkLabel: 'Realtime traffic'
