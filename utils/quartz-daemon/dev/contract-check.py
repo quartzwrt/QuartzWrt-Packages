@@ -334,6 +334,31 @@ def main() -> int:
                     if uv is not None and not isinstance(uv, str):
                         err(f"cellular.modems[{i}].usb_version: not string/absent")
 
+    # battery（契约 §3.10 加法；可空）
+    bt = s.get("battery")
+    if bt is not None:
+        if not isinstance(bt, dict):
+            err("battery: not object/null")
+        elif not isinstance(bt.get("available"), bool):
+            err("battery.available: not bool")
+        elif bt["available"]:
+            for k in ("present", "charger_online"):
+                if not isinstance(bt.get(k), bool):
+                    err(f"battery.{k}: not bool")
+            cap = bt.get("capacity")
+            if not is_int(cap) or not (0 <= cap <= 100):
+                err(f"battery.capacity: not in 0..100 ({cap!r})")
+            if not isinstance(bt.get("status"), str):
+                err("battery.status: not string")
+            for k in ("voltage_mv", "energy_now_wh", "energy_full_wh"):
+                v = bt.get(k)
+                if not is_num(v) or v < 0:
+                    err(f"battery.{k}: not non-negative number")
+            for k in ("technology", "manufacturer"):
+                v = bt.get(k)
+                if v is not None and not isinstance(v, str):
+                    err(f"battery.{k}: not string/absent")
+
     # errors
     er = s.get("errors")
     if not isinstance(er, list) or not all(isinstance(x, str) for x in er):

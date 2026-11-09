@@ -47,6 +47,7 @@ type Snapshot struct {
 	Services  map[string]any `json:"services"`
 	Bandix    *Bandix        `json:"bandix,omitempty"`
 	Cellular  *Cellular      `json:"cellular,omitempty"`
+	Battery   *Battery       `json:"battery,omitempty"`
 	Errors    []string       `json:"errors"`
 }
 
@@ -80,6 +81,22 @@ type System struct {
 	CPUMHz    int    `json:"cpu_mhz,omitempty"`     // 各核 scaling_cur_freq 均值（无 cpufreq 时省略）
 	CPUMaxMHz int    `json:"cpu_max_mhz,omitempty"` // 各核 cpuinfo_max_freq 最大值
 	Procs     int    `json:"procs,omitempty"`       // /proc/loadavg 第 4 段斜杠后的进程总数
+}
+
+// Battery 电池节（契约 §3.10；2026-11-09 加法，Photonicat 一代 pcat-mgr/FUSE）。
+// available=false = 无 pcat-battery/pcat-charger（无电池或 pcat-mgr 未运行）；
+// 此时其余字段可为零值，消费方不得展示。
+type Battery struct {
+	Available     bool    `json:"available"`
+	Present       bool    `json:"present"`
+	ChargerOnline bool    `json:"charger_online"`
+	Capacity      int     `json:"capacity"`
+	Status        string  `json:"status"`
+	VoltageMV     int     `json:"voltage_mv"`
+	EnergyNowWh   float64 `json:"energy_now_wh"`
+	EnergyFullWh  float64 `json:"energy_full_wh"`
+	Technology    string  `json:"technology,omitempty"`
+	Manufacturer  string  `json:"manufacturer,omitempty"`
 }
 
 // WAN 广域网接口状态（契约 §3.3）。

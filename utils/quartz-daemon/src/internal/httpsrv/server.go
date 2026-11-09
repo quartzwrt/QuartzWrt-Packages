@@ -17,12 +17,16 @@ import (
 
 // Server 只读快照服务。
 type Server struct {
-	Addr string // host:port
-	data atomic.Value
+	Addr      string // host:port
+	data      atomic.Value
+	onRequest func() // 客户端请求回调（空闲模式活跃信号）
 }
 
 // New 创建服务。
 func New(addr string) *Server { return &Server{Addr: addr} }
+
+// SetOnRequest 设置客户端请求回调（须在 Run 之前调用）。
+func (s *Server) SetOnRequest(fn func()) { s.onRequest = fn }
 
 // Set 发布最新快照字节（单写者调用；读路径无锁）。
 func (s *Server) Set(b []byte) {
@@ -36,6 +40,9 @@ func (s *Server) Handler() http.Handler {
 		if r.Method != http.MethodGet {
 			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
+		}
+		if s.onRequest != nil {
+			s.onRequest()
 		}
 		b, _ := s.data.Load().([]byte)
 		if b == nil {

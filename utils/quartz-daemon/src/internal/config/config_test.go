@@ -50,7 +50,27 @@ quartz-daemon.main.interval=notanumber
 
 func TestDefaults(t *testing.T) {
 	d := Defaults()
-	if d.Interval != DefaultInterval || d.Listen != DefaultListen || d.Port != DefaultPort {
+	if d.Interval != DefaultInterval || d.Listen != DefaultListen || d.Port != DefaultPort || d.IdleTimeout != DefaultIdleTimeout {
 		t.Fatalf("unexpected defaults: %+v", d)
+	}
+}
+
+func TestApplyUCIShowIdleTimeout(t *testing.T) {
+	cfg := Defaults()
+	ApplyUCIShow("quartz-daemon.main.idle_timeout='30'\n", &cfg)
+	if cfg.IdleTimeout != 30 {
+		t.Fatalf("idle_timeout = %d, want 30", cfg.IdleTimeout)
+	}
+
+	cfg = Defaults()
+	ApplyUCIShow("quartz-daemon.main.idle_timeout='-5'\n", &cfg)
+	if cfg.IdleTimeout != 0 {
+		t.Fatalf("idle_timeout = %d, want clamped 0", cfg.IdleTimeout)
+	}
+
+	cfg = Defaults()
+	ApplyUCIShow("quartz-daemon.main.idle_timeout='999999'\n", &cfg)
+	if cfg.IdleTimeout != IdleTimeoutMax {
+		t.Fatalf("idle_timeout = %d, want clamped %d", cfg.IdleTimeout, IdleTimeoutMax)
 	}
 }

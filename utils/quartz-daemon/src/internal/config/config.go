@@ -20,16 +20,21 @@ const (
 	DefaultListen = "127.0.0.1"
 	// DefaultPort HTTP 端口（VM 实测空闲，DESIGN §9-D4）。
 	DefaultPort = 8899
+	// DefaultIdleTimeout 空闲超时（秒）：无 web/App 客户端时暂停慢采集；0 表示禁用。
+	DefaultIdleTimeout = 60
 
 	IntervalMin = 1
 	IntervalMax = 300
+
+	IdleTimeoutMax = 86400
 )
 
 // Config 运行配置。
 type Config struct {
-	Interval int
-	Listen   string
-	Port     int
+	Interval    int
+	Listen      string
+	Port        int
+	IdleTimeout int
 }
 
 // Load 读取系统配置（uci 不可用/无配置时返回默认值）。
@@ -45,7 +50,12 @@ func Load() Config {
 
 // Defaults 返回内置默认配置。
 func Defaults() Config {
-	return Config{Interval: DefaultInterval, Listen: DefaultListen, Port: DefaultPort}
+	return Config{
+		Interval:    DefaultInterval,
+		Listen:      DefaultListen,
+		Port:        DefaultPort,
+		IdleTimeout: DefaultIdleTimeout,
+	}
 }
 
 // ApplyUCIShow 解析 `uci -q show quartz-daemon` 输出并合并进 cfg（含范围收敛）。
@@ -74,6 +84,10 @@ func ApplyUCIShow(out string, cfg *Config) {
 			if n, err := strconv.Atoi(val); err == nil {
 				cfg.Port = n
 			}
+		case "idle_timeout":
+			if n, err := strconv.Atoi(val); err == nil {
+				cfg.IdleTimeout = n
+			}
 		}
 	}
 	clamp(cfg)
@@ -91,6 +105,12 @@ func clamp(cfg *Config) {
 	}
 	if cfg.Listen == "" {
 		cfg.Listen = DefaultListen
+	}
+	if cfg.IdleTimeout < 0 {
+		cfg.IdleTimeout = 0
+	}
+	if cfg.IdleTimeout > IdleTimeoutMax {
+		cfg.IdleTimeout = IdleTimeoutMax
 	}
 }
 

@@ -43,8 +43,8 @@ func main() {
 	log.SetPrefix("quartz-daemon: ")
 
 	cfg := config.Load()
-	log.Printf("starting %s-%s interval=%ds http=%s",
-		version, release, cfg.Interval,
+	log.Printf("starting %s-%s interval=%ds idle_timeout=%ds http=%s",
+		version, release, cfg.Interval, cfg.IdleTimeout,
 		net.JoinHostPort(cfg.Listen, strconv.Itoa(cfg.Port)))
 
 	if err := output.EnsureDir(filepath.Dir(collect.StatusPath)); err != nil {
@@ -54,6 +54,7 @@ func main() {
 	col := collect.New(cfg)
 	writer := output.New(collect.StatusPath)
 	srv := httpsrv.New(net.JoinHostPort(cfg.Listen, strconv.Itoa(cfg.Port)))
+	srv.SetOnRequest(col.Touch)
 	go srv.Run()
 
 	// 启动即采：首个快照不等首个 interval（tmpfs 重启清空，尽快供数）
@@ -81,8 +82,11 @@ func main() {
 	for {
 		select {
 		case <-fastTick.C:
+			col.MaybeWake()
 			publish()
 		case <-slowTick.C:
+			col.Slow()
+		case <-col.Wake():
 			col.Slow()
 		case s := <-sig:
 			log.Printf("signal %s: exiting", s)

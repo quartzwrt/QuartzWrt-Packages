@@ -7,9 +7,12 @@
 package collect
 
 import (
+	"log"
+	"os"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/quartzwrt/quartz-daemon/internal/config"
@@ -22,6 +25,9 @@ const (
 
 	// SlowInterval 慢刷周期。
 	SlowInterval = 10 * time.Second
+
+	// ClientMarkerPath web Dashboard 活动标记：Dashboard 轮询快照时 touch 此文件。
+	ClientMarkerPath = "/var/run/quartz/client.active"
 
 	// probesShareDir 包内置探针描述目录。
 	probesShareDir = "/usr/share/quartz-daemon/probes.d"
@@ -43,6 +49,13 @@ type Collector struct {
 	ringTx     *ring
 	cellSeries *cellularSeriesStore // cellular 每模组 RSRP 环形（仅慢 goroutine 访问）
 
+	// 空闲模式：App HTTP 请求（lastClient）或 web Dashboard 标记文件
+	// （ClientMarkerPath）在 idle_timeout 内出现过，才跑慢采集。
+	lastClient   atomic.Int64 // 最近一次 App HTTP 请求（UnixNano）
+	idle         atomic.Bool
+	wake         chan struct{}
+	clientMarker string // web Dashboard 活动标记（测试可覆盖）
+
 	mu   sync.Mutex
 	slow slowCache
 }
@@ -62,16 +75,67 @@ type slowCache struct {
 
 // New 创建采集器。
 func New(cfg config.Config) *Collector {
-	return &Collector{
-		cfg:        cfg,
-		now:        time.Now,
-		ringRx:     newRing(snapshot.MaxSeries),
-		ringTx:     newRing(snapshot.MaxSeries),
-		cellSeries: newCellularSeriesStore(),
+	c := &Collector{
+		cfg:          cfg,
+		now:          time.Now,
+		ringRx:       newRing(snapshot.MaxSeries),
+		ringTx:       newRing(snapshot.MaxSeries),
+		cellSeries:   newCellularSeriesStore(),
+		wake:         make(chan struct{}, 1),
+		clientMarker: ClientMarkerPath,
+	}
+	// 启动即视为活跃：首轮慢采集必须执行，之后无客户端才进入空闲。
+	c.lastClient.Store(c.now().UnixNano())
+	return c
+}
+
+// Touch 标记一次 App HTTP 请求；若此前处于空闲，立即唤醒慢采集。
+func (c *Collector) Touch() {
+	c.lastClient.Store(c.now().UnixNano())
+	if c.idle.Swap(false) {
+		c.wakeSlow()
 	}
 }
 
-// Fast 执行一轮快采集并返回快照字节（host/system/net 直读 + 慢缓存装配）。
+// MaybeWake 由快周期调用：空闲时若检测到 web/App 活动（标记文件或 HTTP
+// 请求），唤醒慢采集。web Dashboard 读快照不走 daemon HTTP，只 touch 标记
+// 文件，因此需要在快周期里检查，避免等下一个 10s 慢 tick。
+func (c *Collector) MaybeWake() {
+	if !c.idle.Load() {
+		return
+	}
+	if c.slowActive(c.now()) {
+		c.idle.Store(false)
+		c.wakeSlow()
+	}
+}
+
+// Wake 返回慢采集唤醒通道（main 的 select 使用）。
+func (c *Collector) Wake() <-chan struct{} { return c.wake }
+
+func (c *Collector) wakeSlow() {
+	select {
+	case c.wake <- struct{}{}:
+	default:
+	}
+}
+
+// slowActive 判断是否应执行慢采集：idle_timeout<=0 表示禁用空闲模式。
+func (c *Collector) slowActive(now time.Time) bool {
+	if c.cfg.IdleTimeout <= 0 {
+		return true
+	}
+	timeout := time.Duration(c.cfg.IdleTimeout) * time.Second
+	if last := c.lastClient.Load(); last > 0 && now.Sub(time.Unix(0, last)) <= timeout {
+		return true
+	}
+	if fi, err := os.Stat(c.clientMarker); err == nil && now.Sub(fi.ModTime()) <= timeout {
+		return true
+	}
+	return false
+}
+
+// Fast 执行一轮快采集并返回快照字节（host/system/net/battery 直读 + 慢缓存装配）。
 func (c *Collector) Fast() ([]byte, error) {
 	t0 := c.now()
 
@@ -100,6 +164,7 @@ func (c *Collector) Fast() ([]byte, error) {
 	s.Host = c.hostFast(model)
 	s.System = c.systemFast()
 	s.Net = c.netFast(t0, proto)
+	s.Battery = c.batteryFast()
 	s.Docker = docker
 	s.Clients = clients
 	s.Bandix = bandix
@@ -117,7 +182,19 @@ func (c *Collector) Fast() ([]byte, error) {
 }
 
 // Slow 执行一轮慢采集：刷新 WAN 明细 / 服务 / Docker / 设备列表 / bandix 缓存。
+// 空闲模式（idle_timeout>0）下，无 web/App 活动时直接跳过整轮慢采集。
 func (c *Collector) Slow() {
+	now := c.now()
+	if !c.slowActive(now) {
+		if c.idle.CompareAndSwap(false, true) {
+			log.Printf("idle: no web/app client for %ds, pausing slow collection", c.cfg.IdleTimeout)
+		}
+		return
+	}
+	if c.idle.Swap(false) {
+		log.Printf("active: web/app client detected, resuming slow collection")
+	}
+
 	wanIface := parseDefaultRoute(readFile("/proc/net/route"))
 
 	// 服务：探针描述文件 + ubus service list

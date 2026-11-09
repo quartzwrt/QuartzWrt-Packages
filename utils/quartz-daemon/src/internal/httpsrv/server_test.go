@@ -44,3 +44,16 @@ func TestHandlerReadOnlyContract(t *testing.T) {
 		t.Fatalf("unknown path: code = %d, want 404", rr.Code)
 	}
 }
+
+func TestOnRequestCallback(t *testing.T) {
+	s := New("127.0.0.1:0")
+	called := 0
+	s.SetOnRequest(func() { called++ })
+	s.Set([]byte(`{}`))
+
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/v1/status", nil))
+	if called != 1 {
+		t.Fatalf("onRequest called %d times, want 1", called)
+	}
+}
