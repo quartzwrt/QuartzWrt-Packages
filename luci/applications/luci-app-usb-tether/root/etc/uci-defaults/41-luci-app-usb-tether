@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# 幂等：为既有 /etc/config/usb-tether 补缺失选项（固件升级保留用户配置时，
+# 新增选项不会被 conffile 覆盖，须由此兜底）；不做任何 network/firewall 改动。
+cfg=usb-tether.config
+uci -q get $cfg.enabled >/dev/null || uci set $cfg.enabled='0'
+uci -q get $cfg.device  >/dev/null || uci set $cfg.device='usb0'
+uci -q get $cfg.metric  >/dev/null || uci set $cfg.metric='50'
+uci -q get $cfg.zone     >/dev/null || uci set $cfg.zone='wan'
+[ -n "$(uci changes usb-tether)" ] && uci commit usb-tether
+exit 0

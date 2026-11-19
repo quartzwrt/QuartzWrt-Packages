@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# usb_tether 接口事件日志（netifd 自动跟踪设备出现/消失，无需干预；
+# 日志供排障 logread -e usb-tether 使用，与 tailscale hotplug 同模式）
+case "$ACTION" in
+	ifup|ifdown) ;;
+	*) exit 0 ;;
+esac
+[ "$INTERFACE" = "usb_tether" ] || exit 0
+device="$(uci -q get network.usb_tether.device || echo '?')"
+logger -t usb-tether "interface $ACTION on $INTERFACE (device: $device)"
+exit 0

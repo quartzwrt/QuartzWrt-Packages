@@ -1,0 +1,10 @@
+# luci-app-usb-tether 配置（WP-13）
+#
+# 安全默认 enabled=0：首次开启前本包不触碰 network/firewall，
+# 全部改动由 /usr/sbin/usb_tether_helper apply 幂等承接。
+
+config tether 'config'
+	option enabled '0'
+	option device 'usb0'
+	option metric '50'
+	option zone 'wan'

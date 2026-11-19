@@ -1,0 +1,239 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+#
+# usb_tether_helper — luci-app-usb-tether 幂等配置器（QuartzWrt，WP-13）
+#
+# 场景：手机（安卓 RNDIS/CDC-NCM/CDC-Ether，iPhone ipheth）插到路由器 USB 口
+# 并开启「USB 网络共享」后，把对应 USB 网卡作为 DHCP WAN 接入：
+#   network.usb_tether 接口（proto=dhcp + metric 备援）+ firewall zone 归属。
+# 接口由 netifd 自动跟踪设备名：手机插入 → 网卡出现 → 接口自动 ifup；拔线 →
+# 自动 ifdown。无常驻服务；本脚本只在配置变化时被调用（保存后 apply / 停用 /
+# 卸载清理），全部写操作幂等。
+#
+# 子命令：
+#   apply    读取 uci usb-tether → 同步 network/firewall 胶水（enabled=0 时仅撤）
+#   disable  强制 enabled=0 + 同步（UI「立即停用」/紧急入口，不动其它设置）
+#   cleanup  移除本工具添加的全部胶水（network 节 + 各 zone 成员；保留 uci 源配置）
+#   detect   列出当前在位的 USB 网卡（JSON，供设备下拉与状态页；无 jq 依赖）
+#
+# 设计要点（docs/DESIGN.md）：
+#   - 幂等：写操作一律先比较后写（uci_set_if / uci_add_list_if）；
+#   - 命名节：uci 对不存在的节 set 选项直接 Invalid argument，须先显式建节
+#     （同 tailscale_helper docs/DESIGN.md §6 教训）；
+#   - 校验先行：device/zone/metric 全部先验后写，任一非法即整体不动。
+#
+# 依赖基座（由包 LUCI_DEPENDS 保证）：/lib/functions.sh、busybox uci/logger。
+
+. /lib/functions.sh
+
+LOG_TAG=usb_tether_helper
+LOCK_FILE=/var/lock/usb_tether_helper.lock
+IFACE=usb_tether
+
+log_err() { logger -p daemon.err -t "$LOG_TAG" "$*"; }
+log_info() { logger -t "$LOG_TAG" "$*"; }
+
+uci_set_if() {
+	# uci_set_if <key> <value>
+	[ "$(uci -q get "$1")" = "$2" ] || uci set "$1=$2"
+}
+
+uci_list_has() {
+	# uci_list_has <key> <value>：列表成员判定。
+	# uci -q get 对多值列表输出单行空格连接，先拆行再整行匹配（值不含空格）。
+	uci -q get "$1" | tr ' ' '\n' | grep -qxF "$2"
+}
+
+uci_add_list_if() {
+	uci_list_has "$1" "$2" || uci add_list "$1=$2"
+}
+
+valid_ifname() {
+	echo "$1" | grep -qE '^[a-zA-Z0-9_.-]{1,15}$'
+}
+
+valid_zone() {
+	echo "$1" | grep -qE '^[a-zA-Z0-9_]{1,15}$'
+}
+
+valid_metric() {
+	echo "$1" | grep -qE '^[0-9]{1,4}$'
+}
+
+## ---------- 配置读取 ----------
+
+load_settings() {
+	config_load usb-tether
+	config_get_bool enabled config enabled 0
+	config_get device config device usb0
+	config_get metric config metric 50
+	config_get zone config zone wan
+}
+
+## ---------- firewall zone 辅助 ----------
+
+zone_refs() {
+	# 全部 zone 段引用（匿名 @zone[N] 与命名节都覆盖），供循环 del_list / 查名。
+	uci show firewall 2>/dev/null | sed -n 's/^firewall\.\([^.=]*\)=zone$/\1/p'
+}
+
+zone_find() {
+	# zone_find <zone名>：输出目标 zone 段引用；找不到输出空（调用方判错）。
+	local ref
+	for ref in $(zone_refs); do
+		[ "$(uci -q get "firewall.$ref.name")" = "$1" ] && { echo "$ref"; return 0; }
+	done
+	return 1
+}
+
+## ---------- network / firewall 胶水 ----------
+
+network_reconcile() {
+	# enabled=1 → 命名节在位、dhcp、device、metric、auto=1；
+	# enabled=0 → 仅 auto=0（保留节配置，重新启用时即改即通）。
+	if [ "$enabled" = "1" ]; then
+		[ -n "$(uci -q get network.$IFACE)" ] || uci set network.$IFACE=interface
+		uci_set_if network.$IFACE.proto dhcp
+		uci_set_if network.$IFACE.device "$device"
+		uci_set_if network.$IFACE.metric "$metric"
+		uci_set_if network.$IFACE.auto 1
+	elif [ -n "$(uci -q get network.$IFACE)" ]; then
+		uci_set_if network.$IFACE.auto 0
+	fi
+	[ -n "$(uci changes network)" ] && { uci commit network; /etc/init.d/network reload; }
+	return 0
+}
+
+network_remove() {
+	uci -q delete network.$IFACE
+	[ -n "$(uci changes network)" ] && { uci commit network; /etc/init.d/network reload; }
+	return 0
+}
+
+firewall_reconcile() {
+	# firewall_reconcile <zone段引用>：enabled=1 入列；enabled=0 出列。
+	local ref="$1"
+	if [ "$enabled" = "1" ]; then
+		uci_add_list_if "firewall.$ref.network" "$IFACE"
+	else
+		uci -q del_list "firewall.$ref.network=$IFACE" 2>/dev/null
+	fi
+	[ -n "$(uci changes firewall)" ] && { uci commit firewall; /etc/init.d/firewall reload; }
+	return 0
+}
+
+firewall_remove() {
+	local ref
+	for ref in $(zone_refs); do
+		uci -q del_list "firewall.$ref.network=$IFACE" 2>/dev/null
+	done
+	[ -n "$(uci changes firewall)" ] && { uci commit firewall; /etc/init.d/firewall reload; }
+	return 0
+}
+
+## ---------- 主流程 ----------
+
+apply_main() {
+	local zref
+	load_settings
+
+	# 校验先行：任一非法即整体不动（防半套配置 / uci 值注入）
+	valid_ifname "$device"  || { log_err "invalid device name: $device"; return 1; }
+	valid_metric "$metric"  || { log_err "invalid metric: $metric"; return 1; }
+	valid_zone "$zone"       || { log_err "invalid zone: $zone"; return 1; }
+	if [ "$enabled" = "1" ]; then
+		zref=$(zone_find "$zone") || { log_err "zone not found: $zone"; return 1; }
+	fi
+
+	network_reconcile || return 1
+	if [ "$enabled" = "1" ]; then
+		firewall_reconcile "$zref" || return 1
+	else
+		firewall_remove
+	fi
+	log_info "apply done (enabled=$enabled device=$device metric=$metric zone=$zone)"
+	return 0
+}
+
+disable_main() {
+	# 幂等：置 0 再走同一同步路径（其它设置不动）
+	uci -q set usb-tether.config.enabled='0'
+	uci -q commit usb-tether
+	apply_main
+}
+
+cleanup_main() {
+	network_remove
+	firewall_remove
+	log_info "cleanup done (uci usb-tether retained)"
+	return 0
+}
+
+## ---------- detect：USB 网卡枚举 ----------
+
+json_escape() {
+	printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr -d '\n\r\t'
+}
+
+detect_main() {
+	local d ifname devpath drv man prod ser used_by tetherable first=1
+	printf '{"devices":['
+	for d in /sys/class/net/*; do
+		ifname=${d##*/}
+		# 仅 USB 父设备的 netdev（跳过 lo/eth/wlan/br-* 等）
+		devpath=$(readlink -f "$d/device" 2>/dev/null)
+		case "$devpath" in
+			*"/usb"*) ;;
+			*) continue ;;
+		esac
+		drv=$(basename "$(readlink -f "$d/device/driver" 2>/dev/null)" 2>/dev/null)
+		# manufacturer/product 在 USB 设备级目录（接口目录的上级）
+		man=$(cat "$d/device/../manufacturer" 2>/dev/null)
+		prod=$(cat "$d/device/../product" 2>/dev/null)
+		ser=$(cat "$d/device/../serial" 2>/dev/null)
+		# 该网卡当前被哪个 uci 接口引用（匿名节 @interface[N] 同样命中）
+		used_by=$(uci show network 2>/dev/null \
+			| sed -n "s/^network\.\([^.=]*\)\.device='$ifname'/\1/p" | head -1)
+		# qmi/mbim 属 5G 模组数据通道（qmodem 占用），非手机共享候选
+		tetherable=true
+		case "$drv" in qmi_wwan|cdc_mbim) tetherable=false ;; esac
+
+		[ "$first" = "1" ] || printf ','
+		first=0
+		printf '{"ifname":"%s","driver":"%s","manufacturer":"%s","product":"%s","serial":"%s","used_by":"%s","tetherable":%s}' \
+			"$(json_escape "$ifname")" "$(json_escape "$drv")" \
+			"$(json_escape "$man")" "$(json_escape "$prod")" "$(json_escape "$ser")" \
+			"$(json_escape "$used_by")" "$tetherable"
+	done
+	printf ']}\n'
+	return 0
+}
+
+main() {
+	case "$1" in
+		apply)
+			exec 9>"$LOCK_FILE"
+			flock 9 # busybox flock 无 -w：默认阻塞独占；锁随进程退出自动释放
+			apply_main
+			;;
+		disable)
+			exec 9>"$LOCK_FILE"
+			flock 9
+			disable_main
+			;;
+		cleanup)
+			exec 9>"$LOCK_FILE"
+			flock 9
+			cleanup_main
+			;;
+		detect)
+			detect_main
+			;;
+		*)
+			echo "usage: $0 apply | disable | cleanup | detect" >&2
+			exit 1
+			;;
+	esac
+}
+
+main "$@"

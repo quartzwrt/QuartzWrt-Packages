@@ -1,0 +1,137 @@
+msgid ""
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Active exit: %s (metric %d). Lower the metric in Settings to prefer the phone."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/status.js
+msgid "Check that USB tethering is switched on on the phone."
+msgstr ""
+
+msgid "configured"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "Current Exit"
+msgstr ""
+
+msgid "default"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Default 50 = standby (fallback): the phone is used only when other WAN connections are down. Set a lower value than your main WAN to make the phone the primary exit."
+msgstr ""
+
+msgid "Detected"
+msgstr ""
+
+msgid "Detected other USB devices: %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Detected USB network devices. Phones expose RNDIS / CDC-NCM / CDC-Ether (Android) or ipheth (iPhone) once USB tethering is switched on."
+msgstr ""
+
+msgid "Device present, waiting for DHCP …"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Enabled, waiting for device …"
+msgstr ""
+
+msgid "Failed to apply USB tethering settings: %s"
+msgstr ""
+
+msgid "Firewall Zone"
+msgstr ""
+
+msgid "Firewall zone for the tethering interface. Keep it in the WAN zone unless you know what you are doing."
+msgstr ""
+
+msgid "Gateway"
+msgstr ""
+
+msgid "Interface"
+msgstr ""
+
+msgid "in use"
+msgstr ""
+
+msgid "IPv4 Address"
+msgstr ""
+
+msgid "IPv6 Address"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/status.js
+msgid "Live status of the internet connection shared over USB from a phone. Values refresh every few seconds. Supported drivers: RNDIS, CDC-NCM, CDC-Ether (Android), ipheth (iPhone)."
+msgstr ""
+
+msgid "modem device"
+msgstr ""
+
+msgid "Modem device"
+msgstr ""
+
+msgid "No default route present"
+msgstr ""
+
+msgid "Not detected"
+msgstr ""
+
+msgid "Phone (%s) — active"
+msgstr ""
+
+msgid "Phone / USB Device"
+msgstr ""
+
+msgid "Plug the phone into the router USB port and enable USB tethering on the phone, then select the device in Settings."
+msgstr ""
+
+msgid "Route Metric"
+msgstr ""
+
+msgid "Standby (metric %d)"
+msgstr ""
+
+msgid "This device looks like a 5G modem data port. Pick another one in Settings."
+msgstr ""
+
+msgid "Total Download"
+msgstr ""
+
+msgid "Total Upload"
+msgstr ""
+
+msgid "Traffic is currently routed through the phone."
+msgstr ""
+
+msgid "USB Device"
+msgstr ""
+
+msgid "USB Tethering"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Use your phone as a WAN source: connect it to the router USB port, enable USB tethering on the phone, then turn this feature on. The router obtains internet access from the phone via DHCP."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "When enabled, a DHCP interface on the selected USB device is created and attached to the chosen firewall zone (metric applies). Re-enabling after unplugging the phone requires no further action — the interface follows the device automatically."
+msgstr ""
+
+#: root/usr/share/luci/menu.d/luci-app-usb-tether.json
+msgid "Settings"
+msgstr ""
+
+#: root/usr/share/luci/menu.d/luci-app-usb-tether.json
+msgid "Status"
+msgstr ""

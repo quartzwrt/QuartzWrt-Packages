@@ -1,0 +1,39 @@
+{
+	"luci-app-usb-tether": {
+		"description": "Grant access to USB Tethering configuration (QuartzWrt)",
+		"read": {
+			"file": {
+				"/sbin/ip -s -j ad": [
+					"exec"
+				],
+				"/sbin/ip -j route show default": [
+					"exec"
+				],
+				"/usr/sbin/usb_tether_helper detect": [
+					"exec"
+				]
+			},
+			"uci": [
+				"usb-tether",
+				"network",
+				"firewall"
+			]
+		},
+		"write": {
+			"file": {
+				"/usr/sbin/usb_tether_helper apply": [
+					"exec"
+				],
+				"/usr/sbin/usb_tether_helper disable": [
+					"exec"
+				],
+				"/usr/sbin/usb_tether_helper cleanup": [
+					"exec"
+				]
+			},
+			"uci": [
+				"usb-tether"
+			]
+		}
+	}
+}

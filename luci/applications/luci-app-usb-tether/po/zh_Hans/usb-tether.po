@@ -1,0 +1,137 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Active exit: %s (metric %d). Lower the metric in Settings to prefer the phone."
+msgstr "当前出口：%s(metric %d)。在「设置」里调低 metric 可优先走手机。"
+
+#: htdocs/luci-static/resources/view/usb-tether/status.js
+msgid "Check that USB tethering is switched on on the phone."
+msgstr "请确认手机上的 USB 网络共享已开启。"
+
+msgid "configured"
+msgstr "当前配置"
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "Current Exit"
+msgstr "当前上网出口"
+
+msgid "default"
+msgstr "默认"
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Default 50 = standby (fallback): the phone is used only when other WAN connections are down. Set a lower value than your main WAN to make the phone the primary exit."
+msgstr "默认 50 = 备援待命：仅当其他 WAN 断开时才走手机。调到比主 WAN 更低的值即可让手机成为主出口。"
+
+msgid "Detected"
+msgstr "已检测到"
+
+msgid "Detected other USB devices: %s"
+msgstr "检测到其他 USB 网卡：%s"
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Detected USB network devices. Phones expose RNDIS / CDC-NCM / CDC-Ether (Android) or ipheth (iPhone) once USB tethering is switched on."
+msgstr "检测到的 USB 网卡。手机开启 USB 网络共享后会枚举出 RNDIS / CDC-NCM / CDC-Ether(安卓)或 ipheth(iPhone)网卡。"
+
+msgid "Device present, waiting for DHCP …"
+msgstr "设备在位，等待 DHCP 获取地址 …"
+
+msgid "Disabled"
+msgstr "未启用"
+
+msgid "Enable"
+msgstr "启用"
+
+msgid "Enabled, waiting for device …"
+msgstr "已启用，等待设备插入 …"
+
+msgid "Failed to apply USB tethering settings: %s"
+msgstr "应用 USB 共享上网设置失败：%s"
+
+msgid "Firewall Zone"
+msgstr "防火墙区域"
+
+msgid "Firewall zone for the tethering interface. Keep it in the WAN zone unless you know what you are doing."
+msgstr "共享上网接口所属的防火墙区域。除非清楚后果，请保持 wan 区域。"
+
+msgid "Gateway"
+msgstr "网关"
+
+msgid "Interface"
+msgstr "接口"
+
+msgid "in use"
+msgstr "占用"
+
+msgid "IPv4 Address"
+msgstr "IPv4 地址"
+
+msgid "IPv6 Address"
+msgstr "IPv6 地址"
+
+#: htdocs/luci-static/resources/view/usb-tether/status.js
+msgid "Live status of the internet connection shared over USB from a phone. Values refresh every few seconds. Supported drivers: RNDIS, CDC-NCM, CDC-Ether (Android), ipheth (iPhone)."
+msgstr "通过 USB 从手机共享的网络连接的实时状态，数值每几秒自动刷新。支持驱动：RNDIS、CDC-NCM、CDC-Ether(安卓)、ipheth(iPhone)。"
+
+msgid "modem device"
+msgstr "模组设备"
+
+msgid "Modem device"
+msgstr "模组设备"
+
+msgid "No default route present"
+msgstr "当前无默认路由"
+
+msgid "Not detected"
+msgstr "未检测到"
+
+msgid "Phone (%s) — active"
+msgstr "手机(%s)— 使用中"
+
+msgid "Phone / USB Device"
+msgstr "手机 / USB 设备"
+
+msgid "Plug the phone into the router USB port and enable USB tethering on the phone, then select the device in Settings."
+msgstr "请将手机插到路由器 USB 口，在手机上开启 USB 网络共享，然后在「设置」页选择对应设备。"
+
+msgid "Route Metric"
+msgstr "路由 Metric"
+
+msgid "Standby (metric %d)"
+msgstr "备援待命(metric %d)"
+
+msgid "This device looks like a 5G modem data port. Pick another one in Settings."
+msgstr "该设备疑似 5G 模组数据口，请在「设置」页改选其他设备。"
+
+msgid "Total Download"
+msgstr "累计下载"
+
+msgid "Total Upload"
+msgstr "累计上传"
+
+msgid "Traffic is currently routed through the phone."
+msgstr "当前流量正通过手机上网。"
+
+msgid "USB Device"
+msgstr "USB 设备"
+
+msgid "USB Tethering"
+msgstr "USB 共享上网"
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "Use your phone as a WAN source: connect it to the router USB port, enable USB tethering on the phone, then turn this feature on. The router obtains internet access from the phone via DHCP."
+msgstr "把手机当作路由器的上网来源：手机插到路由器 USB 口并开启 USB 网络共享后，打开本开关，路由器即通过 DHCP 经手机上网。"
+
+#: htdocs/luci-static/resources/view/usb-tether/setting.js
+msgid "When enabled, a DHCP interface on the selected USB device is created and attached to the chosen firewall zone (metric applies). Re-enabling after unplugging the phone requires no further action — the interface follows the device automatically."
+msgstr "开启后会在所选 USB 设备上创建 DHCP 接口并加入所选防火墙区域(metric 生效)。拔掉手机后重新插上无需任何操作——接口自动跟随设备恢复。"
+
+#: root/usr/share/luci/menu.d/luci-app-usb-tether.json
+msgid "Settings"
+msgstr "设置"
+
+#: root/usr/share/luci/menu.d/luci-app-usb-tether.json
+msgid "Status"
+msgstr "状态"

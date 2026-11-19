@@ -1,0 +1,29 @@
+{
+	"admin/network/usb-tether": {
+		"title": "USB Tethering",
+		"order": 90,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-usb-tether" ],
+			"uci": { "usb-tether": true }
+		}
+	},
+	"admin/network/usb-tether/status": {
+		"title": "Status",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "usb-tether/status"
+		}
+	},
+	"admin/network/usb-tether/setting": {
+		"title": "Settings",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "usb-tether/setting"
+		}
+	}
+}
