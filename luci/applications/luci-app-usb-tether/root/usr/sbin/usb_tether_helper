@@ -180,7 +180,11 @@ detect_main() {
 	printf '{"devices":['
 	for d in /sys/class/net/*; do
 		ifname=${d##*/}
-		# 仅 USB 父设备的 netdev（跳过 lo/eth/wlan/br-* 等）
+		# 仅 USB 父设备的 netdev（跳过 lo/eth/wlan/br-* 等）。
+		# 必须先验 device 链接存在：busybox readlink -f 对不存在的路径会
+		# 原样回显，名字含 usb 的虚拟设备（veth/dummy，VM e2e 用）会因路径
+		# 里恰好有 "/usb" 被误判为 USB 网卡（实测坑）
+		[ -e "$d/device" ] || continue
 		devpath=$(readlink -f "$d/device" 2>/dev/null)
 		case "$devpath" in
 			*"/usb"*) ;;

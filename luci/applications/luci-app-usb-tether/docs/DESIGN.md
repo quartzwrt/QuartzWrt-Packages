@@ -76,10 +76,31 @@ usb_tether_helper apply ── 幂等同步胶水：
 - 发布上线需另行一轮：`feeds.conf.extra` quartz 锁 SHA bump（40 位）→
   `publish-feed.sh` 上传 R2 → `check-feed-live.sh` 自检（见 WORKPLAN WP-13）。
 
-## 8. 验证
+## 8. 验证（VM e2e 已全绿，2026-11-20）
 
-- 单包编译：`make package/luci-app-usb-tether/compile`（产物 .apk）；
-- VM e2e（x86）：`ip link add usb0 type dummy`＋dnsmasq 起 192.168.42.0/24
-  DHCP 模拟手机侧，验证：启用→接口 ifup 取到地址→zone 成员→默认路由 metric
-  50 备援→状态页各字段；禁用/重复 apply/卸载 cleanup 三路径幂等；
-- 真机验收（安卓/iPhone）由维护者执行（见 README）。
+- 单包编译：`make package/feeds/quartz/luci-app-usb-tether/compile`（产物 .apk ×2；
+  **注意**嵌套 feed 目录下按包名单独编 i18n 子包的 toplevel 目标有调度缺陷
+  （连基座已知包都 No rule），须用目录级全路径目标一次编两个子包）；
+- **VM e2e：`dev/vm-e2e.sh` 29/29 全绿**（x86 QEMU + 模拟手机）：
+  安装/文件集/权限/lmo → 启用（network 节 + wan zone + 幂等）→ **veth
+  usb0←→phone0 + dnsmasq 充当手机侧**：netifd 自动 ifup 拿到 192.168.42.x
+  租约 → 双默认路由（eth1 metric 0 主用 / usb0 metric 50 备援）→ eth1 摘除
+  默认路由自动切手机、恢复即回落 → hotplug 日志 → LuCI 静态资产 →
+  disable/复启/cleanup 三路径幂等；
+- **页面证据：`dev/page-check.py`**（Playwright）状态/设置页截图 +
+  `admin/menu` 树断言 `network/usb-tether → [status, setting]`（见
+  `dev/shots/vm/`）；
+- VM e2e 实测坑（已全部规避/修复，细节见脚本注释）：
+  1. pty 直灌 base64 大文件会因 canonical 输入队列溢出丢字节——apk 改走
+     slirp 宿主网关 HTTP 下发；
+  2. 假手机 phone0 无 zone，fw4 默认丢弃入站 DHCP——须在最后一次
+     firewall reload 后 `nft insert` 放行（真实方向 usb0∈wan 由基座
+     Allow-DHCP-Renew 覆盖，**产品无需任何防火墙改动**）；
+  3. netifd reload 会清掉裸 veth 上的手工地址——phone0 地址必须在
+     helper apply 之后补；
+  4. **产品 bug 修复**：busybox `readlink -f` 对不存在路径原样回显，
+     名字含 usb 的虚拟设备被 detect 误判为 USB 网卡——已加 `[ -e device ]`
+     前置校验；
+- 真机验收（安卓/iPhone）由维护者执行（见 README）；sysfs 手机识别
+  （manufacturer/product/driver 显示）属真机项——VM 的 veth 不具备
+  USB 父设备，状态页相应行按设计显示「未检测到」。
