@@ -34,17 +34,29 @@ VM_PASS="${VM_PASS:-quartz}"
 BOOT=0
 [ "${1:-}" = "--boot" ] && BOOT=1
 
-APP_APK="$APK_DIR/luci-app-usb-tether-1.0.0-r1.apk"
-I18N_APK="$APK_DIR/luci-i18n-usb-tether-zh-cn-0.apk"
-[ -f "$APP_APK" ]   || { echo "错误：缺少 $APP_APK（先 make package/feeds/quartz/luci-app-usb-tether/compile）" >&2; exit 1; }
-[ -f "$I18N_APK" ]  || { echo "错误：缺少 $I18N_APK" >&2; exit 1; }
+APP_APK="$(ls -t "$APK_DIR"/luci-app-usb-tether-*.apk 2>/dev/null | grep -v i18n | head -1)"
+I18N_APK="$(ls -t "$APK_DIR"/luci-i18n-usb-tether-zh-cn-*.apk 2>/dev/null | head -1)"
+[ -n "$APP_APK" ] && [ -f "$APP_APK" ]  || { echo "错误：$APK_DIR 下没有 luci-app-usb-tether-*.apk（先 make package/feeds/quartz/luci-app-usb-tether/compile）" >&2; exit 1; }
+[ -n "$I18N_APK" ] && [ -f "$I18N_APK" ] || { echo "错误：$APK_DIR 下没有 luci-i18n-usb-tether-zh-cn-*.apk" >&2; exit 1; }
+# 产物名随 luci.mk 版本戳变化（如 *-26.323.65579~c145bc7.apk），一律按 glob 取最新
 
 # apk 经 slirp 宿主网关（192.168.1.2 = 宿主 loopback）HTTP 下发——pty 直灌 base64
-# 会因 canonical 输入队列溢出丢字节（实测 unexpected end of file）
+# 会因 canonical 输入队列溢出丢字节（实测 unexpected end of file）。
+# x86 VM 装的是 ipheth 剥离的 VM-TEST 构建（feed Makefile 临时改，x86 bin 无
+# ipheth kmod）；rndis/cdc-ether/cdc-ncm 用 x86 targets bin 的真实 kmod apk。
 SRV_PORT="${SRV_PORT:-8099}"
-python3 -m http.server "$SRV_PORT" --bind 127.0.0.1 --directory "$APK_DIR" >/dev/null 2>&1 &
+KMOD_DIR="${KMOD_DIR:-$BASE_DIR/bin/targets/x86/64/packages}"
+SRV_DIR="$(mktemp -d)"
+ln -sf "$(readlink -f "$APP_APK")" "$SRV_DIR/"
+ln -sf "$(readlink -f "$I18N_APK")" "$SRV_DIR/"
+KMOD_NAMES=""
+for km in kmod-usb-net-rndis kmod-usb-net-cdc-ether kmod-usb-net-cdc-ncm; do
+	KA="$(ls "$KMOD_DIR/$km"-*.apk 2>/dev/null | head -1)"
+	[ -n "$KA" ] && { ln -sf "$KA" "$SRV_DIR/"; KMOD_NAMES="$KMOD_NAMES $(basename "$KA")"; } || echo "警告：缺 $KMOD_DIR/$km-*.apk" >&2
+done
+python3 -m http.server "$SRV_PORT" --bind 127.0.0.1 --directory "$SRV_DIR" >/dev/null 2>&1 &
 SRV_PID=$!
-trap 'kill $SRV_PID 2>/dev/null || true' EXIT
+trap 'kill $SRV_PID 2>/dev/null || true; rm -rf "$SRV_DIR"' EXIT
 
 vm_up() { (exec 3<>"/dev/tcp/127.0.0.1/$SSH_PORT") 2>/dev/null && exec 3>&- 3<&-; }
 
@@ -62,7 +74,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="$APP_DIR/dev/shots/vm"; mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/e2e-$STAMP.log"
 
-export SSH_PORT VM_PASS SRV_PORT
+export SSH_PORT VM_PASS SRV_PORT APP_APK I18N_APK KMOD_NAMES
 python3 - <<'PYEOF' | tee "$LOG"
 import os, pty, select, sys, time
 
@@ -105,6 +117,29 @@ done
 /usr/sbin/usb_tether_helper apply
 [ -z "$(uci changes network; uci changes firewall)" ] && ok idempotent-apply || no idempotent-apply
 
+# --- init reload 链（uci apply→procd→reload 的生产分发由 dev/ui-saveapply-test.py
+#     用真实点击覆盖——CLI 无 rpcd 会话，ubus uci apply 直调必 Invalid argument）---
+wait_reload() {
+	local i ev av
+	for i in $(seq 1 10); do
+		ev="$(uci -q get usb-tether.config.enabled)"
+		av="$(uci -q get network.usb_tether.auto)"
+		[ "$ev" = "$1" ] && [ "$av" = "$2" ] && return 0
+		sleep 1
+	done
+	return 1
+}
+[ -x /etc/init.d/usb-tether ] && ok init-script || no init-script
+/etc/init.d/usb-tether enabled && ok init-enabled || no init-enabled
+uci set usb-tether.config.enabled='0'
+uci commit usb-tether
+/etc/init.d/usb-tether reload
+wait_reload 0 0 && ok init-reload-off || no init-reload-off
+uci set usb-tether.config.enabled='1'
+uci commit usb-tether
+/etc/init.d/usb-tether reload
+wait_reload 1 1 && ok init-reload-on || no init-reload-on
+
 ip link add usb0 type veth peer name phone0 2>/dev/null || true
 ip link set usb0 up
 ip link set phone0 up
@@ -146,7 +181,7 @@ logread | grep -q 'usb-tether' && ok hotplug-log || no hotplug-log
 uclient-fetch -q -O /tmp/e2e/status.js http://127.0.0.1/luci-static/resources/view/usb-tether/status.js 2>/dev/null \
 	&& grep -q renderContent /tmp/e2e/status.js && ok asset-status || no asset-status
 uclient-fetch -q -O /tmp/e2e/setting.js http://127.0.0.1/luci-static/resources/view/usb-tether/setting.js 2>/dev/null \
-	&& grep -q applyHelper /tmp/e2e/setting.js && ok asset-setting || no asset-setting
+	&& grep -q "require form" /tmp/e2e/setting.js && ok asset-setting || no asset-setting
 
 /usr/sbin/usb_tether_helper disable
 [ "$(uci -q get network.usb_tether.auto)" = "0" ] && ok disable-auto0 || no disable-auto0
@@ -167,10 +202,16 @@ uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx usb_tether && no cl
 echo "E2E:SUMMARY ok=$P fail=$F"
 """
 
+kmod_lines = []
+for km in os.environ.get("KMOD_NAMES", "").split():
+	kmod_lines.append("uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:%s/%s" % (srv_port, km))
+	kmod_lines.append("apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log 2>&1 || true")
+
 payload = "\n".join([
 	"mkdir -p /tmp/e2e",
-	"uclient-fetch -q -O /tmp/e2e/app.apk http://192.168.1.2:%s/luci-app-usb-tether-1.0.0-r1.apk" % srv_port,
-	"uclient-fetch -q -O /tmp/e2e/i18n.apk http://192.168.1.2:%s/luci-i18n-usb-tether-zh-cn-0.apk" % srv_port,
+] + kmod_lines + [
+	"uclient-fetch -q -O /tmp/e2e/app.apk http://192.168.1.2:%s/%s" % (srv_port, os.path.basename(os.environ["APP_APK"])),
+	"uclient-fetch -q -O /tmp/e2e/i18n.apk http://192.168.1.2:%s/%s" % (srv_port, os.path.basename(os.environ["I18N_APK"])),
 	"cat > /tmp/e2e/run.sh <<'RUNEOF'",
 	inner, "RUNEOF",
 	"sh /tmp/e2e/run.sh",

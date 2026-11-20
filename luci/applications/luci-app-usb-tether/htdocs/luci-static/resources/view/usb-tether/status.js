@@ -35,10 +35,32 @@ function bold(text, color) {
 	return E('strong', { 'style': 'color:%s'.format(color) }, text);
 }
 
+/* 自愈（docs/DESIGN.md §2）：基座 25.12 无 apply 触发链（uci.apply 恒空转），
+ * uci 落盘与 helper 同步可能脱节。状态页轮询发现 enabled=1 但
+ * network 胶水未同步（network.usb_tether.auto ≠ 1）时补跑一次 helper
+ * （30s 节流），使「打开状态页」即成为任何构建状态下的兜底应用路径。
+ * 注意判据用 uci 的 auto 而非网卡在位：veth/真实网卡存在 ≠ netifd 接口在位。 */
+var healLast = 0;
+
+function maybeHeal(enabled, autoOk) {
+	if (enabled !== true || autoOk === true)
+		return;
+
+	const now = Date.now();
+
+	if (now - healLast < 30000)
+		return;
+
+	healLast = now;
+
+	fs.exec('/usr/sbin/usb_tether_helper', ['apply']);
+}
+
 return view.extend({
 	load() {
 		return Promise.all([
 			uci.load('usb-tether'),
+			uci.load('network'),
 			fs.exec('/usr/sbin/usb_tether_helper', ['detect']).catch(function() { return null; }),
 			fs.exec('/sbin/ip', ['-s', '-j', 'ad']).catch(function() { return null; }),
 			fs.exec('/sbin/ip', ['-j', 'route', 'show', 'default']).catch(function() { return null; })
@@ -72,6 +94,8 @@ return view.extend({
 		});
 		const viaPhone = (bestRoute !== null && bestRoute.dev === device);
 		const phoneRoute = routes.filter(function(r) { return r.dev === device; })[0];
+
+		maybeHeal(enabled, uci.get('network', 'usb_tether', 'auto') === '1');
 
 		const rows = [];
 		const addRow = function(label, value) {

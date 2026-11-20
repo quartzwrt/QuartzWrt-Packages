@@ -7,16 +7,26 @@ rndis/cdc-ether/cdc-ncm）＋ `network` 里 DHCP 接口 ＋ 防火墙 zone 归�
 metric 控制主备。缺一个应用层入口让用户「一键可用」。本包补齐该入口，不做
 其它（不做多拨/负载均衡，与 mwan3/qmodem-mwan 正交）。
 
-## 2. 架构（Mode A 原生集成，无常驻服务）
+## 2. 架构（Mode A 原生集成，无常驻服务；2026-11-21 真机反馈后重定型）
+
+**基座 25.12 实测语义（决定全部设计）**：ubus `uci set` **直接落盘**（无
+stage/apply/rollback），`uci.changes` 恒空、`uci apply` 恒 `NOT_FOUND`——
+"uci apply → procd reload trigger" 链在本基座没有触发点；且 luci.js 的保存
+处理器在 **View 基类**（`form.Map.prototype` 上没有 handleSave/handleSaveApply，
+对其 `.call()` 会崩成 "Cannot read properties of undefined" →
+createHandlerFn 的 spinning 永不解除 = **真机「保存并应用永远转圈」的根因**）。
 
 ```
-用户勾选「启用」并保存
-        │  setting.js: form 只写 uci usb-tether
+用户勾选「启用」
+        │  cbi 勾选即经 ubus uci.set 落盘（基座语义）
         ▼
-usb_tether_helper apply ── 幂等同步胶水：
-        ├─ network.usb_tether（命名节；proto=dhcp, device, metric, auto=enabled）
-        ├─ firewall <zone>.network += usb_tether（enabled=0 时移除）
-        └─ commit → network/firewall reload
+应用路径（三重，任何一条到位即可）：
+  ① setting.js handleSave/handleSaveApply（内联复刻 View 基类实现）
+     → usb_tether_helper apply 幂等同步 network/firewall 胶水
+  ② status.js 轮询自愈：enabled=1 而 network.usb_tether.auto≠1 时
+     补跑 helper（30s 节流）——「打开状态页」即兜底应用路径
+  ③ /etc/init.d/usb-tether 开机自愈（procd trigger 保留供未来基座
+     恢复 apply 语义时接上）
                 │
                 ▼  netifd 自动跟踪 device（默认 usb0）
 手机插入 → usb0 出现 → usb_tether ifup（DHCP 从手机取地址/网关/DNS）

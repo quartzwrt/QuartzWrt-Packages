@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: Apache-2.0
+#
+# usb-tether — luci-app-usb-tether 的 procd 触发器（WP-13）
+#
+# 本包无常驻进程。基座 25.12 的 ubus uci set 直接落盘、uci.apply 恒空转，
+# procd reload trigger 实际无触发时机——init 的现实职责是开机自愈：
+# start() 跑一次 helper apply，把 /etc/config/usb-tether 与 network/firewall
+# 胶水对齐（幂等）；service_triggers 保留，供未来基座恢复 apply 语义时接上。
+
+START=99
+
+service_triggers() {
+	procd_add_reload_trigger "usb-tether"
+}
+
+start() {
+	/usr/sbin/usb_tether_helper apply >/dev/null 2>&1
+}
+
+reload() {
+	/usr/sbin/usb_tether_helper apply >/dev/null 2>&1
+}

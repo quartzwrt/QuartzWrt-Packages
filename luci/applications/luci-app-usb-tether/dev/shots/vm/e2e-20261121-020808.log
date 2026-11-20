@@ -1,0 +1,944 @@
+
+
+BusyBox v1.37.0 (2026-10-30 02:44:42 UTC) built-in shell (ash)
+
+.___                               __         .__
+|   | _____   _____   ____________/  |______  |  |
+|   |/     \ /     \ /  _ \_  __ \   __\__  \ |  |
+|   |  Y Y  \  Y Y  (  <_> )  | \/|  |  / __ \|  |__
+|___|__|_|  /__|_|  /\____/|__|   |__| (____  /____/
+          \/      \/  BE FREE AND UNAFRAID  \/
+ ------------------------------------------------------
+ ImmortalWrt 25.12-SNAPSHOT, r0+38284-3682a14dd5 Dave's Guitar
+ ------------------------------------------------------
+
+ === WARNING! =====================================
+ There is no root password defined on this device!
+ Use the "passwd" command to set up a new password
+ in order to prevent unauthorized SSH logins.
+ --------------------------------------------------
+
+
+ OpenWrt recently switched to the "apk" package manager!
+
+ OPKG Command           APK Equivalent      Description
+ ------------------------------------------------------------------
+ opkg install <pkg>     apk add <pkg>       Install a package
+ opkg remove <pkg>      apk del <pkg>       Remove a package
+ opkg upgrade           apk upgrade         Upgrade all packages
+ opkg files <pkg>       apk info -L <pkg>   List package contents
+ opkg list-installed    apk info            List installed packages
+ opkg update            apk update          Update package lists
+ opkg search <pkg>      apk search <pkg>    Search for packages
+ ------------------------------------------------------------------
+
+For more information visit:
+https://openwrt.org/docs/guide-user/additional-software/opkg-to-apk-cheatsheet
+
+root@quartzwrt:~# mkdir -p /tmp/e2e
+root@quartzwrt:~# uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:8099/
+kmod-usb-net-rndis-6.12.112-r1.apk
+apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log 2>&1 || true
+uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:8099/kmod-usb-net-cdc-ether-6.12.112-r1.apk
+root@quartzwrt:~# apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log
+ 2>&1 || true
+apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log 2>&1 || true
+uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:8099/kmod-usb-net-cdc-ncm-6.12.112-r1.apk
+apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log 2>&1 || true
+uclient-fetch -q -O /tmp/e2e/app.apk http://192.168.1.2:8099/luci-app-usb-tether-1.0.0-r2.apk
+uclient-fetch -q -O /tmp/e2e/i18n.apk http://192.168.1.2:8099/luci-i18n-usb-tether-zh-cn-26.323.65579~c145bc7.apk
+cat > /tmp/e2e/run.sh <<'RUNEOF'
+
+P=0; F=0
+ok(){ echo "E2E:PASS $1"; P=$((P+1)); }
+no(){ echo "E2E:FAIL $1"; F=$((F+1)); }
+
+apk add --allow-untrusted /tmp/e2e/app.apk /tmp/e2e/i18n.apk >/tmp/e2e/apk.log 2>&1 \
+	&& ok apk-install || { no apk-install; tail -20 /tmp/e2e/apk.log; }
+[ -x /usr/sbin/usb_tether_helper ] && ok helper-exec || no helper-exec
+[ -f /usr/share/luci/menu.d/luci-app-usb-tether.json ] && ok menu-file || no menu-file
+[ -f /usr/lib/lua/luci/i18n/usb-tether.zh-cn.lmo ] && ok lmo-file || no lmo-file
+[ -f /etc/config/usb-tether ] || sh /etc/uci-defaults/41-luci-app-usb-tether
+[ -f /etc/config/usb-tether ] && ok config-file || no config-file
+[ "$(uci -q get usb-tether.config.enabled)" = "0" ] && ok default-off || no default-off
+
+/usr/sbin/usb_tether_helper detect | grep -q '"devices":\[\]' \
+	&& ok detect-empty || no detect-empty
+
+uci set usb-tether.config.enabled='1'
+uci commit usb-tether
+/usr/sbin/usb_tether_helper apply && ok apply-rc0 || no apply-rc0
+[ "$(uci -q get network.usb_tether.proto)" = "dhcp" ] && ok net-proto || no net-proto
+[ "$(uci -q get network.usb_tether.device)" = "usb0" ] && ok net-device || no net-device
+[ "$(uci -q get network.usb_tether.metric)" = "50" ] && ok net-metric || no net-metric
+[ "$(uci -q get network.usb_tether.auto)" = "1" ] && ok net-auto || no net-auto
+
+ZREF=""
+for i in 0 1 2 3 4 5 6 7 8 9; do
+	[ "$(uci -q get firewall.@zone[$i].name)" = "wan" ] && { ZREF="@zone[$i]"; break; }
+done
+[ -n "$ZREF" ] && uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx usb_tether \
+	&& ok zone-member || no zone-member
+
+/usr/sbin/usb_tether_helper apply
+[ -z "$(uci changes network; uci changes firewall)" ] && ok idempotent-apply || no idempotent-apply
+
+# --- init reload 链（uci apply→procd→reload 的生产分发由 dev/ui-saveapply-test.py
+#     用真实点击覆盖——CLI 无 rpcd 会话，ubus uci apply 直调必 Invalid argument）---
+wait_reload() {
+	local i ev av
+	for i in $(seq 1 10); do
+		ev="$(uci -q get usb-tether.config.enabled)"
+		av="$(uci -q get network.usb_tether.auto)"
+		[ "$ev" = "$1" ] && [ "$av" = "$2" ] && return 0
+		sleep 1
+	done
+	return 1
+}
+[ -x /etc/init.d/usb-tether ] && ok init-script || no init-script
+/etc/init.d/usb-tether enabled && ok init-enabled || no init-enabled
+uci set usb-tether.config.enabled='0'
+uci commit usb-tether
+/etc/init.d/usb-tether reload
+wait_reload 0 0 && ok init-reload-off || no init-reload-off
+uci set usb-tether.config.enabled='1'
+uci commit usb-tether
+/etc/init.d/usb-tether reload
+wait_reload 1 1 && ok init-reload-on || no init-reload-on
+
+ip link add usb0 type veth peer name phone0 2>/dev/null || true
+ip link set usb0 up
+ip link set phone0 up
+# phone0 的地址必须在 apply（network reload）之后补——netifd reload 会清掉裸 veth 上的地址（实测）
+ip addr add 192.168.42.129/24 dev phone0 2>/dev/null || true
+# 假手机入口放行：phone0 无 zone，fw4 默认丢弃入站 DHCP（真实方向 usb0∈wan 由
+# 基座 Allow-DHCP-Renew 覆盖，无需产品侧改动）；fw4 reload 会重建规则表，故必须在
+# 最后一次 firewall reload（即上面 apply）之后插入
+nft insert rule inet fw4 input iifname "phone0" udp dport 67 accept comment "e2e-phone-dhcp" 2>/dev/null
+dnsmasq --interface=phone0 --bind-interfaces \
+	--dhcp-range=192.168.42.100,192.168.42.200,255.255.255.0,2m \
+	--dhcp-option=option:router,192.168.42.129 --port=0 --pid-file=/tmp/e2e/dhcp.pid \
+	>/tmp/e2e/dm.log 2>&1
+UP=0
+for i in $(seq 1 30); do
+	if ifstatus usb_tether | grep -q '"up"root@quartzwrt:~# uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:8099/
+kmod-usb-net-cdc-ether-6.12.112-r1.apk
+statusroot@quartzwrt:~# apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log
+ 2>&1 || true
+root@quartzwrt:~# uclient-fetch -q -O /tmp/e2e/kmod.apk http://192.168.1.2:8099/
+kmod-usb-net-cdc-ncm-6.12.112-r1.apk
+root@quartzwrt:~# apk add --allow-untrusted /tmp/e2e/kmod.apk >/tmp/e2e/kmod.log
+ 2>&1 || true
+eth1root@quartzwrt:~# uclient-fetch -q -O /tmp/e2e/app.apk http://192.168.1.2:8099/l
+uci-app-usb-tether-1.0.0-r2.apk
+1 down
+sleep 3
+ip -4 route show default root@quartzwrt:~# uclient-fetch -q -O /tmp/e2e/i18n.apk http://192.168.1.2:8099/
+luci-i18n-usb-tether-zh-cn-26.323.65579~c145bc7.apk
+root@quartzwrt:~# cat > /tmp/e2e/run.sh <<'RUNEOF'
+i in > 
+$> P=0; F=0
+> ok(){ echo "E2E:PASS $1"; P=$((P+1)); }
+> no(){ echo "E2E:FAIL $1"; F=$((F+1)); }
+> 
+> apk add --allow-untrusted /tmp/e2e/app.apk /tmp/e2e/i18n.apk >/tmp/e2e/apk.log
+ 2>&1 \
+tore> && ok apk-install || { no apk-install; tail -20 /tmp/e2e/apk.log; }
+> [ -x /usr/sbin/usb_tether_helper ] && ok helper-exec || no helper-exec
+> [ -f /usr/share/luci/menu.d/luci-app-usb-tether.json ] && ok menu-file || no m
+enu-file
+> [ -f /usr/lib/lua/luci/i18n/usb-tether.zh-cn.lmo ] && ok lmo-file || no lmo-fi
+le
+> [ -f /etc/config/usb-tether ] || sh /etc/uci-defaults/41-luci-app-usb-tether
+> [ -f /etc/config/usb-tether ] && ok config-file || no config-file
+ asset-s> [ "$(uci -q get usb-tether.config.enabled)" = "0" ] && ok default-off || no de
+fault-off
+> 
+> /usr/sbin/usb_tether_helper detect | grep -q '"devices":\[\]' \
+> && ok detect-empty || no detect-empty
+> 
+> uci set usb-tether.config.enabled='1'
+&& no> uci commit usb-tether
+> /usr/sbin/usb_tether_helper apply && ok apply-rc0 || no apply-rc0
+> [ "$(uci -q get network.usb_tether.proto)" = "dhcp" ] && ok net-proto || no ne
+t-proto
+> [ "$(uci -q get network.usb_tether.device)" = "usb0" ] && ok net-device || no 
+net-device
+> [ "$(uci -q get network.usb_tether.metric)" = "50" ] && ok net-metric || no ne
+t-metric
+> [ "$(uci -q get network.usb_tether.auto)" = "1" ] && ok net-auto || no net-aut
+o
+> 
+> ZREF=""
+> for i in 0 1 2 3 4 5 6 7 8 9; do
+> [ "$(uci -q get firewall.@zone[$i].name)" = "wan" ] && { ZREF="@zone[$i]"; bre
+ak; }
+> done
+> [ -n "$ZREF" ] && uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx
+ usb_tether \
+> && ok zone-member || no zone-member
+> 
+> /usr/sbin/usb_tether_helper apply
+> [ -z "$(uci changes network; uci changes firewall)" ] && ok idempotent-apply |
+| no idempotent-apply
+> 
+> # --- init reload 链（uci apply→procd→reload ���生产分��由 dev/ui-s
+aveapply-test.py
+> #     用真实��击��盖���—CLI 无 rpcd 会话��ubus uci apply ������
+� Invalid argument）---
+> wait_reload() {
+> local i ev av
+> for i in $(seq 1 10); do
+> 
+.                            lua5.1
+:                            luci-bwc
+[                            md5sum
+[[                           mkdir
+addpart                      mke2fs
+alias                        mkfifo
+apk                          mkfs.btrfs
+arp                          mkfs.ext2
+ash                          mkfs.ext3
+askfirst                     mkfs.ext4
+awk                          mkfs.f2fs
+bandix                       mknod
+basename                     mkswap
+bash                         mktemp
+bg                           modinfo
+block                        modprobe
+board_detect                 more
+brctl                        mount
+break                        mount.ntfs
+btrfs                        mount_root
+btrfs-find-root              mtd
+btrfs-image                  mv
+btrfs-map-logical            nc
+btrfs-select-super           netifd
+btrfsck                      netmsg
+btrfstune                    netstat
+busybox                      nft
+cat                          nice
+cd                           nslookup
+chdir                        ntpd
+chgrp                        ntpd-hotplug
+chmod                        odhcp6c
+chown                        odhcpd
+chroot                       odhcpd-update
+clear                        partx
+cmp                          passwd
+command                      pgrep
+config_generate              pidof
+conntrack                    ping
+continue                     ping6
+cp                           pivot_root
+cpuinfo                      poweroff
+crond                        pppd
+crontab                      printf
+curl                         procd
+cut                          ps
+date                         pwd
+dbclient                     px5g
+dd                           quartz-daemon
+delpart                      quartz-ota-update
+devstatus                    rbash
+df                           read
+dirname                      readlink
+dmesg                        readonly
+dnsmasq                      reboot
+dropbear                     reload_config
+dropbearkey                  reset
+du                           resize
+e2fsck                       return
+echo                         rm
+egrep                        rmdir
+env                          rmmod
+ethtool                      route
+eval                         rpcd
+exec                         ruby
+exit                         scp
+export                       seccomp-trace
+expr                         sed
+factoryreset                 sensors
+false                        seq
+fdisk                        service
+fg                           set
+fgrep                        setsid
+find                         sh
+firstboot                    sha256sum
+flock                        shellsync
+free                         shift
+fsck.ext2                    signify
+fsck.ext3                    sleep
+fsck.ext4                    sort
+fsync                        source
+funzip                       ssh
+fw3                          ssh-keygen
+fw4                          start-stop-daemon
+fwtool                       strings
+getopts                      swapoff
+getrandom                    swapon
+grep                         switch_root
+grub-bios-setup              sync
+gunzip                       sysctl
+gzip                         systool
+halt                         sysupgrade
+hash                         tail
+head                         tar
+hexdump                      taskset
+history                      tee
+hostapd                      test
+hostapd-radius               time
+hotplug-call                 times
+hwclock                      top
+id                           touch
+ifconfig                     tr
+ifdown                       traceroute
+ifstatus                     traceroute6
+ifup                         trap
+init                         true
+insmod                       ttyd
+ip                           type
+ip6tables                    ubus
+ip6tables-nft                ubusd
+ip6tables-nft-restore        ucc
+ip6tables-nft-save           uci
+ip6tables-restore            uclient-fetch
+ip6tables-restore-translate  ucode
+ip6tables-save               udevtrigger
+ip6tables-translate          udhcpc
+ipcalc.sh                    uhttpd
+iptables                     ujail
+iptables-nft                 ulimit
+iptables-nft-restore         umask
+iptables-nft-save            umdns
+iptables-restore             umount
+iptables-restore-translate   unalias
+iptables-save                uname
+iptables-translate           uniq
+iw                           unset
+iwinfo                       unzip
+jffs2mark                    unzipsfx
+jffs2reset                   upgraded
+jobs                         uptime
+jshn                         urandom_seed
+jsonfilter                   urngd
+kill                         usign
+killall                      utpl
+kmodloader                   utrace
+l                            validate_data
+la                           vi
+ldd                          vim
+led.sh                       wait
+less                         wc
+let                          wget
+ll                           which
+ln                           wifi
+local                        wpa_supplicant
+lock                         wpad
+logd                         xargs
+logger                       xtables-nft-multi
+login                        yes
+logread                      zcat
+ls                           zipgrep
+lsmod                        zipinfo
+lua
+> [Jev="$(uci -q get usb-tether.config.enabled)"
+> 
+.                            lua5.1
+:                            luci-bwc
+[                            md5sum
+[[                           mkdir
+addpart                      mke2fs
+alias                        mkfifo
+apk                          mkfs.btrfs
+arp                          mkfs.ext2
+ash                          mkfs.ext3
+askfirst                     mkfs.ext4
+awk                          mkfs.f2fs
+bandix                       mknod
+basename                     mkswap
+bash                         mktemp
+bg                           modinfo
+block                        modprobe
+board_detect                 more
+brctl                        mount
+break                        mount.ntfs
+btrfs                        mount_root
+btrfs-find-root              mtd
+btrfs-image                  mv
+btrfs-map-logical            nc
+btrfs-select-super           netifd
+btrfsck                      netmsg
+btrfstune                    netstat
+busybox                      nft
+cat                          nice
+cd                           nslookup
+chdir                        ntpd
+chgrp                        ntpd-hotplug
+chmod                        odhcp6c
+chown                        odhcpd
+chroot                       odhcpd-update
+clear                        partx
+cmp                          passwd
+command                      pgrep
+config_generate              pidof
+conntrack                    ping
+continue                     ping6
+cp                           pivot_root
+cpuinfo                      poweroff
+crond                        pppd
+crontab                      printf
+curl                         procd
+cut                          ps
+date                         pwd
+dbclient                     px5g
+dd                           quartz-daemon
+delpart                      quartz-ota-update
+devstatus                    rbash
+df                           read
+dirname                      readlink
+dmesg                        readonly
+dnsmasq                      reboot
+dropbear                     reload_config
+dropbearkey                  reset
+du                           resize
+e2fsck                       return
+echo                         rm
+egrep                        rmdir
+env                          rmmod
+ethtool                      route
+eval                         rpcd
+exec                         ruby
+exit                         scp
+export                       seccomp-trace
+expr                         sed
+factoryreset                 sensors
+false                        seq
+fdisk                        service
+fg                           set
+fgrep                        setsid
+find                         sh
+firstboot                    sha256sum
+flock                        shellsync
+free                         shift
+fsck.ext2                    signify
+fsck.ext3                    sleep
+fsck.ext4                    sort
+fsync                        source
+funzip                       ssh
+fw3                          ssh-keygen
+fw4                          start-stop-daemon
+fwtool                       strings
+getopts                      swapoff
+getrandom                    swapon
+grep                         switch_root
+grub-bios-setup              sync
+gunzip                       sysctl
+gzip                         systool
+halt                         sysupgrade
+hash                         tail
+head                         tar
+hexdump                      taskset
+history                      tee
+hostapd                      test
+hostapd-radius               time
+hotplug-call                 times
+hwclock                      top
+id                           touch
+ifconfig                     tr
+ifdown                       traceroute
+ifstatus                     traceroute6
+ifup                         trap
+init                         true
+insmod                       ttyd
+ip                           type
+ip6tables                    ubus
+ip6tables-nft                ubusd
+ip6tables-nft-restore        ucc
+ip6tables-nft-save           uci
+ip6tables-restore            uclient-fetch
+ip6tables-restore-translate  ucode
+ip6tables-save               udevtrigger
+ip6tables-translate          udhcpc
+ipcalc.sh                    uhttpd
+iptables                     ujail
+iptables-nft                 ulimit
+iptables-nft-restore         umask
+iptables-nft-save            umdns
+iptables-restore             umount
+iptables-restore-translate   unalias
+iptables-save                uname
+iptables-translate           uniq
+iw                           unset
+iwinfo                       unzip
+jffs2mark                    unzipsfx
+jffs2reset                   upgraded
+jobs                         uptime
+jshn                         urandom_seed
+jsonfilter                   urngd
+kill                         usign
+killall                      utpl
+kmodloader                   utrace
+l                            validate_data
+la                           vi
+ldd                          vim
+led.sh                       wait
+less                         wc
+let                          wget
+ll                           which
+ln                           wifi
+local                        wpa_supplicant
+lock                         wpad
+logd                         xargs
+logger                       xtables-nft-multi
+login                        yes
+logread                      zcat
+ls                           zipgrep
+lsmod                        zipinfo
+lua
+> [Jav="$(uci -q get network.usb_tether.auto)"
+> 
+.                            lua5.1
+:                            luci-bwc
+[                            md5sum
+[[                           mkdir
+addpart                      mke2fs
+alias                        mkfifo
+apk                          mkfs.btrfs
+arp                          mkfs.ext2
+ash                          mkfs.ext3
+askfirst                     mkfs.ext4
+awk                          mkfs.f2fs
+bandix                       mknod
+basename                     mkswap
+bash                         mktemp
+bg                           modinfo
+block                        modprobe
+board_detect                 more
+brctl                        mount
+break                        mount.ntfs
+btrfs                        mount_root
+btrfs-find-root              mtd
+btrfs-image                  mv
+btrfs-map-logical            nc
+btrfs-select-super           netifd
+btrfsck                      netmsg
+btrfstune                    netstat
+busybox                      nft
+cat                          nice
+cd                           nslookup
+chdir                        ntpd
+chgrp                        ntpd-hotplug
+chmod                        odhcp6c
+chown                        odhcpd
+chroot                       odhcpd-update
+clear                        partx
+cmp                          passwd
+command                      pgrep
+config_generate              pidof
+conntrack                    ping
+continue                     ping6
+cp                           pivot_root
+cpuinfo                      poweroff
+crond                        pppd
+crontab                      printf
+curl                         procd
+cut                          ps
+date                         pwd
+dbclient                     px5g
+dd                           quartz-daemon
+delpart                      quartz-ota-update
+devstatus                    rbash
+df                           read
+dirname                      readlink
+dmesg                        readonly
+dnsmasq                      reboot
+dropbear                     reload_config
+dropbearkey                  reset
+du                           resize
+e2fsck                       return
+echo                         rm
+egrep                        rmdir
+env                          rmmod
+ethtool                      route
+eval                         rpcd
+exec                         ruby
+exit                         scp
+export                       seccomp-trace
+expr                         sed
+factoryreset                 sensors
+false                        seq
+fdisk                        service
+fg                           set
+fgrep                        setsid
+find                         sh
+firstboot                    sha256sum
+flock                        shellsync
+free                         shift
+fsck.ext2                    signify
+fsck.ext3                    sleep
+fsck.ext4                    sort
+fsync                        source
+funzip                       ssh
+fw3                          ssh-keygen
+fw4                          start-stop-daemon
+fwtool                       strings
+getopts                      swapoff
+getrandom                    swapon
+grep                         switch_root
+grub-bios-setup              sync
+gunzip                       sysctl
+gzip                         systool
+halt                         sysupgrade
+hash                         tail
+head                         tar
+hexdump                      taskset
+history                      tee
+hostapd                      test
+hostapd-radius               time
+hotplug-call                 times
+hwclock                      top
+id                           touch
+ifconfig                     tr
+ifdown                       traceroute
+ifstatus                     traceroute6
+ifup                         trap
+init                         true
+insmod                       ttyd
+ip                           type
+ip6tables                    ubus
+ip6tables-nft                ubusd
+ip6tables-nft-restore        ucc
+ip6tables-nft-save           uci
+ip6tables-restore            uclient-fetch
+ip6tables-restore-translate  ucode
+ip6tables-save               udevtrigger
+ip6tables-translate          udhcpc
+ipcalc.sh                    uhttpd
+iptables                     ujail
+iptables-nft                 ulimit
+iptables-nft-restore         umask
+iptables-nft-save            umdns
+iptables-restore             umount
+iptables-restore-translate   unalias
+iptables-save                uname
+iptables-translate           uniq
+iw                           unset
+iwinfo                       unzip
+jffs2mark                    unzipsfx
+jffs2reset                   upgraded
+jobs                         uptime
+jshn                         urandom_seed
+jsonfilter                   urngd
+kill                         usign
+killall                      utpl
+kmodloader                   utrace
+l                            validate_data
+la                           vi
+ldd                          vim
+led.sh                       wait
+less                         wc
+let                          wget
+ll                           which
+ln                           wifi
+local                        wpa_supplicant
+lock                         wpad
+logd                         xargs
+logger                       xtables-nft-multi
+login                        yes
+logread                      zcat
+ls                           zipgrep
+lsmod                        zipinfo
+lua
+> [J[ "$ev" = "$1" ] && [ "$av" = "$2" ] && return 0
+> 
+.                            lua5.1
+:                            luci-bwc
+[                            md5sum
+[[                           mkdir
+addpart                      mke2fs
+alias                        mkfifo
+apk                          mkfs.btrfs
+arp                          mkfs.ext2
+ash                          mkfs.ext3
+askfirst                     mkfs.ext4
+awk                          mkfs.f2fs
+bandix                       mknod
+basename                     mkswap
+bash                         mktemp
+bg                           modinfo
+block                        modprobe
+board_detect                 more
+brctl                        mount
+break                        mount.ntfs
+btrfs                        mount_root
+btrfs-find-root              mtd
+btrfs-image                  mv
+btrfs-map-logical            nc
+btrfs-select-super           netifd
+btrfsck                      netmsg
+btrfstune                    netstat
+busybox                      nft
+cat                          nice
+cd                           nslookup
+chdir                        ntpd
+chgrp                        ntpd-hotplug
+chmod                        odhcp6c
+chown                        odhcpd
+chroot                       odhcpd-update
+clear                        partx
+cmp                          passwd
+command                      pgrep
+config_generate              pidof
+conntrack                    ping
+continue                     ping6
+cp                           pivot_root
+cpuinfo                      poweroff
+crond                        pppd
+crontab                      printf
+curl                         procd
+cut                          ps
+date                         pwd
+dbclient                     px5g
+dd                           quartz-daemon
+delpart                      quartz-ota-update
+devstatus                    rbash
+df                           read
+dirname                      readlink
+dmesg                        readonly
+dnsmasq                      reboot
+dropbear                     reload_config
+dropbearkey                  reset
+du                           resize
+e2fsck                       return
+echo                         rm
+egrep                        rmdir
+env                          rmmod
+ethtool                      route
+eval                         rpcd
+exec                         ruby
+exit                         scp
+export                       seccomp-trace
+expr                         sed
+factoryreset                 sensors
+false                        seq
+fdisk                        service
+fg                           set
+fgrep                        setsid
+find                         sh
+firstboot                    sha256sum
+flock                        shellsync
+free                         shift
+fsck.ext2                    signify
+fsck.ext3                    sleep
+fsck.ext4                    sort
+fsync                        source
+funzip                       ssh
+fw3                          ssh-keygen
+fw4                          start-stop-daemon
+fwtool                       strings
+getopts                      swapoff
+getrandom                    swapon
+grep                         switch_root
+grub-bios-setup              sync
+gunzip                       sysctl
+gzip                         systool
+halt                         sysupgrade
+hash                         tail
+head                         tar
+hexdump                      taskset
+history                      tee
+hostapd                      test
+hostapd-radius               time
+hotplug-call                 times
+hwclock                      top
+id                           touch
+ifconfig                     tr
+ifdown                       traceroute
+ifstatus                     traceroute6
+ifup                         trap
+init                         true
+insmod                       ttyd
+ip                           type
+ip6tables                    ubus
+ip6tables-nft                ubusd
+ip6tables-nft-restore        ucc
+ip6tables-nft-save           uci
+ip6tables-restore            uclient-fetch
+ip6tables-restore-translate  ucode
+ip6tables-save               udevtrigger
+ip6tables-translate          udhcpc
+ipcalc.sh                    uhttpd
+iptables                     ujail
+iptables-nft                 ulimit
+iptables-nft-restore         umask
+iptables-nft-save            umdns
+iptables-restore             umount
+iptables-restore-translate   unalias
+iptables-save                uname
+iptables-translate           uniq
+iw                           unset
+iwinfo                       unzip
+jffs2mark                    unzipsfx
+jffs2reset                   upgraded
+jobs                         uptime
+jshn                         urandom_seed
+jsonfilter                   urngd
+kill                         usign
+killall                      utpl
+kmodloader                   utrace
+l                            validate_data
+la                           vi
+ldd                          vim
+led.sh                       wait
+less                         wc
+let                          wget
+ll                           which
+ln                           wifi
+local                        wpa_supplicant
+lock                         wpad
+logd                         xargs
+logger                       xtables-nft-multi
+login                        yes
+logread                      zcat
+ls                           zipgrep
+lsmod                        zipinfo
+lua
+> [Jsleep 1
+> done
+> return 1
+> }
+> [ -x /etc/init.d/usb-tether ] && ok init-script || no init-script
+> /etc/init.d/usb-tether enabled && ok init-enabled || no init-enabled
+> uci set usb-tether.config.enabled='0'
+> uci commit usb-tether
+> /etc/init.d/usb-tether reload
+> wait_reload 0 0 && ok init-reload-off || no init-reload-off
+> uci set usb-tether.config.enabled='1'
+> uci commit usb-tether
+> /etc/init.d/usb-tether reload
+> wait_reload 1 1 && ok init-reload-on || no init-reload-on
+> 
+> ip link add usb0 type veth peer name phone0 2>/dev/null || true
+> ip link set usb0 up
+> ip link set phone0 up
+> # phone0 的��址必须在 apply（network reload）之�����——netifd rel
+oad 会清掉裸 veth 上的��址（实���）
+> ip addr add 192.168.42.129/24 dev phone0 2>/dev/null || true
+> # ���手机入口放���：phone0 无 zone，fw4 默认丢弃入站 DHCP（真�
+��方向 usb0∈wan 由
+> # ��座 Allow-DHCP-Renew 覆盖，无���产品侧改���）；fw4 reload 会�
+����规则表，��必须在
+> # 最后一��� firewall reload（即上面 apply）之后���入
+> nft insert rule inet fw4 input iifname "phone0" udp dport 67 accept comment "e
+2e-phone-dhcp" 2>/dev/null
+> dnsmasq --interface=phone0 --bind-interfaces \
+> --dhcp-range=192.168.42.100,192.168.42.200,255.255.255.0,2m \
+> --dhcp-option=option:router,192.168.42.129 --port=0 --pid-file=/tmp/e2e/dhcp.p
+id \
+> >/tmp/e2e/dm.log 2>&1
+> UP=0
+> for i in $(seq 1 30); do
+> if ifstatus usb_tether | grep -q '"up": *true'; then UP=1; break; fi
+> sleep 1
+> done
+> [ "$UP" = 1 ] && ok phone-ifup || no phone-ifup
+> ifstatus usb_tether | grep -q '192\.168\.42\.' && ok lease-ip || no lease-ip
+> 
+> ip -4 route show default | grep 'dev usb0' | grep -q 'metric 50' \
+> && ok metric-route || { no metric-route; ip -4 route show default; }
+> ip -4 route show default | grep -q 'dev eth1' && ok wan-primary || no wan-prim
+ary
+> 
+> ip link set eth1 down
+> sleep 3
+> ip -4 route show default | grep -q 'dev usb0' && ip -4 route show default | gr
+ep -qv 'dev eth1' \
+> && ok failover-active || no failover-active
+> ip link set eth1 up
+> for i in $(seq 1 20); do
+> ip -4 route show default | grep -q 'dev eth1' && break
+> sleep 1
+> done
+> ip -4 route show default | grep -q 'dev eth1' && ok fallback-restore || no fal
+lback-restore
+> 
+> logread | grep -q 'usb-tether' && ok hotplug-log || no hotplug-log
+> 
+> uclient-fetch -q -O /tmp/e2e/status.js http://127.0.0.1/luci-static/resources/
+view/usb-tether/status.js 2>/dev/null \
+> && grep -q renderContent /tmp/e2e/status.js && ok asset-status || no asset-sta
+tus
+> uclient-fetch -q -O /tmp/e2e/setting.js http://127.0.0.1/luci-static/resources
+/view/usb-tether/setting.js 2>/dev/null \
+> && grep -q "require form" /tmp/e2e/setting.js && ok asset-setting || no asset-
+setting
+> 
+> /usr/sbin/usb_tether_helper disable
+> [ "$(uci -q get network.usb_tether.auto)" = "0" ] && ok disable-auto0 || no di
+sable-auto0
+> uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx usb_tether && no 
+disable-zone || ok disable-zone
+> 
+> # ��启：disable ��� enabled=0，须先显式置回 1 再 apply（helper 按
+当��� uci 语义同���）
+> uci set usb-tether.config.enabled='1'
+> uci commit usb-tether
+> /usr/sbin/usb_tether_helper apply
+> [ "$(uci -q get network.usb_tether.auto)" = "1" ] && ok reenable-auto1 || no r
+eenable-auto1
+> uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx usb_tether \
+> && ok reenable-zone || no reenable-zone
+> 
+> /usr/sbin/usb_tether_helper cleanup
+> [ -z "$(uci -q get network.usb_tether)" ] && ok cleanup-net || no cleanup-net
+> uci -q get "firewall.$ZREF.network" | tr ' ' '\n' | grep -qx usb_tether && no 
+cleanup-zone || ok cleanup-zone
+> 
+> echo "E2E:SUMMARY ok=$P fail=$F"
+> 
+> RUNEOF
+root@quartzwrt:~# sh /tmp/e2e/run.sh
+E2E:PASS apk-install
+E2E:PASS helper-exec
+E2E:PASS menu-file
+E2E:PASS lmo-file
+E2E:PASS config-file
+E2E:PASS default-off
+E2E:PASS detect-empty
+[32mSection @zone[1] (wan) IPv4 fullcone enabled for zone 'wan'[m
+[33mSection openclash specifies unreachable path '/var/etc/openclash.include', ignoring section[m
+E2E:PASS apply-rc0
+E2E:PASS net-proto
+E2E:PASS net-device
+E2E:PASS net-metric
+E2E:PASS net-auto
+E2E:PASS zone-member
+E2E:PASS idempotent-apply
+E2E:PASS init-script
+E2E:PASS init-enabled
+E2E:PASS init-reload-off
+E2E:PASS init-reload-on
+E2E:PASS phone-ifup
+E2E:PASS lease-ip
+E2E:PASS metric-route
+E2E:PASS wan-primary
+E2E:PASS failover-active
+E2E:PASS fallback-restore
+E2E:PASS hotplug-log
+E2E:PASS asset-status
+E2E:PASS asset-setting
+[32mSection @zone[1] (wan) IPv4 fullcone enabled for zone 'wan'[m
+[33mSection openclash specifies unreachable path '/var/etc/openclash.include', ignoring section[m
+E2E:PASS disable-auto0
+E2E:PASS disable-zone
+[32mSection @zone[1] (wan) IPv4 fullcone enabled for zone 'wan'[m
+[33mSection openclash specifies unreachable path '/var/etc/openclash.include', ignoring section[m
+E2E:PASS reenable-auto1
+E2E:PASS reenable-zone
+[32mSection @zone[1] (wan) IPv4 fullcone enabled for zone 'wan'[m
+[33mSection openclash specifies unreachable path '/var/etc/openclash.include', ignoring section[m
+E2E:PASS cleanup-net
+E2E:PASS cleanup-zone
+E2E:SUMMARY ok=33 fail=0
+root@quartzwrt:~# exit

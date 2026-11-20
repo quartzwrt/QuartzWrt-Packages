@@ -2,11 +2,20 @@
  *
  * luci-app-usb-tether — 手机 USB 共享上网（QuartzWrt，WP-13）
  *
- * 保存/应用后调用 /usr/sbin/usb_tether_helper apply 同步 network/firewall 胶水
- * （模式同 luci-app-tailscale/setting.js：表单只写 uci，副作用一律走 helper）。
+ * 保存链路（本基座实测语义，docs/DESIGN.md §2）：
+ *   - 页脚「保存并应用」下拉 → 视图 handleSaveApply → handleSave：
+ *     基座 25.12 的 ubus uci set **直接落盘**（无 stage/apply/rollback 语义，
+ *     uci.changes 恒空、uci.apply 返回 5=NOT_FOUND），故 helper 即 apply——
+ *     保存后直接调 usb_tether_helper 幂等同步 network/firewall；
+ *   - handleSave 按 luci.js View 基类实现内联复刻（form.Map.prototype 上
+ *     并无 handleSave/handleSaveApply，对其 .call() 会当场崩成
+ *     "Cannot read properties of undefined" → 按钮永久转圈、零请求——真机
+ *     实测坑，上游 asvow 模板同款写法在此基座不可用）；
+ *   - /etc/init.d/usb-tether 保留开机自愈 + 兼容未来 apply 触发链回归。
  */
 
 'use strict';
+'require dom';
 'require form';
 'require fs';
 'require uci';
@@ -44,15 +53,26 @@ return view.extend({
 	},
 
 	handleSave: function(ev) {
-		return form.Map.prototype.handleSave.call(this, ev).then(function() {
+		/* 内联复刻 luci.js View 基类 handleSave（遍历 .cbi-map 调 Map.save，
+		 * 基座 uci.set 即落盘）+ helper 同步胶水。注意：模块作用域里 dom 为
+		 * 小写（'require dom'），基座源码里的 DOM 是其内部别名，照抄会
+		 * ReferenceError 当场死（实测坑） */
+		const tasks = [];
+
+		document.getElementById('maincontent')
+			.querySelectorAll('.cbi-map').forEach(function(map) {
+				tasks.push(dom.callClassMethod(map, 'save'));
+			});
+
+		return Promise.all(tasks).then(function() {
 			return applyHelper();
 		});
 	},
 
 	handleSaveApply: function(ev, mode) {
-		return form.Map.prototype.handleSaveApply.call(this, ev, mode).then(function() {
-			return applyHelper();
-		});
+		/* 本基座无 apply/rollback 语义（uci.apply 恒 NOT_FOUND），
+		 * handleSave（含 helper）即完整应用 */
+		return this.handleSave(ev);
 	},
 
 	render(data) {
