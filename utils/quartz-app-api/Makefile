@@ -19,7 +19,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-app-api
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=16
+PKG_RELEASE:=17
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=QuartzWrt
@@ -41,6 +41,7 @@ include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 define Package/quartz-app-api
   SECTION:=utils
   CATEGORY:=QuartzWrt
+  SUBMENU:=1. Base
   TITLE:=QuartzWrt app API (rpcd plugin, JWT auth)
   URL:=https://github.com/quartzwrt/QuartzWrt-Packages
   DEPENDS:=$(GO_ARCH_DEPENDS) +uhttpd +uhttpd-mod-ubus +rpcd \

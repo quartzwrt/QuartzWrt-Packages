@@ -1,0 +1,5 @@
+#!/bin/sh
+# 启用 dashboard 主题门控的缓存刷新触发器（首次启动/升级时执行；幂等）
+[ -n "$IPKG_INSTROOT" ] && exit 0
+/etc/init.d/quartz-dashboard-gate enable >/dev/null 2>&1
+exit 0

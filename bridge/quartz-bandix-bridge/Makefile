@@ -16,7 +16,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-bandix-bridge
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=QuartzWrt <https://github.com/quartzwrt>
@@ -26,6 +26,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/quartz-bandix-bridge
   SECTION:=utils
   CATEGORY:=QuartzWrt
+  SUBMENU:=1. Base
   TITLE:=QuartzWrt bridge adapter for bandix (stable ubus contract)
   URL:=https://github.com/quartzwrt/QuartzWrt-Packages
   PKGARCH:=all

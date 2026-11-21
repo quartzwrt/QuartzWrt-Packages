@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=5
+PKG_RELEASE:=6
 # r4（2026-10-16）：files/quartz-release 改为兜底文案——实际版本串由 Builder 构建期写入
 # （覆盖本包文件，见 QuartzWrt-Builder scripts/build-local.sh 步骤 5d）。
 # r5（2026-11-01）：新增 /etc/uci-defaults/99-quartz-hostname——把 base-files 的默认
@@ -19,6 +19,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/quartz-defaults
   SECTION:=meta
   CATEGORY:=QuartzWrt
+  SUBMENU:=1. Base
   TITLE:=QuartzWrt Default Configuration and Packages
   URL:=https://github.com/quartzwrt/QuartzWrt-Packages
   PKGARCH:=all

@@ -1,0 +1,41 @@
+{
+	"admin/dashboard": {
+		"title": "Dashboard",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "quartz/dashboard"
+		},
+		"depends": {
+			"acl": [ "luci-app-dashboard-index" ],
+			"uci": {
+				"luci": {
+					"main": {
+						"mediaurlbase": "/luci-static/quartz"
+					}
+				}
+			}
+		}
+	},
+	"admin/dashboard-vantage": {
+		"title": "Dashboard",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "vantage/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-vantage" ],
+			"fs": {
+				"/www/luci-static/resources/view/vantage/overview.js": "file"
+			},
+			"uci": {
+				"luci": {
+					"main": {
+						"mediaurlbase": "/luci-static/vantage"
+					}
+				}
+			}
+		}
+	}
+}

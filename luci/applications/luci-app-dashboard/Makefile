@@ -16,6 +16,11 @@
 include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=QuartzWrt dashboard (default landing page)
+# 三层菜单（WP-14，2026-11-21 用户拍板）：品牌件统一归 QuartzWrt 分类。
+# 登录落地页的路由门控见 root/usr/share/luci/menu.d/zzz-quartz-dashboard-gate.json
+# （quartz 主题 → 本包 dashboard；vantage 主题 → vantage dashboard）。
+LUCI_CATEGORY:=QuartzWrt
+LUCI_SUBMENU_FORCED:=1. Base
 # 说明：quartz-daemon（WP-4）落地前不设硬依赖——Dashboard 对"采集器未运行"有完整降级态
 # （四态设计见 docs/DESIGN.md §2.2），无 daemon 固件可正常携带与渲染。
 # WP-4 落地后在此追加 +quartz-daemon（共享依赖清单同步在 meta/quartz-defaults）。

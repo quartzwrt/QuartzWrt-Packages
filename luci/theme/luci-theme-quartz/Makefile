@@ -18,6 +18,9 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=QuartzWrt theme (macOS Vibrancy)
 LUCI_DEPENDS:=+luci-base
+# 三层菜单（WP-14，2026-11-21 用户拍板）：品牌件统一归 QuartzWrt 分类
+LUCI_CATEGORY:=QuartzWrt
+LUCI_SUBMENU_FORCED:=1. Base
 
 PKG_LICENSE:=Apache-2.0
 

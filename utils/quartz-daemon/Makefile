@@ -17,7 +17,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-daemon
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=13
+PKG_RELEASE:=14
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_MAINTAINER:=QuartzWrt
@@ -41,6 +41,7 @@ include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 define Package/quartz-daemon
   SECTION:=utils
   CATEGORY:=QuartzWrt
+  SUBMENU:=1. Base
   TITLE:=QuartzWrt data aggregation daemon
   URL:=https://github.com/quartzwrt/QuartzWrt-Packages
   DEPENDS:=$(GO_ARCH_DEPENDS) +ubus

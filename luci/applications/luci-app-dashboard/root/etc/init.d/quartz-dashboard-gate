@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+# QuartzWrt: 主题切换时刷新 LuCI 菜单树缓存（WP-14，2026-11-21）
+#
+# 背景：dashboard 的可见性按 luci.main.mediaurlbase 条件化（menu.d zzz-quartz-
+# dashboard-gate.json：quartz 主题 → 本包 dashboard；vantage 主题 → vantage
+# dashboard）。LuCI dispatcher 的 menu tree 缓存在 /tmp/luci-indexcache.<hash>.json，
+# hash 只覆盖 menu.d/controller 文件（不含 uci 值），而 `ubus call uci apply` 只发
+# config.change 事件、不清缓存 → 切主题后菜单不刷新。
+#
+# 本脚本订阅 luci 包的 config.change，reload 时清缓存，使下一次请求重建菜单树。
+# 无实例、无常驻进程（_procd_close_service 仍会注册 service_triggers）。
+
+START=99
+STOP=10
+USE_PROCD=1
+
+start_service() {
+	:
+}
+
+stop_service() {
+	:
+}
+
+reload_service() {
+	rm -f /tmp/luci-indexcache.*
+}
+
+service_triggers() {
+	procd_add_config_trigger "config.change" "luci" "/etc/init.d/quartz-dashboard-gate reload"
+}

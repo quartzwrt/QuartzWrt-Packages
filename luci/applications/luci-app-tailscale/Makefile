@@ -13,6 +13,9 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=LuCI for Tailscale (QuartzWrt)
 LUCI_DEPENDS:=+tailscale
+# 三层菜单（WP-14，2026-11-21 用户拍板）：归 QuartzWrt 基础层（远程管理）
+LUCI_CATEGORY:=QuartzWrt
+LUCI_SUBMENU_FORCED:=1. Base
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=1.3.0
