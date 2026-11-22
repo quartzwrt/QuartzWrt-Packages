@@ -8,11 +8,13 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=6
+PKG_RELEASE:=7
 # r4（2026-10-16）：files/quartz-release 改为兜底文案——实际版本串由 Builder 构建期写入
 # （覆盖本包文件，见 QuartzWrt-Builder scripts/build-local.sh 步骤 5d）。
 # r5（2026-11-01）：新增 /etc/uci-defaults/99-quartz-hostname——把 base-files 的默认
 # hostname（ImmortalWrt）改为 quartzwrt；仅替换发行版默认值，保留用户自定义主机名。
+# r7（2026-11-22）：quartz-ota-update 支持 per-device 清单
+# （<url>/ota/<target>/<device>.json 优先，共享清单回退；镜像名按设备 token 过滤）。
 
 include $(INCLUDE_DIR)/package.mk
 
