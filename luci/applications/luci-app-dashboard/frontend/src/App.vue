@@ -43,12 +43,14 @@ const visible = computed(() => {
 		return [];
 	const list = cards.filter((c) => !c.visible || c.visible(payload.value));
 	// Docker 卡改为全宽容器表；无 Tailscale 时服务卡也占满一行，避免 4 列留白。
-	// 有电池时 System(4) + Battery(8) 同行，Network 顺延为全宽（避免 4 列留白）。
+	// 有电池时 System(6) + Battery(6) 同行，Network 顺延为全宽（避免 4 列留白）。
 	const hasTailscale = list.some((c) => c.id === 'tailscale');
 	const hasBattery = list.some((c) => c.id === 'battery');
 	return list.map((c) => {
 		if (c.id === 'services')
 			return { ...c, span: hasTailscale ? 8 : 12 };
+		if (hasBattery && c.id === 'system')
+			return { ...c, span: 6 };
 		if (hasBattery && c.id === 'network')
 			return { ...c, span: 12 };
 		return c;

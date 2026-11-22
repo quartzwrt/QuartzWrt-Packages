@@ -17,7 +17,7 @@ import BandixCard from '../components/cards/BandixCard.vue';
 export default [
 	{ id: 'system', title: 'System', span: 4, component: SystemCard },
 	{
-		id: 'battery', title: 'Battery', span: 8, component: BatteryCard,
+		id: 'battery', title: 'Battery', span: 6, component: BatteryCard,
 		/* 契约 §3.10：available!==true（无电池/pcat-mgr 未运行）→ 整卡隐藏 */
 		visible: (p) => !!(p.battery && p.battery.available === true)
 	},
