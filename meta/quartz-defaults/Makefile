@@ -8,13 +8,15 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quartz-defaults
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=7
+PKG_RELEASE:=8
 # r4（2026-10-16）：files/quartz-release 改为兜底文案——实际版本串由 Builder 构建期写入
 # （覆盖本包文件，见 QuartzWrt-Builder scripts/build-local.sh 步骤 5d）。
 # r5（2026-11-01）：新增 /etc/uci-defaults/99-quartz-hostname——把 base-files 的默认
 # hostname（ImmortalWrt）改为 quartzwrt；仅替换发行版默认值，保留用户自定义主机名。
 # r7（2026-11-22）：quartz-ota-update 支持 per-device 清单
 # （<url>/ota/<target>/<device>.json 优先，共享清单回退；镜像名按设备 token 过滤）。
+# r8（2026-11-22）：quartz-feed.list 补 themes 源（此前只生成 quartz/thirdparty/targets，
+# 导致主题 feed 已发布但固件不消费）。
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -96,6 +98,7 @@ define Package/quartz-defaults/install
 		{ echo "# QuartzWrt 自有 feed（D10 阶段 1；由 quartz-defaults 生成）"; \
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/quartz/packages.adb"; \
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/thirdparty/packages.adb"; \
+		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/packages/$(ARCH_PACKAGES)/themes/packages.adb"; \
 		  echo "$(CONFIG_QUARTZ_FEED_BASE_URL)/targets/$(BOARD)/$(SUBTARGET)/packages/packages.adb"; \
 		} > $(1)/etc/apk/repositories.d/quartz-feed.list; \
 		echo "$(CONFIG_QUARTZ_FEED_BASE_URL)" > $(1)/etc/quartz-ota.url; \
