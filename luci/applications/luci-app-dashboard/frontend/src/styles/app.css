@@ -134,9 +134,37 @@ html[data-qz-translucent] .qzd-hero {
 .qzd-w-image { width: 32%; }
 .qzd-w-state { width: 16%; }
 
-/* ---- 电池卡（Photonicat 一代） ---- */
+/* ---- 电池卡（Photonicat 一代）——电池图形 + 大号电量 + 右侧指标 ---- */
+#battery { display: flex; flex-direction: column; }
+#battery .qzd-batt-body { flex: 1 1 auto; }
 .qzd-batt-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+.qzd-batt-status { font-weight: 600; }
 .qzd-batt-meta { margin-left: auto; font-size: 12px; }
+.qzd-batt-body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, 1fr); gap: 20px; align-items: stretch; }
+.qzd-batt-gauge { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.qzd-batt-glyph { display: flex; align-items: center; min-width: 0; }
+.qzd-batt-shell {
+	flex: 1 1 auto; min-width: 0; height: 58px; padding: 4px;
+	background: var(--qz-bg-well); border: 2px solid var(--qz-border-strong); border-radius: 12px;
+}
+.qzd-batt-level { height: 100%; min-width: 3px; border-radius: 8px; transition: width .4s ease; }
+.qzd-batt-level.is-ok { background: var(--qz-ok); }
+.qzd-batt-level.is-accent { background: var(--qz-accent); }
+.qzd-batt-level.is-err { background: var(--qz-err); }
+.qzd-batt-tip { flex: 0 0 auto; width: 7px; height: 24px; margin-left: 2px; border-radius: 0 4px 4px 0; background: var(--qz-border-strong); }
+.qzd-batt-readout { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
+.qzd-batt-pct { font-family: var(--qz-font-mono); font-size: 30px; line-height: 1; color: var(--qz-text); }
+.qzd-batt-pct span { font-size: 16px; color: var(--qz-text-2); margin-left: 2px; }
+.qzd-batt-label { font-size: 12px; color: var(--qz-text-3); letter-spacing: .04em; text-transform: uppercase; }
+.qzd-batt-stats { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.qzd-batt-stat {
+	display: flex; align-items: center; justify-content: space-between; gap: 12px;
+	padding: 8px 12px; background: var(--qz-bg-well);
+	border: 1px solid var(--qz-border); border-radius: var(--qz-radius-sm);
+}
+.qzd-batt-stat .k { font-size: 12px; color: var(--qz-text-2); white-space: nowrap; }
+.qzd-batt-stat .v { font-family: var(--qz-font-mono); font-size: 15px; color: var(--qz-text); text-align: right; white-space: nowrap; }
+
 
 /* ---- 蜂窝信号带（横排，避免单列留白） ---- */
 .qzd-sigstrip { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
@@ -257,6 +285,8 @@ html[data-qz-translucent] .qzd-hero {
 	.qzd-sig-spark { flex: 1 1 100%; width: 100%; height: 42px; }
 	.qzd-c2-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.qzd-c2-kpi-signal, .qzd-c2-kpi-rate { grid-column: 1 / -1; }
+	.qzd-batt-body { grid-template-columns: 1fr; gap: 12px; }
+	.qzd-batt-stats { grid-template-rows: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 699px) {
 	.qzd-grid { grid-template-columns: 1fr; }
@@ -267,6 +297,8 @@ html[data-qz-translucent] .qzd-hero {
 	.qzd-statgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.qzd-sig-spark { flex: 1 1 100%; width: 100%; height: 42px; }
 	.qzd-mstrip.qzd-mstrip-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.qzd-batt-body { grid-template-columns: 1fr; gap: 12px; }
+	.qzd-batt-stats { grid-template-rows: repeat(3, auto); grid-template-columns: 1fr; }
 	#cellular { order: 3; }   /* 蜂窝是 5G CPE 的主 WAN，提前 */
 	#clients  { order: 4; }    /* 手机：设备列表提前到服务之前 */
 	#bandix   { order: 5; }    /* 流量明细跟随设备列表 */

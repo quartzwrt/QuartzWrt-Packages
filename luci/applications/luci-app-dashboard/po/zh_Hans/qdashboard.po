@@ -547,6 +547,9 @@ msgstr "电量"
 msgid "Energy"
 msgstr "能量"
 
+msgid "Chemistry"
+msgstr "化学体系"
+
 msgid "Plugged in"
 msgstr "充电器已连接"
 
