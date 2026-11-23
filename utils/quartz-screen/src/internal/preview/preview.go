@@ -147,9 +147,9 @@ func Demo() (*snapshot.Snapshot, snapshot.Wireless) {
 		{MAC: "aa:bb:cc:00:55:66", IP: "192.168.1.102", Host: "NAS", Iface: "br-lan"},
 	}}
 	s.Bandix = &snapshot.Bandix{Available: true, Top: []snapshot.BandixTop{
-		{Host: "NAS", IP: "192.168.1.102", Pct: 38, RxR: 5_200_000, TxR: 3_000_000},
-		{Host: "MacBook-Pro", IP: "192.168.1.100", Pct: 22, RxR: 3_300_000, TxR: 1_400_000},
-		{Host: "iPhone", IP: "192.168.1.101", Pct: 11, RxR: 1_800_000, TxR: 500_000},
+		{Host: "NAS", IP: "192.168.1.102", Pct: 38, RxB: 9_000_000, TxB: 5_000_000, RxR: 5_200_000, TxR: 3_000_000},
+		{Host: "MacBook-Pro", IP: "192.168.1.100", Pct: 22, RxB: 5_000_000, TxB: 2_000_000, RxR: 3_300_000, TxR: 1_400_000},
+		{Host: "iPhone", IP: "192.168.1.101", Pct: 11, RxB: 2_000_000, TxB: 600_000, RxR: 1_800_000, TxR: 500_000},
 	}}
 	s.Cellular = &snapshot.Cellular{Available: true}
 	rsrp := int64(-82)

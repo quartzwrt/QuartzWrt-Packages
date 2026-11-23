@@ -173,20 +173,24 @@ func tr(lang, zh, en string) string {
 	return zh
 }
 
-func fmtRate(bps int64) string {
-	if bps < 0 {
-		bps = 0
+// fmtRate 格式化速率。入参按快照契约是 Byte/s（net.wan.rx_bps、
+// bandix rx_r/tx_r 与 net.series 同源），显示前换算为 bit/s。
+func fmtRate(bytesPerSec int64) string {
+	if bytesPerSec < 0 {
+		bytesPerSec = 0
 	}
-	f := float64(bps)
+	bps := float64(bytesPerSec) * 8
 	switch {
-	case f >= 1e9:
-		return fmt.Sprintf("%.2f Gbps", f/1e9)
-	case f >= 1e6:
-		return fmt.Sprintf("%.1f Mbps", f/1e6)
-	case f >= 1e3:
-		return fmt.Sprintf("%.0f Kbps", f/1e3)
+	case bps >= 1e9:
+		return fmt.Sprintf("%.2f Gbps", bps/1e9)
+	case bps >= 1e8:
+		return fmt.Sprintf("%.0f Mbps", bps/1e6)
+	case bps >= 1e6:
+		return fmt.Sprintf("%.1f Mbps", bps/1e6)
+	case bps >= 1e3:
+		return fmt.Sprintf("%.0f Kbps", bps/1e3)
 	default:
-		return fmt.Sprintf("%d bps", bps)
+		return fmt.Sprintf("%.0f bps", bps)
 	}
 }
 

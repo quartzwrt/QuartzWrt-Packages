@@ -483,20 +483,23 @@ func rateWidth(rx, tx int64) int {
 
 // ---- 数值/名称 ----
 
-func rateParts(bps int64) (string, string) {
-	if bps < 0 {
-		bps = 0
+// rateParts 拆分主数值与单位；入参按快照契约是 Byte/s，换算为 bit/s 显示。
+func rateParts(bytesPerSec int64) (string, string) {
+	if bytesPerSec < 0 {
+		bytesPerSec = 0
 	}
-	f := float64(bps)
+	bps := float64(bytesPerSec) * 8
 	switch {
-	case f >= 1e9:
-		return fmt.Sprintf("%.2f", f/1e9), "Gbps"
-	case f >= 1e6:
-		return fmt.Sprintf("%.1f", f/1e6), "Mbps"
-	case f >= 1e3:
-		return fmt.Sprintf("%.0f", f/1e3), "Kbps"
+	case bps >= 1e9:
+		return fmt.Sprintf("%.2f", bps/1e9), "Gbps"
+	case bps >= 1e8:
+		return fmt.Sprintf("%.0f", bps/1e6), "Mbps"
+	case bps >= 1e6:
+		return fmt.Sprintf("%.1f", bps/1e6), "Mbps"
+	case bps >= 1e3:
+		return fmt.Sprintf("%.0f", bps/1e3), "Kbps"
 	default:
-		return fmt.Sprintf("%d", bps), "bps"
+		return fmt.Sprintf("%.0f", bps), "bps"
 	}
 }
 

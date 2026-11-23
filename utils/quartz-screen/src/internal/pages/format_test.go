@@ -6,6 +6,46 @@ import (
 	"github.com/quartzwrt/quartz-screen/internal/snapshot"
 )
 
+func TestFmtRate(t *testing.T) {
+	// 快照契约是 Byte/s，显示单位是 bit/s（×8）。
+	cases := []struct {
+		in   int64
+		want string
+	}{
+		{0, "0 bps"},
+		{1, "8 bps"},
+		{125, "1 Kbps"},
+		{62500, "500 Kbps"},        // 500 Kbps
+		{6250000, "50.0 Mbps"},     // 50 MB/s → 400 Mbps
+		{50000000, "400 Mbps"},     // 50 MB/s → 400 Mbps
+		{-5, "0 bps"},
+	}
+	for _, c := range cases {
+		if got := fmtRate(c.in); got != c.want {
+			t.Fatalf("fmtRate(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestRateParts(t *testing.T) {
+	// 主卡数值同样按 Byte/s 入参、bit/s 显示。
+	cases := []struct {
+		in       int64
+		val, uni string
+	}{
+		{0, "0", "bps"},
+		{125, "1", "Kbps"},
+		{6250000, "50.0", "Mbps"},
+		{50000000, "400", "Mbps"},
+	}
+	for _, c := range cases {
+		v, u := rateParts(c.in)
+		if v != c.val || u != c.uni {
+			t.Fatalf("rateParts(%d) = %q/%q, want %q/%q", c.in, v, u, c.val, c.uni)
+		}
+	}
+}
+
 func TestOperatorInfo(t *testing.T) {
 	cases := []struct {
 		raw, name, icon string

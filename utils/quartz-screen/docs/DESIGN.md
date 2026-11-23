@@ -159,6 +159,10 @@ LuCI ──fs.exec──> /usr/sbin/quartz-screen ──> 渲染器（320×172 R
 - 无线静态信息新增：`encryption/mode/network/hidden/wmm`（uci wireless）。
 - 网络 Top 3 来自 `bandix.top`；未装/未开 traffic/空列表时回退 WAN
   ifname/proto/IPv6，不画空条。峰值是 `net.series`（≤60 点）窗口内采样峰值。
+- **速率单位**：快照契约的 `net.wan.rx_bps/tx_bps`、`bandix.top[].rx_r/tx_r`、
+  `bandix.wan`、`net.series`、蜂窝 `dial.rx_bps` 均为 **Byte/s**；渲染层
+  `fmtRate`/`rateParts` 统一 ×8 转 bit/s 后按 Kbps/Mbps/Gbps 显示
+  （与 Dashboard 一致；勿直接当 bps，否则小 8 倍）。
 - 无线「在线设备」用 `clients.total`（快照不能可靠区分有线/无线），
   客户端列表取前 2 条；标注为「在线」而非「无线关联」。
 - 蜂窝 6 项详情用 `cell_info` + `temp_c` + `sim.status`；USB 速率当前不在

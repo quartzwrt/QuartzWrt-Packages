@@ -97,9 +97,12 @@ R2 需要补进 4bpp 子集的字：频段、带宽、温度、启动、进程�
 
 ### 4.2 网络
 
-- 主格：下行 12.4 Mbps、上行 3.1 Mbps、客户端 23。
+- 主格：下行 99.2 Mbps、上行 24.8 Mbps、客户端 23。
 - 信息卡：Top 3 设备（名称 / 占比条 / 百分比 / 设备 WAN 速率），来源 `bandix.top`。
-- 底行：`IPv6 240e:…:8c00::2 · 峰值 13.0 / 3.4`，下一行 IPv4 + 实时速率。
+- 底行：`IPv6 240e:…:8c00::2 · 峰值 104 Mbps / 27.2 Mbps`，下一行 IPv4 + 实时速率。
+- **速率单位**：快照字段（`net.wan.rx_bps`、`bandix.top[].rx_r/tx_r`、
+  `net.series`、蜂窝 `dial.rx_bps`）一律 **Byte/s**；展示前 ×8 转 **bit/s**
+  （与 Dashboard `fmtRate` 同规则，避免 8 倍偏小）。
 - 无 bandix（未装/未开 traffic/空列表）：信息卡回退为 **WAN 接口详情**
   （ifname / proto / IPv6），不画空条。
 - 峰值是 `net.series` 环形窗口（≤60 点）内的采样峰值，不声称累计峰值。

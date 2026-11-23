@@ -48,15 +48,16 @@ type Options struct {
 }
 
 type daemon struct {
-	opts     Options
-	cfg      config.Config
-	lang     string
-	wireless snapshot.Wireless
-	snap     *snapshot.Snapshot
-	snapMod  int64
-	pageList []string
-	pageIdx  int
-	pageAt   time.Time
+	opts       Options
+	cfg        config.Config
+	lang       string
+	wireless   snapshot.Wireless
+	snap       *snapshot.Snapshot
+	bandixPrev map[string]bandixPrev
+	snapMod    int64
+	pageList   []string
+	pageIdx    int
+	pageAt     time.Time
 
 	dev       *fb.Device
 	canvas    *render.Canvas
@@ -279,8 +280,47 @@ func (d *daemon) reloadSnapshot() {
 	}
 	d.snap = s
 	d.snapMod = mod
+	d.applyBandixRates(s, time.Now())
 	d.clearErr("snapshot:")
 	d.reloadPages()
+}
+
+type bandixPrev struct {
+	rx, tx, at int64
+}
+
+// applyBandixRates 用 bandix.top 累计字节的差分补算设备 WAN 速率。
+// bandix 0.12.x 的 t_rx_r/t_tx_r 可能恒为 0（实测），但 rx_b/tx_b 正常。
+// 结果保持快照契约单位 Byte/s（渲染层再换算 bit/s）。
+func (d *daemon) applyBandixRates(s *snapshot.Snapshot, now time.Time) {
+	if s == nil || s.Bandix == nil {
+		return
+	}
+	if d.bandixPrev == nil {
+		d.bandixPrev = make(map[string]bandixPrev)
+	}
+	for i := range s.Bandix.Top {
+		t := &s.Bandix.Top[i]
+		key := t.MAC
+		if key == "" {
+			key = t.Host + "|" + t.IP
+		}
+		prev, ok := d.bandixPrev[key]
+		if ok && now.Unix() > prev.at {
+			dt := now.Unix() - prev.at
+			if t.RxB >= prev.rx {
+				t.RxR = (t.RxB - prev.rx) / dt
+			} else {
+				t.RxR = 0
+			}
+			if t.TxB >= prev.tx {
+				t.TxR = (t.TxB - prev.tx) / dt
+			} else {
+				t.TxR = 0
+			}
+		}
+		d.bandixPrev[key] = bandixPrev{rx: t.RxB, tx: t.TxB, at: now.Unix()}
+	}
 }
 
 func (d *daemon) reloadConfig() {

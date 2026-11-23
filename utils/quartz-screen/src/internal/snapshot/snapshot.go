@@ -70,6 +70,8 @@ type BandixTop struct {
 	IP   string  `json:"ip,omitempty"`
 	MAC  string  `json:"mac,omitempty"`
 	Pct  float64 `json:"pct"`
+	RxB  int64   `json:"rx_b,omitempty"`
+	TxB  int64   `json:"tx_b,omitempty"`
 	RxR  int64   `json:"rx_r,omitempty"`
 	TxR  int64   `json:"tx_r,omitempty"`
 }
