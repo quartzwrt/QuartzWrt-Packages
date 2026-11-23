@@ -154,7 +154,6 @@ func renderTopBar(c *render.Canvas, ctx *Context) {
 		c.Circle(276, 13, 2, th.Warn, true)
 	}
 	c.TextRight(render.FaceByName("mono11"), render.ScreenW-render.Margin-2, 20, clock, th.Text2)
-	c.HLine(render.Margin, render.ScreenW-render.Margin-1, render.Margin+render.TopBarH-1, th.Border)
 }
 
 // currentPageID 由 Render 设置到 ctx（避免每个页面重复传 id）。
