@@ -77,7 +77,8 @@
 | 显示 | `main.lang` | ListValue | auto/zh/en |
 | 显示 | `main.rotate` | ListValue | 0/180 |
 | 轮播 | `main.interval` | ListValue | 0/3/5/8/10/15/30，默认 8 |
-| 轮播 | `main.pages` | DynamicList | 页面库；去重校验；默认 overview/network/cellular/system |
+| 轮播 | `main.pages` | 页面 Flag ×7 | 勾选启用；保存时按当前顺序合成 pages 列表；默认 overview/network/cellular/system |
+| 内容 | `main.operator` | ListValue | auto/mobile/unicom/telecom/broadnet；qmodem 报 ???? 时手动指定图标 |
 | 内容 | `main.title` | Value | ≤32，空=「概览」；非空时覆盖概览页顶栏标题 |
 | 内容 | `main.operator` | ListValue | auto/mobile/unicom/telecom/broadnet；qmodem 报 ???? 时手动指定图标 |
 | 内容 | `main.temp_unit` | ListValue | c/f |
@@ -93,12 +94,17 @@
 cellular / system / clock / note。不可用页（无 WiFi、无模组、便签为空）由守护
 端运行时跳过；LuCI 不隐藏选项，保存后以状态页实际页为准。
 
+ACL：读 `uci quartz-screen` + `luci`、ubus `uci get/changes`；写 `uci quartz-screen`、
+ubus `uci set/changes/apply`；exec `quartz-screen status|preview *|apply|test`。
+
 ## 4. 保存链路（基座 25.12 实测语义）
 
-基座 `ubus uci set` **直接落盘**（无 stage/apply/rollback）。因此：
+基座 `ubus uci set` **写入 changes 缓冲，必须 `uci.apply` 才落盘**（不是直接落盘；
+WP-16 实测：只调 `quartz-screen apply` 会重新读到旧配置）。因此：
 
 1. `handleSave` 内联复刻 `View` 基类的保存：遍历 `.cbi-map` 调
-   `dom.callClassMethod(map, 'save')`；
+   `dom.callClassMethod(map, 'save')` 保存 Flag；再按 `page_*` Flag 合成
+   `main.pages`（沿用旧顺序，新页追加），`uci.save()` 后显式 `uci.apply()`；
 2. 保存完成后调用 `fs.exec('/usr/sbin/quartz-screen', ['apply'])`
    （init restart）；
 3. `handleSaveApply` 直接复用 `handleSave`；

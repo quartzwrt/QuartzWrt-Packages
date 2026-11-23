@@ -25,6 +25,21 @@ function applyService() {
 	});
 }
 
+var SCREEN_PAGES = [
+	[ 'overview', _('Overview') ],
+	[ 'network', _('Network') ],
+	[ 'wireless', _('Wireless') ],
+	[ 'cellular', _('Cellular') ],
+	[ 'system', _('System') ],
+	[ 'clock', _('Clock') ],
+	[ 'note', _('Note') ]
+];
+
+function pageEnabled(id) {
+	var pages = L.toArray(uci.get('quartz-screen', 'main', 'pages'));
+	return pages.indexOf(id) >= 0;
+}
+
 function timeValidator(section_id, value) {
 	if (value == null || value === '')
 		return true;
@@ -42,7 +57,25 @@ return view.extend({
 			.querySelectorAll('.cbi-map').forEach(function(map) {
 				tasks.push(dom.callClassMethod(map, 'save'));
 			});
-		return Promise.all(tasks).then(applyService);
+		return Promise.all(tasks).then(function() {
+			var enabled = {}, pages = [];
+			SCREEN_PAGES.forEach(function(p) {
+				enabled[p[0]] = (uci.get('quartz-screen', 'main', 'page_' + p[0]) == '1');
+			});
+			L.toArray(uci.get('quartz-screen', 'main', 'pages')).forEach(function(id) {
+				if (enabled[id] && pages.indexOf(id) < 0)
+					pages.push(id);
+			});
+			SCREEN_PAGES.forEach(function(p) {
+				if (enabled[p[0]] && pages.indexOf(p[0]) < 0)
+					pages.push(p[0]);
+			});
+			uci.set('quartz-screen', 'main', 'pages', pages);
+			return uci.save();
+		}).then(function() {
+			/* 本基座 uci set 只进 changes 缓冲，必须 apply 才落盘。 */
+			return uci.apply();
+		}).then(applyService);
 	},
 
 	handleSaveApply: function(ev, mode) {
@@ -94,26 +127,11 @@ return view.extend({
 		o.default = '8';
 		o.rmempty = false;
 
-		o = s.option(form.DynamicList, 'pages', _('Pages'),
-			_('Add/remove pages and drag to reorder. Unavailable pages are skipped automatically.'));
-		o.value('overview', _('Overview'));
-		o.value('network', _('Network'));
-		o.value('wireless', _('Wireless'));
-		o.value('cellular', _('Cellular'));
-		o.value('system', _('System'));
-		o.value('clock', _('Clock'));
-		o.value('note', _('Note'));
-		o.default = [ 'overview', 'network', 'cellular', 'system' ];
-		o.rmempty = false;
-		o.validate = function(section_id, value) {
-			var vals = L.toArray(value), seen = {};
-			for (var i = 0; i < vals.length; i++) {
-				if (seen[vals[i]])
-					return _('Duplicate page: %s').format(vals[i]);
-				seen[vals[i]] = true;
-			}
-			return true;
-		};
+		SCREEN_PAGES.forEach(function(p) {
+			var pf = s.option(form.Flag, 'page_' + p[0], p[1]);
+			pf.default = '0';
+			pf.cfgvalue = function() { return pageEnabled(p[0]) ? '1' : '0'; };
+		});
 
 		/* ---- 页面内容 ---- */
 		o = s.option(form.Value, 'title', _('Custom title'),

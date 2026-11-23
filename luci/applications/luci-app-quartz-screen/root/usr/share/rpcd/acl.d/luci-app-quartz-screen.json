@@ -2,18 +2,46 @@
 	"luci-app-quartz-screen": {
 		"description": "Grant access to QuartzWrt small screen status, preview and settings",
 		"read": {
-			"uci": [ "quartz-screen" ],
+			"uci": [
+				"quartz-screen",
+				"luci"
+			],
 			"file": {
-				"/usr/sbin/quartz-screen status": [ "exec" ],
-				"/usr/sbin/quartz-screen preview *": [ "exec" ],
-				"/var/run/quartz-screen.json": [ "read" ]
+				"/usr/sbin/quartz-screen status": [
+					"exec"
+				],
+				"/usr/sbin/quartz-screen preview *": [
+					"exec"
+				],
+				"/var/run/quartz-screen.json": [
+					"read"
+				]
+			},
+			"ubus": {
+				"uci": [
+					"get",
+					"changes"
+				]
 			}
 		},
 		"write": {
-			"uci": [ "quartz-screen" ],
+			"uci": [
+				"quartz-screen"
+			],
 			"file": {
-				"/usr/sbin/quartz-screen apply": [ "exec" ],
-				"/usr/sbin/quartz-screen test": [ "exec" ]
+				"/usr/sbin/quartz-screen apply": [
+					"exec"
+				],
+				"/usr/sbin/quartz-screen test": [
+					"exec"
+				]
+			},
+			"ubus": {
+				"uci": [
+					"set",
+					"changes",
+					"apply"
+				]
 			}
 		}
 	}

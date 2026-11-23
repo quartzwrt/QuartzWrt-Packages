@@ -1203,6 +1203,33 @@ input[type="radio"] {
 	font-size: 13px;
 }
 
+/* LuCI 25.12 DynamicList 用 item 的 ::after 宽度作为删除点击区；
+ * 主题必须提供该区域，否则只能聚焦后按 Delete，鼠标用户无法减少条目。 */
+.cbi-dynlist > .item {
+	position: relative;
+	padding-right: 34px;
+}
+
+.cbi-dynlist > .item::after {
+	content: "×";
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 32px;
+	display: grid;
+	place-items: center;
+	color: var(--qz-text-3);
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+	border-left: 1px solid var(--qz-border);
+}
+
+.cbi-dynlist > .item:hover::after {
+	color: var(--qz-err);
+}
+
 .cbi-dynlist > div > input {
 	width: auto;
 	min-height: 24px;
