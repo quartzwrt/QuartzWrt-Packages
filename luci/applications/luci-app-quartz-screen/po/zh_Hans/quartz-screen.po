@@ -1,0 +1,241 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Screen Display"
+msgstr "屏幕显示"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Live preview"
+msgstr "实时预览"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopped"
+msgstr "已停止"
+
+msgid "Test pattern"
+msgstr "测试图案"
+
+msgid "Restart service"
+msgstr "重启服务"
+
+msgid "Service"
+msgstr "服务"
+
+msgid "Framebuffer"
+msgstr "屏幕设备"
+
+msgid "Resolution"
+msgstr "分辨率"
+
+msgid "Current page"
+msgstr "当前页面"
+
+msgid "Brightness"
+msgstr "亮度"
+
+msgid "Night mode"
+msgstr "夜间模式"
+
+msgid "Last render"
+msgstr "最近渲染"
+
+msgid "Data source"
+msgstr "数据源"
+
+msgid "Unavailable"
+msgstr "不可用"
+
+msgid "Stale"
+msgstr "数据过期"
+
+msgid "OK"
+msgstr "正常"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "ago"
+msgstr "前"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Dark"
+msgstr "深色"
+
+msgid "Light"
+msgstr "浅色"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Network"
+msgstr "网络"
+
+msgid "Wireless"
+msgstr "无线"
+
+msgid "Cellular"
+msgstr "蜂窝"
+
+msgid "System"
+msgstr "系统"
+
+msgid "Clock"
+msgstr "时钟"
+
+msgid "Note"
+msgstr "便签"
+
+msgid "Failed to start test pattern."
+msgstr "测试图案启动失败。"
+
+msgid "Test pattern shown for 8 seconds."
+msgstr "测试图案已显示 8 秒。"
+
+msgid "Service restarted."
+msgstr "服务已重启。"
+
+msgid "Failed to restart service."
+msgstr "服务重启失败。"
+
+msgid "Failed to apply screen settings: %s"
+msgstr "应用屏幕设置失败：%s"
+
+msgid "Built-in 1.47\" screen (320×172): pages, brightness, night dimming and content."
+msgstr "板载 1.47 英寸屏（320×172）：页面、亮度、夜间调光与内容。"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "Display & pages"
+msgstr "显示与页面"
+
+msgid "Enable"
+msgstr "启用"
+
+msgid "Daytime backlight level (1–100%)."
+msgstr "日间背光亮度（1–100%）。"
+
+msgid "Follow LuCI"
+msgstr "跟随 LuCI"
+
+msgid "English"
+msgstr "English"
+
+msgid "Orientation"
+msgstr "屏幕方向"
+
+msgid "Normal"
+msgstr "正常"
+
+msgid "Flipped (180°)"
+msgstr "倒装（180°）"
+
+msgid "Carousel"
+msgstr "轮播"
+
+msgid "Page interval"
+msgstr "轮播间隔"
+
+msgid "Off (stay on first page)"
+msgstr "关闭（停在首页）"
+
+msgid "Pages"
+msgstr "页面"
+
+msgid "Add/remove pages and drag to reorder. Unavailable pages are skipped automatically."
+msgstr "增减页面并拖动排序；不可用页面会自动跳过。"
+
+msgid "Duplicate page: %s"
+msgstr "页面重复：%s"
+
+msgid "Page content"
+msgstr "页面内容"
+
+msgid "Custom title"
+msgstr "自定义标题"
+
+msgid "Overrides the overview top-bar title."
+msgstr "覆盖概览页顶栏标题。"
+
+msgid "Temperature unit"
+msgstr "温度单位"
+
+msgid "24-hour clock"
+msgstr "24 小时制"
+
+msgid "Show IPv6 on network page"
+msgstr "网络页显示 IPv6"
+
+msgid "Show peak rates"
+msgstr "显示峰值速率"
+
+msgid "Show client count"
+msgstr "显示客户端数量"
+
+msgid "Enable night window"
+msgstr "启用夜间时段"
+
+msgid "Start"
+msgstr "开始"
+
+msgid "End"
+msgstr "结束"
+
+msgid "HH:MM, 24-hour."
+msgstr "HH:MM，24 小时制。"
+
+msgid "Night brightness"
+msgstr "夜间亮度"
+
+msgid "Turn the screen off at night"
+msgstr "夜间熄屏"
+
+msgid "Note page"
+msgstr "便签页"
+
+msgid "Shown on the \"note\" page. Add the page to the carousel list above to display it."
+msgstr "显示在「便签」页；需在上方轮播列表中加入 note 页。"
+
+msgid "Title"
+msgstr "标题"
+
+msgid "Line %d"
+msgstr "第 %d 行"
+
+msgid "Expected HH:MM"
+msgstr "期望 HH:MM 格式"
+msgid "Operator icon"
+msgstr "运营商图标"
+
+msgid "Auto follows the modem; override when it reports an unknown operator."
+msgstr "自动跟随模组上报；模组上报未知运营商时可手动指定。"
+
+msgid "Auto (from modem)"
+msgstr "自动（跟随模组）"
+
+msgid "China Mobile"
+msgstr "中国移动"
+
+msgid "China Unicom"
+msgstr "中国联通"
+
+msgid "China Telecom"
+msgstr "中国电信"
+
+msgid "China Broadnet"
+msgstr "中国广电"

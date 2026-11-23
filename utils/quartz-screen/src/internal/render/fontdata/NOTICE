@@ -1,0 +1,10 @@
+Bitmap font atlases in this directory were generated from Noto Sans CJK SC /
+Noto Sans Mono CJK SC via dev/fontgen/gen_font.py.
+
+Noto Sans CJK is Copyright 2014-2021 Adobe (http://www.adobe.com/), with
+Reserved Font Name 'Source', and is licensed under the SIL Open Font License,
+Version 1.1 (see OFL.txt).
+
+The atlases are derivative bitmap renderings produced for QuartzWrt; they are
+distributed under the same OFL 1.1 terms. The OFL.txt file must be kept with
+the font data.

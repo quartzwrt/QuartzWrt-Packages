@@ -1,0 +1,6 @@
+#!/bin/sh
+# quartz-screen 首启：启用服务（无屏幕机型由 init 的 has_screen 自动跳过）
+[ -n "$IPKG_INSTROOT" ] && exit 0
+/etc/init.d/quartz-screen enable >/dev/null 2>&1
+/etc/init.d/quartz-screen restart >/dev/null 2>&1
+exit 0

@@ -1,0 +1,29 @@
+{
+	"admin/system/quartz-screen": {
+		"title": "Screen Display",
+		"order": 65,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-quartz-screen" ],
+			"uci": { "quartz-screen": true }
+		}
+	},
+	"admin/system/quartz-screen/status": {
+		"title": "Status",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "quartz-screen/status"
+		}
+	},
+	"admin/system/quartz-screen/settings": {
+		"title": "Settings",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "quartz-screen/settings"
+		}
+	}
+}

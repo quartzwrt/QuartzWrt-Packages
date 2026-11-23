@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuartzWrt 小屏 · UI 方向 A/A+ 预览 R2（已实现）</title>
+<style>
+:root{
+  --bg:#1c1c1e;--panel:#2c2c2e;--well:#1c1c1e;--line:#3a3a3c;
+  --text:#f2f2f2;--text2:#b3b3b3;--text3:#666;
+  --accent:#0a84ff;--ok:#30d158;--warn:#ff9f0a;--err:#ff453a;--r:10px;
+  --mono:"Noto Sans Mono CJK SC",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b0c;color:#d8d8dc;font:13px/1.5 "Noto Sans CJK SC",-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1400px;margin:0 auto;padding:22px 20px 60px}
+header h1{font-size:19px;margin:0 0 4px;color:#fff;font-weight:600}
+header p{margin:0;color:#8b8b90;font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;margin-top:18px}
+@media (max-width:900px){.layout{grid-template-columns:1fr}}
+.stagewrap{background:#151517;border:1px solid #2a2a2e;border-radius:16px;padding:18px;display:flex;justify-content:safe center;overflow:auto}
+.device{background:#050506;border:1px solid #333;border-radius:14px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.stage{position:relative;overflow:hidden}
+.screen{width:320px;height:172px;background:var(--bg);color:var(--text);position:relative;transform-origin:top left;overflow:hidden;font-family:"Noto Sans CJK SC",-apple-system,"Segoe UI",sans-serif}
+.screen.light{--bg:#ececf0;--panel:#ffffff;--well:#f2f2f7;--line:#ebebeb;--text:#262626;--text2:#737373;--text3:#b3b3b3;--accent:#007aff;--ok:#34c759;--warn:#ff9500;--err:#ff3b30}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+button{background:#1d1d20;color:#c9c9ce;border:1px solid #333;border-radius:8px;padding:6px 10px;font:12px inherit;cursor:pointer}
+button:hover{background:#242428}
+button.on{background:#0a84ff22;border-color:#0a84ff88;color:#fff}
+.sep{width:1px;height:22px;background:#2a2a2e;margin:0 4px}
+.scope{display:flex;gap:4px}
+.note{font-size:11px;color:#77777d;margin:10px 0 0}
+.panel{background:#121214;border:1px solid #242428;border-radius:14px;padding:16px}
+.panel h2{font-size:13px;color:#fff;margin:0 0 8px;font-weight:600}
+.panel p{font-size:12px;color:#9a9aa0;margin:0 0 10px}
+.panel ul{font-size:12px;color:#9a9aa0;margin:0 0 14px;padding-left:16px}
+.panel li{margin:4px 0}
+.panel b{color:#c9c9ce;font-weight:500}
+.kbd{font:11px var(--mono);background:#1d1d20;border:1px solid #333;border-radius:4px;padding:1px 4px;color:#aaa}
+/* screen components */
+.top{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 9px;border-bottom:1px solid var(--line)}
+.top b{font-size:12px;font-weight:600;letter-spacing:.2px}
+.top span{font:10px var(--mono);color:var(--text2)}
+.dots{position:absolute;left:50%;top:9px;transform:translateX(-50%);line-height:0}
+.dots i{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--text3);margin:0 3px;vertical-align:middle}
+.dots i.on{background:var(--accent)}
+.grid3{position:absolute;left:6px;right:6px;top:28px;display:flex;gap:6px;height:92px}
+.grid3.short{height:58px}
+.tile{flex:1;min-width:0;padding:7px 8px;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.tile .k{font-size:10px;color:var(--text2);white-space:nowrap}
+.tile .v{font-size:27px;line-height:1.01;font-weight:600;margin-top:3px;white-space:nowrap}
+.tile .v.sm{font-size:21px;margin-top:4px}
+.tile .u{font-size:10px;color:var(--text2);font-weight:400;margin-left:1px}
+.tile .s{position:absolute;left:8px;right:8px;bottom:12px;font-size:9px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{position:absolute;left:8px;right:8px;bottom:7px;height:3px;background:var(--well);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:3px;background:var(--accent);border-radius:2px}
+.strip{position:absolute;left:8px;right:8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.strip.one{top:128px}
+.strip.two{top:132px;align-items:flex-start}
+.strip.ap{top:124px;align-items:flex-start}
+.strip.ap .sub{display:block;font-size:9px;color:var(--text2);line-height:1.35}
+.strip .l{min-width:0}
+.strip .l .ip{display:block;line-height:1.25}
+.strip .l .sub{display:block;line-height:1.25;font-size:9px;color:var(--text2)}
+.strip .ip{font:11px var(--mono);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip .sub{font-size:9px;color:var(--text2)}
+.strip .rt{font:11px var(--mono);color:var(--text2);white-space:nowrap;text-align:right}
+.strip .rt b{color:var(--accent);font-weight:600}
+.strip .rt i{color:var(--ok);font-style:normal;font-weight:600}
+/* network: top traffic devices (replaces sparkline) */
+.toplist{position:absolute;left:6px;right:6px;top:89px;height:40px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:3px 7px}
+.toplist .row{display:flex;align-items:center;gap:5px;height:11px;font-size:9px;line-height:11px;color:var(--text2)}
+.toplist .nm{width:62px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toplist .tb{flex:1;height:3px;background:var(--well);border-radius:2px;overflow:hidden}
+.toplist .tb i{display:block;height:3px;background:var(--accent);border-radius:2px}
+.toplist .pc{width:26px;text-align:right;font:9px var(--mono);color:var(--text2)}
+.toplist .rt{width:42px;text-align:right;font:9px var(--mono);color:var(--text2)}
+/* cellular: modem detail grid (replaces sparkline) */
+.details{position:absolute;left:6px;right:6px;top:89px;height:40px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:3px 8px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-auto-rows:14px;align-items:center}
+.details .d{font-size:8px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.details .d b{font:10px var(--mono);color:var(--text);font-weight:600;margin-left:3px}
+.opline{display:flex;align-items:center;gap:4px}
+.opicon{width:11px;height:11px;object-fit:contain;flex:none}
+/* wireless detail */
+.wssid{position:absolute;left:8px;right:8px;top:90px;font-size:16px;line-height:1.2;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wcard{position:absolute;left:6px;right:6px;top:113px;height:40px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:4px 8px}
+.wcard .wl{font-size:9px;color:var(--text2);line-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wcard .wl b{color:var(--text);font-weight:500}
+.wmeta{position:absolute;left:8px;right:8px;top:155px;display:flex;justify-content:space-between;font-size:9px;color:var(--text2)}
+.clock{position:absolute;top:40px;left:0;right:0;text-align:center;font:64px/1 var(--mono);font-weight:700;color:var(--text)}
+.cdate{position:absolute;top:112px;left:0;right:0;text-align:center;font-size:13px;color:var(--text2)}
+.cup{position:absolute;top:132px;left:0;right:0;text-align:center;font-size:10px;color:var(--text2)}
+.note-t{position:absolute;left:10px;top:38px;font-size:16px;font-weight:600}
+.note-l{position:absolute;left:10px;right:10px;font-size:12px;color:var(--text2);line-height:1.5}
+</style></head><body>
+<div class="wrap">
+<header>
+  <h1>QuartzWrt 小屏 · UI 方向 A/A+ 预览（R2 · 已实现）</h1>
+  <p>320×172 实尺寸；1× 就是实屏像素，3× 用于看细节。数据为样例。已按此稿落地 A+（实机渲染见 <span class="kbd">dev/mockups</span>）。</p>
+</header>
+
+<div class="layout">
+  <div>
+    <div class="toolbar">
+      <div class="tabs" id="tabs"></div>
+      <div class="sep"></div>
+      <div class="scope" id="mode">
+        <button data-mode="a">A 极简</button><button data-mode="aplus" class="on">A+ 增强</button>
+      </div>
+      <div class="sep"></div>
+      <div class="scope" id="theme">
+        <button data-theme="dark" class="on">暗色</button><button data-theme="light">浅色</button>
+      </div>
+      <div class="sep"></div>
+      <div class="scope" id="lang">
+        <button data-lang="zh" class="on">中文</button><button data-lang="en">English</button>
+      </div>
+      <div class="sep"></div>
+      <div class="scope" id="scale">
+        <button data-scale="1">1×</button><button data-scale="2" class="on">2×</button><button data-scale="3">3×</button>
+      </div>
+    </div>
+    <div class="stagewrap"><div class="device"><div class="stage" id="stage"><div class="screen" id="screen"></div></div></div></div>
+    <p class="note" id="hint">页点：默认 4 页（概览/网络/蜂窝/系统）；可选页（无线/时钟/便签）加入后按 7 页显示。</p>
+  </div>
+
+  <aside class="panel">
+    <h2>A / A+ 规则</h2>
+    <ul>
+      <li><b>顶栏 22px</b>：标题左、页点中、时间右；页点从底部移走。</li>
+      <li><b>3 个主数值格</b>：标签 10px、主数值 28px；主信号用大小/颜色主导。</li>
+      <li><b>A 极简</b>：3 格 + 单行底栏；<b>A+ 增强</b>：格内补充行 + 9–11px 次要行（默认）。</li>
+      <li><b>已移除网络/蜂窝折线图</b>：网络换 Top 3 流量设备；蜂窝换模组详情。</li>
+      <li>运营商图标复用 Dashboard 官方符号（移动/联通/电信），屏上栅格化为小图标。</li>
+      <li>依旧无渐变/装饰动画/1px 描边；彩色只给状态与主数值；9px 数据行用 text2 保证对比度。</li>
+    </ul>
+    <h2>本轮改动</h2>
+    <ul>
+      <li><b>概览</b>：CPU 1.3GHz / 内存 1.6·4.0GB / 负载 + 在线数 + WAN 协议。</li>
+      <li><b>网络</b>：Top 3 设备流量条（bandix.top；无 bandix 时回退 WAN 详情）。</li>
+      <li><b>蜂窝</b>：运营商图标 + 频段/带宽/PCI/温度/ARFCN/SIM 六项。</li>
+      <li><b>系统</b>：启动时间 / 5+15 负载 / 根分区用量 + CPU/内存/温度/进程。</li>
+      <li><b>无线</b>：加密方式、AP 模式、radio、HT、客户端列表。</li>
+    </ul>
+    <h2>已确认 / 实现</h2>
+    <ul>
+      <li>A+ 为实机版；A 仅保留预览对照。</li>
+      <li>网络 Top 3 已实现（无 bandix 回退 WAN 接口详情）。</li>
+      <li>蜂窝 6 项已实现；USB 速率不在快照，改用 ARFCN。</li>
+      <li>无线首格为「在线设备」总数（非严格 WiFi 关联）；列表 2 条。</li>
+      <li>速率移到底行第二行右侧，避免第一行被截断。</li>
+      <li>浅色/英文随渲染器自动可用。</li>
+    </ul>
+    <p>规格文档：<span class="kbd">utils/quartz-screen/docs/UI-DESIGN.md</span></p>
+  </aside>
+</div>
+</div>
+
+<script>
+const PAGES = ['overview','network','cellular','system','wireless','clock','note'];
+const DEFAULT_PAGES = ['overview','network','cellular','system'];
+const TITLE = { zh:{overview:'概览',network:'网络',cellular:'蜂窝',system:'系统',wireless:'无线',clock:'时钟',note:'便签'},
+                en:{overview:'Overview',network:'Network',cellular:'Cellular',system:'System',wireless:'Wireless',clock:'Clock',note:'Note'} };
+const L = {
+  zh:{cpu:'处理器',ram:'内存',temp:'温度',down:'下行',up:'上行',clients:'客户端',rsrp:'RSRP',sinr:'SINR',quality:'质量',
+      uptime:'运行',load:'负载',rootfs:'根分区',min:'分钟',pct:'%',peak:'峰值',band:'频段',channel:'信道',online:'在线',
+      wan:'WAN',boot:'启动',mem:'内存',procs:'进程',bw:'带宽',ready:'就绪',hiddenSSID:'隐藏 SSID',wmmOn:'开启'},
+  en:{cpu:'CPU',ram:'RAM',temp:'TEMP',down:'DOWN',up:'UP',clients:'Clients',rsrp:'RSRP',sinr:'SINR',quality:'Quality',
+      uptime:'Uptime',load:'Load',rootfs:'Rootfs',min:'min',pct:'%',peak:'peak',band:'Band',channel:'Ch',online:'online',
+      wan:'WAN',boot:'Boot',mem:'mem',procs:'procs',bw:'BW',ready:'ready',hiddenSSID:'Hidden SSID',wmmOn:'on'}
+};
+const DATA = {
+  cpu:12, ram:38, temp:46, down:'12.4', up:'3.1', clients:23,
+  rsrp:'-82', sinr:'21', quality:78, uptime:'28', load:'0.12', rootfs:23,
+  ip:'192.168.25.10', ipv6:'240e:3b8:1a2f:8c00::2', rateD:'93', rateU:'87',
+  cpuGHz:'1.3', memUsed:'1.6', memTotal:'4.0', load5:'0.08', load15:'0.05', boot:'17:22',
+  procs:211, arch:'4×A55', kernel:'6.12.112', model:'NLnet XiGuaPi V3', fw:'QuartzWrt 0.2.4',
+  wanProto:'DHCP', wanIf:'eth1', online:23,
+  bandix:[{n:'NAS',pct:38,rt:'8.2Mbps'},{n:'MacBook',pct:22,rt:'4.7Mbps'},{n:'iPhone',pct:11,rt:'2.3Mbps'}],
+  op:'中国联通', opEn:'China Unicom', opIcon:'operators/china-unicom.svg', opMode:'5G SA',
+  band:'n78', bw:'100MHz', pci:'123', mtemp:'38', arfcn:'630000', sim:'ready',
+  cip:'10.64.1.2', cD:'12.3', cU:'1.2',
+  ssid:'QuartzWrt-5G', wclients:2, wband:'5G', ch:'36', htmode:'HE80',
+  enc:'WPA3-SAE', wmode:'AP', radio:'radio0', iface:'wlan0', hidden:'否', hiddenEn:'No', wmm:'开启',
+  wlist:[{h:'MacBook-Pro',ip:'192.168.1.100'},{h:'iPhone',ip:'192.168.1.101'}]
+};
+
+let state = { page:'overview', theme:'dark', lang:'zh', scale:2, mode:'aplus' };
+function opName(){ return state.lang==='zh' ? DATA.op : DATA.opEn; }
+
+function tile(k,v,u,color,bar,sm,sub){
+  const uu = u ? `<span class="u">${u}</span>` : '';
+  const bb = (bar!=null) ? `<div class="bar"><i style="width:${bar}%"></i></div>` : '';
+  const ss = sub ? `<div class="s">${sub}</div>` : '';
+  return `<div class="tile"><div class="k">${k}</div><div class="v${sm?' sm':''}" style="color:${color}">${v}${uu}</div>${ss}${bb}</div>`;
+}
+function dots(){
+  const list = DEFAULT_PAGES.includes(state.page) ? DEFAULT_PAGES : PAGES;
+  const idx = list.indexOf(state.page);
+  return `<div class="dots">${list.map((p,i)=>`<i class="${i===idx?'on':''}"></i>`).join('')}</div>`;
+}
+function topBar(t, time){
+  return `<div class="top"><b>${t}</b><span>${time}</span></div>${dots()}`;
+}
+function bodyOverview(l, ap){
+  const sub = (s)=> ap ? s : '';
+  const strip = ap
+    ? `<div class="strip ap"><div class="l"><span class="sub">${state.lang==='zh'?'已运行 ':'up '}${DATA.uptime} ${l.min} · ${l.online} ${DATA.clients} · ${l.wan} ${DATA.wanProto}</span><span class="ip">${DATA.ip}</span></div><span class="rt">↓ <b>${DATA.rateD}</b> ↑ <i>${DATA.rateU}</i> bps</span></div>`
+    : `<div class="strip one"><span class="ip">${DATA.ip}</span><span class="rt">↓ <b>${DATA.rateD} bps</b> &nbsp; ↑ <i>${DATA.rateU} bps</i></span></div>`;
+  return `<div class="grid3">`
+    + tile(l.cpu, DATA.cpu, l.pct, 'var(--accent)', DATA.cpu, false, sub(`${DATA.cpuGHz} GHz`))
+    + tile(l.ram, DATA.ram, l.pct, 'var(--text)', DATA.ram, false, sub(`${DATA.memUsed} / ${DATA.memTotal} GB`))
+    + tile(l.temp, DATA.temp, '°C', 'var(--text)', null, false, sub(`${l.load} ${DATA.load}`))
+    + `</div>` + strip;
+}
+function bodyNetwork(l, ap){
+  const sub = (s)=> ap ? s : '';
+  const rows = DATA.bandix.map(d=>
+    `<div class="row"><span class="nm">${d.n}</span><span class="tb"><i style="width:${d.pct}%"></i></span><span class="pc">${d.pct}%</span><span class="rt">${d.rt}</span></div>`
+  ).join('');
+  const strip = ap
+    ? `<div class="strip two ap" style="top:132px"><div class="l"><span class="sub">IPv6 240e:…:8c00::2 · ${l.peak} 13.0 / 3.4</span><span class="ip">${DATA.ip}</span></div><span class="rt">↓ <b>${DATA.down}</b> ↑ <i>${DATA.up}</i> Mbps</span></div>`
+    : `<div class="strip two"><div class="l"><span class="ip">${DATA.ip}</span><span class="sub">${DATA.ipv6}</span></div><span class="rt">${l.peak} <b>13.0</b><br>${l.peak} <i>3.4</i> Mbps</span></div>`;
+  return `<div class="grid3 short">`
+    + tile(l.down, DATA.down, 'Mbps', 'var(--accent)', null, true)
+    + tile(l.up, DATA.up, 'Mbps', 'var(--ok)', null, true)
+    + tile(l.clients, DATA.clients, '', 'var(--text)', null, true)
+    + `</div><div class="toplist">${rows}</div>`
+    + strip;
+}
+function bodyCellular(l, ap){
+  const strip = ap
+    ? `<div class="strip two ap" style="top:132px"><div class="l"><span class="sub"><span class="opline"><img class="opicon" src="${DATA.opIcon}" alt=""><b style="font-size:10px;font-weight:500;color:var(--text)">${opName()}</b> · ${DATA.opMode}</span></span><span class="ip" style="font-size:10px">${DATA.cip} · ↓${DATA.cD} / ↑${DATA.cU} GB</span></div></div>`
+    : `<div class="strip two"><div class="l"><span class="ip" style="font-size:12px"><span class="opline"><img class="opicon" src="${DATA.opIcon}" alt="">${opName()}</span></span><span class="sub">${DATA.opMode} · ${DATA.cip}</span></div><span class="rt">↓ <b>${DATA.cD} GB</b><br>↑ <i>${DATA.cU} GB</i></span></div>`;
+  return `<div class="grid3 short">`
+    + tile(l.rsrp, DATA.rsrp, 'dBm', 'var(--text)', null, true)
+    + tile(l.sinr, DATA.sinr, '', 'var(--text)', null, true)
+    + tile(l.quality, DATA.quality, l.pct, 'var(--ok)', null, true)
+    + `</div><div class="details">`
+    + `<div class="d">${l.band}<b>${DATA.band}</b></div><div class="d">${l.bw}<b>${DATA.bw}</b></div><div class="d">PCI<b>${DATA.pci}</b></div>`
+    + `<div class="d">${l.temp}<b>${DATA.mtemp}°C</b></div><div class="d">ARFCN<b>${DATA.arfcn}</b></div><div class="d">SIM<b>${l.ready}</b></div>`
+    + `</div>` + strip;
+}
+function bodySystem(l, ap){
+  const sub = (s)=> ap ? s : '';
+  const strip = ap
+    ? `<div class="strip ap"><div class="l"><span class="sub">${DATA.model} · ${DATA.fw}</span><span class="sub">Linux ${DATA.kernel} · ${DATA.arch} ${DATA.cpuGHz}GHz · ${l.mem} ${DATA.ram}% · ${DATA.temp}°C · ${DATA.procs} ${l.procs}</span></div></div>`
+    : `<div class="strip two"><div class="l"><span class="ip" style="font-size:10px">${DATA.model}</span><span class="sub">${DATA.fw} · Linux ${DATA.kernel}</span></div><span class="rt">2.0 / 8.5 GB<br>${l.load} 0.12 0.08</span></div>`;
+  return `<div class="grid3">`
+    + tile(l.uptime, DATA.uptime, l.min, 'var(--text)', null, false, sub(`${l.boot} ${DATA.boot}`))
+    + tile(l.load, DATA.load, '', 'var(--text)', null, false, sub(`${DATA.load5} / ${DATA.load15}`))
+    + tile(l.rootfs, DATA.rootfs, l.pct, 'var(--ok)', null, false, sub('2.0 / 8.5 GB'))
+    + `</div>` + strip;
+}
+function bodyWireless(l, ap){
+  if (!ap) {
+    return `<div class="grid3 short">`
+      + tile(l.clients, DATA.wclients, '', 'var(--text)', null, true)
+      + tile(l.band, DATA.wband, '', 'var(--accent)', null, true)
+      + tile(l.channel, DATA.ch, DATA.htmode, 'var(--text)', null, true)
+      + `</div><div class="wssid">${DATA.ssid}</div>`
+      + `<div class="wmeta" style="top:118px"><span>${DATA.wmode} · ${DATA.enc} · ${DATA.wband} ch${DATA.ch} ${DATA.htmode} · ${DATA.wclients} ${l.online}</span><span>${DATA.radio}</span></div>`;
+  }
+  const list = DATA.wlist.map(x=>`${x.h} ${x.ip}`).join(' · ');
+  return `<div class="grid3 short">`
+    + tile(l.clients, DATA.wclients, '', 'var(--text)', null, true)
+    + tile(l.band, DATA.wband, '', 'var(--accent)', null, true)
+    + tile(l.channel, DATA.ch, DATA.htmode, 'var(--text)', null, true)
+    + `</div><div class="wssid">${DATA.ssid}</div>`
+    + `<div class="wcard"><div class="wl"><b>${DATA.enc}</b> · ${DATA.wmode} · ${DATA.radio} · ch${DATA.ch} ${DATA.htmode}</div>`
+    + `<div class="wl">${l.online} <b>${DATA.wclients}</b> · ${list}</div></div>`
+    + `<div class="wmeta"><span>${DATA.iface} · 802.11ax · WMM ${state.lang==='zh'?DATA.wmm:l.wmmOn}</span><span>${l.hiddenSSID} ${state.lang==='zh'?DATA.hidden:DATA.hiddenEn}</span></div>`;
+}
+function bodyClock(l){
+  const d = state.lang==='zh' ? '11月23日 周一' : 'Mon, Nov 23';
+  const up = state.lang==='zh' ? '已运行 28 分钟' : 'up 28 min';
+  return `<div class="clock">17:50</div><div class="cdate">${d}</div><div class="cup">${up}</div>`;
+}
+function bodyNote(l){
+  const lines = state.lang==='zh'
+    ? ['机房便签','联系: @nrxboat','SSID: QuartzWrt-5G','维护: 周日 02:00','固件: v0.2.4']
+    : ['Rack note','contact: @nrxboat','SSID: QuartzWrt-5G','maintenance: Sun 02:00','firmware: v0.2.4'];
+  return `<div class="note-t">${lines[0]}</div>`
+    + lines.slice(1).map((x,i)=>`<div class="note-l" style="top:${72+i*18}px">${x}</div>`).join('');
+}
+function render(){
+  const l = L[state.lang];
+  const t = TITLE[state.lang][state.page];
+  const screen = document.getElementById('screen');
+  screen.className = 'screen' + (state.theme==='light'?' light':'');
+  const time = '17:50';
+  const ap = state.mode === 'aplus';
+  const body = { overview:bodyOverview, network:bodyNetwork, cellular:bodyCellular,
+                 system:bodySystem, wireless:bodyWireless, clock:bodyClock, note:bodyNote }[state.page](l, ap);
+  screen.innerHTML = topBar(t,time) + body;
+  const stage = document.getElementById('stage');
+  stage.style.width = (320*state.scale)+'px';
+  stage.style.height = (172*state.scale)+'px';
+  screen.style.transform = 'scale('+state.scale+')';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.page===state.page));
+  document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on', b.dataset.mode===state.mode));
+  document.querySelectorAll('#theme button').forEach(b=>b.classList.toggle('on', b.dataset.theme===state.theme));
+  document.querySelectorAll('#lang button').forEach(b=>b.classList.toggle('on', b.dataset.lang===state.lang));
+  document.querySelectorAll('#scale button').forEach(b=>b.classList.toggle('on', +b.dataset.scale===state.scale));
+  document.getElementById('hint').textContent =
+    (state.mode==='aplus'?'A+：主 3 格 + 补充行/次要行':'A：主 3 格 + 单行底栏') + ' · ' + (DEFAULT_PAGES.includes(state.page)?'默认 4 页':'可选页：加入轮播后按 7 页') + ' · 1× 为实屏尺寸。';
+}
+function init(){
+  const tabs = document.getElementById('tabs');
+  PAGES.forEach(p=>{
+    const b = document.createElement('button');
+    b.textContent = TITLE.zh[p]; b.dataset.page = p;
+    b.onclick = ()=>{ state.page=p; render(); };
+    tabs.appendChild(b);
+  });
+  document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;render();});
+  document.querySelectorAll('#theme button').forEach(b=>b.onclick=()=>{state.theme=b.dataset.theme;render();});
+  document.querySelectorAll('#lang button').forEach(b=>b.onclick=()=>{state.lang=b.dataset.lang;render();});
+  document.querySelectorAll('#scale button').forEach(b=>b.onclick=()=>{state.scale=+b.dataset.scale;render();});
+  render();
+}
+init();
+</script>
+</body></html>
