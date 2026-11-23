@@ -14,6 +14,23 @@ import (
 // fixtureFetch 按 (method, section) 返回预置应答；缺失的键视为调用失败。
 type fixtureFetch map[string]string
 
+func TestBandwidthMHz(t *testing.T) {
+	cases := map[string]string{
+		"":        "",
+		"20M":     "20",
+		"100M":    "100",
+		"100 MHz": "100",
+		"30MHz":   "30",
+		"1.4":     "1.4",
+		"unknown": "unknown",
+	}
+	for in, want := range cases {
+		if got := bandwidthMHz(in); got != want {
+			t.Fatalf("bandwidthMHz(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func (f fixtureFetch) fetch(method, section string) ([]byte, error) {
 	key := section + "." + method
 	if v, ok := f[key]; ok {

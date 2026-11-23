@@ -322,8 +322,8 @@ func collectModem(section string, fetch cellularFetch, series *cellularSeriesSto
 			PCI:         itemValue(items, "physical cell id", "pci"),
 			ARFCN:       itemValue(items, "arfcn"),
 			Band:        itemValue(items, "band"),
-			ULBandwidth: itemValue(items, "ul bandwidth", "ul_bandwidth"),
-			DLBandwidth: itemValue(items, "dl bandwidth", "dl_bandwidth"),
+			ULBandwidth: bandwidthMHz(itemValue(items, "ul bandwidth", "ul_bandwidth")),
+			DLBandwidth: bandwidthMHz(itemValue(items, "dl bandwidth", "dl_bandwidth")),
 			SCS:         itemValue(items, "scs"),
 		}
 		if ci.NetworkMode != "" || ci.Duplex != "" || ci.MCC != "" || ci.CellID != "" {
@@ -586,6 +586,26 @@ func numValue(s string) (float64, bool) {
 	return v, ok
 }
 
+// bandwidthMHz 归一化上游带宽为纯数字 MHz（契约 §3.9：带宽字段不带单位）。
+// qmodem cell_info 返回 "20M"/"100M"，get_current_band 可能返回 "100" 或 "100MHz"。
+func bandwidthMHz(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	low := strings.ToLower(s)
+	for _, suf := range []string{"mhz", "m"} {
+		if strings.HasSuffix(low, suf) {
+			s = strings.TrimSpace(s[:len(s)-len(suf)])
+			break
+		}
+	}
+	if v, err := strconv.ParseFloat(s, 64); err == nil {
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	return s
+}
+
 // intValue 解析整数指标（"‑78 dBm" → -78；RSSI/RSRP 为整数域）。
 func intValue(s string) (int64, bool) {
 	v, ok := numValue(s)
@@ -657,7 +677,8 @@ func parseCurrentBand(raw []byte) ([]snapshot.CellularCell, string, string, bool
 		cells = append(cells, snapshot.CellularCell{
 			Role: c.Role, RAT: c.RAT, Band: band, Channel: c.Channel,
 			ChannelType: c.ChannelType, PCI: c.PCI,
-			DLBandwidth: c.DLBandwidth, ULBandwidth: c.ULBandwidth, SCS: c.SCS,
+			DLBandwidth: bandwidthMHz(c.DLBandwidth), ULBandwidth: bandwidthMHz(c.ULBandwidth),
+			SCS: c.SCS,
 		})
 	}
 	if len(cells) > snapshot.MaxServingCells {
