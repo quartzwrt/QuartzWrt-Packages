@@ -27,5 +27,8 @@ reload_service() {
 }
 
 service_triggers() {
-	procd_add_config_trigger "config.change" "luci" "/etc/init.d/quartz-dashboard-gate reload"
+	# 注意：脚本路径与 reload 必须作为两个独立参数传入。若写成单个带空格的
+	# 字符串，procd 的 run_script 会把它当字面路径 exec（失败且无任何报错），
+	# 切主题后缓存不会被清 → Dashboard 仍指向另一主题的页面。
+	procd_add_config_trigger "config.change" "luci" /etc/init.d/quartz-dashboard-gate reload
 }
